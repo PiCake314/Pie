@@ -17,10 +17,10 @@
 // #include <list>
 
 
-[[noreturn]] void error(const std::string& msg) noexcept {
-    puts(msg.c_str());
-    exit(1);
-}
+// [[noreturn]] void error(const std::string& msg) noexcept {
+//     puts(msg.c_str());
+//     exit(1);
+// }
 
 [[noreturn]] void expected(const TokenKind exp, const TokenKind got) noexcept {
     using std::operator""s;

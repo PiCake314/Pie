@@ -8,7 +8,6 @@
 int main() {
     // const auto src = "1 + func(a, -+b)";
     auto src = "() => 3 + x;";
-    src = "";
     std::println("{}", src);
 
     const auto [v, _] = lex(src);

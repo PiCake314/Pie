@@ -9,6 +9,12 @@
 #include <unordered_map>
 
 
+[[noreturn]] void error(const std::string& msg) noexcept {
+    puts(msg.c_str());
+    exit(1);
+}
+
+
 enum class OperatorType {
     PREFIX,
     INFIX,
@@ -32,13 +38,13 @@ std::tuple<TokenLines, OPs> lex(const std::string& src) {
     for (size_t index{}; index < src.length(); ++index) {
         // if (isspace(src[index])) continue;
 
-
+        try{
         switch (src[index]) {
             case '0' ... '9': {
                 size_t end = index;
-                while (isdigit(src[++end]));
+                while (isdigit(src.at(++end)));
                 // allow doubles in the future
-                if (src[end] == '.') while (isdigit(src[++end]));
+                if (src[end] == '.') while (isdigit(src.at(++end)));
 
                 lines.back().emplace_back(TokenKind::NUM, src.substr(index, end - index));
                 index = end -1;
@@ -48,7 +54,7 @@ std::tuple<TokenLines, OPs> lex(const std::string& src) {
             case 'a' ... 'z':
             case 'A' ... 'Z':{
                 size_t end = index;
-                while (isalnum(src[++end]) || src[end] == '_');
+                while (isalnum(src.at(++end)) || src[end] == '_');
 
                 const auto name = src.substr(index, end - index);
                 // check for keywords here :)
@@ -103,7 +109,13 @@ std::tuple<TokenLines, OPs> lex(const std::string& src) {
 
             default: break;
         }
+        }
+        catch(...) {
+            error("Lexing Error!");
+        }
+
     }
+
 
     lines.pop_back();
     lines.back().emplace_back(TokenKind::END, "EOF");
