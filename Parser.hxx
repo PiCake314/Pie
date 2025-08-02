@@ -30,36 +30,39 @@
 
 
 class Parser {
-    // TokenLines __lines; // owner of memory for iterator below
-    // typename TokenLines::iterator lines;
-    Tokens tokens; 
+    TokenLines __lines; // owner of memory for iterator below
+    typename TokenLines::iterator lines;
+    // Tokens tokens; 
     typename Tokens::iterator token;
 
 
     std::deque<Token> red;
 
 public:
-    // Parser(TokenLines l) : __lines{std::move(l)}, lines{__lines.begin()} {
-    //     if (__lines.empty()) [[unlikely]] error("Empty File!");
-    //     token = lines->begin();
-    // }
+    Parser(TokenLines l) : __lines{std::move(l)}, lines{__lines.begin()} {
+        if (__lines.empty()) [[unlikely]] error("Empty File!");
+        token = lines->begin();
+    }
 
-    Parser(Tokens l) : tokens{std::move(l)}, token{tokens.begin()} { }
+    [[nodiscard]] bool atEnd() const noexcept { return lines == __lines.end() or token == __lines.back().end(); }
 
-    // [[nodiscard]] bool atEnd() const noexcept { return token == __lines.back().end(); }
-    [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
+    // Parser(Tokens l) : tokens{std::move(l)}, token{tokens.begin()} { }
+    // [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
 
 
     std::vector<ExprPtr> parse() {
-        // std::vector<ExprPtr> expressions;
-        // for (; not atEnd(); ++lines, token = lines->begin())
-        //     expressions.push_back(parseExpr());
-
-        // return expressions;
-
         std::vector<ExprPtr> expressions;
-        expressions.push_back(parseExpr());
+        for (; not atEnd(); ++lines, token = lines->begin()) {
+            expressions.push_back(parseExpr());
+            if (not atEnd()) consume(TokenKind::SEMI);
+        }
+
+
         return expressions;
+
+        // std::vector<ExprPtr> expressions;
+        // expressions.push_back(parseExpr());
+        // return expressions;
     }
 
     ExprPtr parseExpr(const size_t precedence = 0) {
@@ -72,8 +75,6 @@ public:
             token = consume();
 
             left = infix(token, std::move(left));
-
-            // if (not atEnd()) consume(TokenKind::SEMI);
         }
 
         return left;
