@@ -1,13 +1,14 @@
 #pragma once
 
 #include "Token.hxx"
+#include <cmath>
 #include <string>
 #include <iostream>
 #include <utility>
 #include <memory>
 
 struct Expr;
-using ExprPtr = std::unique_ptr<const Expr>;
+using ExprPtr = std::unique_ptr< Expr>;
 
 struct Expr {
     virtual ~Expr() = default;
@@ -15,16 +16,16 @@ struct Expr {
 };
 
 struct Num : Expr {
-    const std::string name;
+    std::string num;
 
 
-    Num(std::string n) noexcept : name{std::move(n)} {}
+    Num(std::string n) noexcept : num{std::move(n)} {}
 
-    void print() const override { std::cout << name; }
+    void print() const override { std::cout << num; }
 };
 
 struct Name : Expr {
-    const std::string name;
+    std::string name;
 
 
     Name(std::string n) noexcept : name{std::move(n)} {}
@@ -34,8 +35,8 @@ struct Name : Expr {
 
 
 struct Assignment : Expr {
-    const std::string name;
-    const ExprPtr expr;
+    std::string name;
+    ExprPtr expr;
 
 
     Assignment(std::string n, ExprPtr e) noexcept
@@ -49,10 +50,10 @@ struct Assignment : Expr {
 };
 
 struct BinOp : Expr {
-    const ExprPtr lhs;
+    ExprPtr lhs;
     // const TokenKind token; // always name..I think
-    const std::string text;
-    const ExprPtr rhs;
+    std::string text;
+    ExprPtr rhs;
 
 
     BinOp(ExprPtr e1, std::string txt, ExprPtr e2) noexcept
@@ -81,8 +82,8 @@ struct UnaryOp : Expr {
         std::cout << ')';
     }
 
-    const TokenKind token;
-    const ExprPtr expr;
+    TokenKind token;
+    ExprPtr expr;
 };
 
 
@@ -106,14 +107,13 @@ struct Call : Expr {
         std::cout << ')';
     }
 
-    const ExprPtr func;
-    const std::vector<ExprPtr> args;
+    ExprPtr func;
+    std::vector<ExprPtr> args;
 };
 
-
 struct Closure : Expr {
-    const std::vector<std::string> params;
-    const ExprPtr body;
+    std::vector<std::string> params;
+    ExprPtr body;
 
     Closure(std::vector<std::string> ps, ExprPtr b)
     : params{std::move(ps)}, body{std::move(b)} {};
@@ -127,5 +127,56 @@ struct Closure : Expr {
 
         std::cout << ") => ";
         body->print();
+    }
+};
+
+
+
+struct Fix : Expr {
+    Fix(std::string n, const TokenKind p, const int s, Closure c)
+    : name{std::move(n)}, prec{p}, shift{s}, func{std::move(c)} {}
+
+    std::string name;
+    TokenKind prec;
+    int shift;
+    Closure func;
+};
+
+struct Prefix : Fix {
+    Prefix(std::string n, const TokenKind p, const int s, Closure c)
+    : Fix{std::move(n), p, s, std::move(c)} {}
+
+    void print() const override {
+        const char c = shift < 0 ? '-' : '+';
+        const std::string shifts(size_t(std::abs(shift)), c);
+
+        std::cout << "prefix(" << stringify(prec) << shifts << ") "  << name << ' ';
+        func.print();
+    }
+};
+
+struct Infix : Fix {
+    Infix(std::string n, const TokenKind p, const int s, Closure c)
+    : Fix{std::move(n), p, s, std::move(c)} {}
+
+    void print() const override {
+        const char c = shift < 0 ? '-' : '+';
+        const std::string shifts(size_t(std::abs(shift)), c);
+
+        std::cout << "infix(" << stringify(prec) << shifts << ") "  << name << ' ';
+        func.print();
+    }
+};
+
+struct Suffix : Fix {
+    Suffix(std::string n, const TokenKind p, const int s, Closure c)
+    : Fix{std::move(n), p, s, std::move(c)} {}
+
+    void print() const override {
+        const char c = shift < 0 ? '-' : '+';
+        const std::string shifts(size_t(std::abs(shift)), c);
+
+        std::cout << "suffix(" << stringify(prec) << shifts << ") "  << name << ' ';
+        func.print();
     }
 };

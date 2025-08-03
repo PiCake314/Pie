@@ -20,8 +20,24 @@ enum class TokenKind {
     R_PAREN,
     FAT_ARROW,
 
-    // INFIX,
+// Keywords
     // IF,
+
+
+    PREFIX,
+    INFIX,
+    SUFFIX,
+
+// PRECEDENCE
+    PR_LOW,
+    PR_ASSIGNMENT,
+    PR_SUM,
+    PR_PROD,
+    PR_OP_CALL,
+    PR_PREFIX,
+    PR_POSTFIX,
+    PR_CALL,
+    PR_HIGH,
 
     SEMI,
 
@@ -30,16 +46,30 @@ enum class TokenKind {
 
 const char* stringify(const TokenKind token) noexcept {
     switch (token) {
-        // using enum TokenKind;
-        case TokenKind::NAME:      return "NAME";
-        case TokenKind::ASSIGN:    return "ASSIGN";
-        case TokenKind::NUM:       return "NUM";
-        case TokenKind::END:       return "END";
-        case TokenKind::L_PAREN:   return "L_PAREN";
-        case TokenKind::R_PAREN:   return "R_PAREN";
-        case TokenKind::COMMA:     return "COMMA";
-        case TokenKind::SEMI:      return "SEMI";
-        case TokenKind::FAT_ARROW: return "FAT_ARROW";
+        using enum TokenKind;
+        case NAME:          return "NAME";
+        case ASSIGN:        return "ASSIGN";
+        case NUM:           return "NUM";
+        case END:           return "END";
+        case L_PAREN:       return "L_PAREN";
+        case R_PAREN:       return "R_PAREN";
+        case COMMA:         return "COMMA";
+        case SEMI:          return "SEMI";
+        case FAT_ARROW:     return "FAT_ARROW";
+        case PREFIX:        return "PREFIX";
+        case INFIX:         return "INFIX";
+        case SUFFIX:        return "SUFFIX";
+
+        // should probs prefix the strings with PR_ but maybe it's fine for now
+        case PR_LOW:        return "LOW"; 
+        case PR_ASSIGNMENT: return "ASSIGNMENT"; 
+        case PR_SUM:        return "SUM"; 
+        case PR_PROD:       return "PROD"; 
+        case PR_OP_CALL:    return "OP_CALL"; 
+        case PR_PREFIX:     return "PREFIX"; 
+        case PR_POSTFIX:    return "POSTFIX"; 
+        case PR_CALL:       return "CALL"; 
+        case PR_HIGH:       return "HIGH"; 
     }
 
     return "<UNNAMED>";

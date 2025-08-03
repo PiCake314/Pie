@@ -1,37 +1,55 @@
 #pragma once
 
 #include "Token.hxx"
+#include "Precedence.hxx"
 
 #include <cctype>
 #include <string>
+#include <string_view>
 #include <vector>
 #include <tuple>
 #include <unordered_map>
 
 
-[[noreturn]] void error(const std::string& msg) noexcept {
-    puts(msg.c_str());
-    exit(1);
-}
 
+// enum class OperatorType {
+//     PREFIX,
+//     INFIX,
+//     POSTFIX,
+// };
 
-enum class OperatorType {
-    PREFIX,
-    INFIX,
-    POSTFIX,
-};
-
-struct Operator {
-    const OperatorType type;
-    const size_t precedence;
-};
+// struct Operator {
+//     const OperatorType type;
+//     const size_t precedence;
+// };
 
 using Tokens = std::vector<Token>;
 using TokenLines = std::vector<Tokens>;
-using OPs = std::unordered_map<std::string, Operator>;
+// using OPs = std::unordered_map<std::string, Operator>;
 
 
-std::tuple<TokenLines, OPs> lex(const std::string& src) {
+
+TokenKind keyword(const std::string_view word) noexcept {
+         if (word == "prefix"    ) return TokenKind::PREFIX;
+    else if (word == "infix"     ) return TokenKind::INFIX;
+    else if (word == "suffix"    ) return TokenKind::SUFFIX;
+
+    // PRIORITIES
+    else if (word == "LOW"       ) return TokenKind::PR_LOW;
+    else if (word == "ASSIGNMENT") return TokenKind::PR_ASSIGNMENT;
+    else if (word == "SUM"       ) return TokenKind::PR_SUM;
+    else if (word == "PROD"      ) return TokenKind::PR_PROD;
+    else if (word == "OP_CALL"   ) return TokenKind::PR_OP_CALL;
+    else if (word == "PREFIX"    ) return TokenKind::PR_PREFIX;
+    else if (word == "POSTFIX"   ) return TokenKind::PR_POSTFIX;
+    else if (word == "CALL"      ) return TokenKind::PR_CALL;
+    else if (word == "HIGH"      ) return TokenKind::PR_HIGH;
+
+
+    return TokenKind::NAME;
+}
+
+TokenLines lex(const std::string& src) {
     TokenLines lines = {{}};
     Tokens line;
 
@@ -56,12 +74,12 @@ std::tuple<TokenLines, OPs> lex(const std::string& src) {
                 size_t end = index;
                 while (isalnum(src.at(++end)) || src[end] == '_');
 
-                const auto name = src.substr(index, end - index);
+                const auto word = src.substr(index, end - index);
                 // check for keywords here :)
-                // if (name == "infix") {
+                const TokenKind token = keyword(word);
 
-                // } 
-                lines.back().emplace_back(TokenKind::NAME, name);
+                lines.back().emplace_back(token, word);
+
                 index = end -1;
             } break;
 
@@ -120,6 +138,6 @@ std::tuple<TokenLines, OPs> lex(const std::string& src) {
     lines.pop_back();
     lines.back().emplace_back(TokenKind::END, "EOF");
 
-    return {lines, {}};
+    return lines;
 }
 

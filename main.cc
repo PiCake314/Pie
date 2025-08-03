@@ -7,10 +7,13 @@
 
 int main() {
     // const auto src = "1 + func(a, -+b)";
-    auto src = "() => 3 + x; 1 + 2; a = 10; 10 * 1 + 2 * 3;";
+    const auto src =
+R"(
+    infix(SUM+++) x = (a, b) => 1 + 2 * 3 - func();
+)";
     std::println("{}", src);
 
-    const auto [v, _] = lex(src);
+    const auto v = lex(src);
     std::println("{}", v);
 
     Parser p{v};

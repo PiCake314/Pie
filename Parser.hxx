@@ -11,6 +11,7 @@
 #include <utility>
 #include <span>
 #include <vector>
+#include <unordered_map>
 #include <deque>
 #include <algorithm>
 #include <ranges>
@@ -37,6 +38,7 @@ class Parser {
 
 
     std::deque<Token> red;
+    std::unordered_map<std::string, Fix*> operators;
 
 public:
     Parser(TokenLines l) : __lines{std::move(l)}, lines{__lines.begin()} {
@@ -91,6 +93,42 @@ public:
             case NAME: return std::make_unique<Name>(token.text);
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
+            case PREFIX: 
+            case INFIX : 
+            case SUFFIX: {
+                consume(L_PAREN);
+                const auto prec = consume();
+
+                int shift;
+                if (match("+")) {
+                    shift = 1;
+                    while (match("+")) ++shift;
+                }
+                else if (match("-")) {
+                    shift = -1;
+                    while (match("-")) --shift;
+                }
+
+                consume(R_PAREN);
+
+                const Token name = consume(NAME);
+
+                consume(ASSIGN);
+
+                ExprPtr func = parseExpr();
+                Closure *c = dynamic_cast<Closure*>(func.get());
+                if (not c) error("[Pre/In/Suf] fix operator has to be equal to a function!");
+
+
+                if (token.kind == PREFIX)
+                    return std::make_unique<Prefix>(std::move(name.text), prec.kind, shift, std::move(*c));
+                if (token.kind == INFIX)
+                    return std::make_unique<Infix> (std::move(name.text), prec.kind, shift, std::move(*c));
+                // if (token.kind == SUFFIX)
+                    return std::make_unique<Suffix>(std::move(name.text), prec.kind, shift, std::move(*c));
+            }
+            break;
+
             case L_PAREN: {
                 // auto expr = parse(); // can't be const bc it needs to be moved from
                 // consume(R_PAREN);
@@ -100,7 +138,7 @@ public:
                 bool all_names = true;
                 if (not match(R_PAREN)) {
                     do {
-                        if (not peek(NAME)) all_names = false;
+                        if (not check(NAME)) all_names = false;
 
                         params.push_back(consume().text);
                     } while (match(COMMA));
@@ -139,7 +177,7 @@ public:
             //     break;
 
 
-            case NAME: return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precedence::CALL - 1));
+            case NAME: return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precedence::OP_CALL));
 
             case ASSIGN:
                 if (const auto name = dynamic_cast<const Name*>(left.get()))
@@ -180,9 +218,7 @@ public:
         using std::operator""s;
 
 		if (const Token token = lookAhead(0); token.kind != exp)
-            [[unlikely]]
-                // error("Expected token "s + stringify(exp) + " and found "s + stringify(token.kind));
-                expected(exp, token.kind);
+            [[unlikely]] expected(exp, token.kind);
 
 		return consume();
 	}
@@ -196,6 +232,15 @@ public:
 		return true;
 	}
 
+    [[nodiscard]] bool match(const std::string_view text) {
+		const Token token = lookAhead(0);
+
+		if (token.text != text) return false;
+
+		consume();
+		return true;
+    }
+
     Token lookAhead(const size_t distance) {
         while (distance >= red.size()) {
             if (atEnd()) error("out of token!");
@@ -207,7 +252,7 @@ public:
         return red[distance];
     }
 
-    [[nodiscard]] bool peek(const TokenKind exp) { return lookAhead(0).kind == exp; }
+    [[nodiscard]] bool check(const TokenKind exp) { return lookAhead(0).kind == exp; }
 
     [[nodiscard]] size_t getPrecedence() {
         // assuming only for infix (duh, if it's a prefix, then no precedence is needed)
@@ -229,7 +274,9 @@ public:
             // case STAR:
             // case SLASH:   return precedence::PRODUCT;
 
-            case NAME: // an infix name is a call to a binary operator
+
+            case NAME:    return precedence::OP_CALL; // an infix name is a call to a binary operator
+
             case L_PAREN: return precedence::CALL;
 
 
