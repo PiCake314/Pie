@@ -12,7 +12,7 @@
 #include <utility>
 #include <span>
 #include <vector>
-
+#include <unordered_map>
 #include <deque>
 #include <algorithm>
 #include <ranges>
@@ -25,14 +25,16 @@
 // }
 
 
-// using Operators 
+using Operators = std::unordered_map<std::string, Fix*>;
 
 
 class Parser {
     TokenLines __lines; // owner of memory for iterator below
     typename TokenLines::iterator lines;
     // Tokens tokens; 
-    typename Tokens::iterator token;
+    typename Tokens::iterator token_iterator;
+
+    Operators ops;
 
 
     std::deque<Token> red;
@@ -40,10 +42,10 @@ class Parser {
 public:
     Parser(TokenLines l) : __lines{std::move(l)}, lines{__lines.begin()} {
         if (__lines.empty()) [[unlikely]] error("Empty File!");
-        token = lines->begin();
+        token_iterator = lines->begin();
     }
 
-    [[nodiscard]] bool atEnd() const noexcept { return lines == __lines.end() or token == __lines.back().end(); }
+    [[nodiscard]] bool atEnd() const noexcept { return lines == __lines.end() or token_iterator == __lines.back().end(); }
 
     // Parser(Tokens l) : tokens{std::move(l)}, token{tokens.begin()} { }
     // [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
@@ -51,7 +53,7 @@ public:
 
     std::vector<ExprPtr> parse() {
         std::vector<ExprPtr> expressions;
-        for (; not atEnd(); ++lines, token = lines->begin()) {
+        for (; not atEnd(); ++lines, token_iterator = lines->begin()) {
             expressions.push_back(parseExpr());
             if (not atEnd()) consume(TokenKind::SEMI);
         }
@@ -83,15 +85,33 @@ public:
         switch (token.kind) {
             using enum TokenKind;
 
-            default: error("Couldn't parse \"" + token.text + "\"!");
+            default:
+                puts("");
+                std::copy(token_iterator, lines->end(), std::ostream_iterator<Token>{std::cout, " "});
+                puts("");
+                error("Couldn't parse \"" + token.text + "\"!");
 
             case NUM: return std::make_unique<Num>(token.text);
 
             case NAME:
-                if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
-                    return std::make_unique<UnaryOp>(token.kind, parseExpr(precedence::PREFIX));
-                else
-                    return std::make_unique<Name>(token.text);
+                if (ops.contains(token.text)) {
+                    switch (const auto op = ops[token.text]; op->type()) {
+                        using namespace precedence;
+                        case TokenKind::PREFIX:
+                            return std::make_unique<UnaryOp>(token.text, parseExpr(precFromToken(op->token.kind)));
+                            // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
+                        // case TokenKind::INFIX :
+                        //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
+                        // case TokenKind::SUFFIX:
+                        //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
+
+                        default: error("[in/suf]fix operator used as prefix");
+                    }
+                }
+                // if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
+                //     return std::make_unique<UnaryOp>(token, parseExpr(precedence::PREFIX));
+                // else
+                return std::make_unique<Name>(token.text);
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
             case PREFIX: 
@@ -118,15 +138,28 @@ public:
 
                 ExprPtr func = parseExpr();
                 Closure *c = dynamic_cast<Closure*>(func.get());
-                if (not c) error("[Pre/In/Suf] fix operator has to be equal to a function!");
+                if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
 
 
-                if (token.kind == PREFIX)
-                    return std::make_unique<Prefix>(std::move(name.text), prec.kind, shift, std::move(*c));
-                if (token.kind == INFIX)
-                    return std::make_unique<Infix> (std::move(name.text), prec.kind, shift, std::move(*c));
+                // gotta dry out this part
+                // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
+                if (token.kind == PREFIX){
+                    auto p = std::make_unique<Prefix>(Token{prec.kind, name.text}, shift, std::move(func));
+                    ops[name.text] = p.get();
+                    return p;
+                }
+                else if (token.kind == INFIX) {
+                    auto p = std::make_unique<Infix> (Token{prec.kind, name.text}, shift, std::move(func));
+                    ops[name.text] = p.get();
+                    return p;
+
+                }
                 // if (token.kind == SUFFIX)
-                    return std::make_unique<Suffix>(std::move(name.text), prec.kind, shift, std::move(*c));
+                else {
+                    auto p = std::make_unique<Suffix>(Token{prec.kind, name.text}, shift, std::move(func));
+                    ops[name.text] = p.get();
+                    return p;
+                }
             }
             break;
 
@@ -141,7 +174,7 @@ public:
 
                 // could still be closure or groupings
                 Token t = consume(); // NAME or NUM
-                bool is_closure = t.kind == NAME and check(COMMA); // if there is a comma, closure, otherwise,
+                bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
 
                 if (is_closure) {
                     std::vector<std::string> params = {t.text};
@@ -182,7 +215,22 @@ public:
             //     break;
 
 
-            case NAME: return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precedence::OP_CALL));
+            case NAME:
+                if (ops.contains(token.text)) {
+                    switch (const auto op = ops[token.text]; op->type()) {
+                        using namespace precedence;
+                        // case TokenKind::PREFIX:
+                        //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
+                        case TokenKind::INFIX :
+                            return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precFromToken(op->token.kind)));
+                        case TokenKind::SUFFIX:
+                            return std::make_unique<PostOp>(token.text, parseExpr(precFromToken(op->token.kind)));
+
+                        default: error("prefix operator used as [inf/suf]fix");
+                    }
+                }
+
+                return std::make_unique<Name>(token.text);
 
             case ASSIGN:
                 if (const auto name = dynamic_cast<const Name*>(left.get()))
@@ -250,7 +298,7 @@ public:
         while (distance >= red.size()) {
             if (atEnd()) error("out of token!");
 
-            red.push_back(*token++);
+            red.push_back(*token_iterator++);
         }
 
         // Get the queued token.

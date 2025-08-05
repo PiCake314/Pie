@@ -88,6 +88,11 @@ struct Token {
     std::string text;
 };
 
+
+std::ostream& operator<<(std::ostream& os, const Token& token) {
+    return os << "Token{" << stringify(token.kind) << ", " << token.text << "}";
+}
+
 template <>
 struct std::formatter<Token> : std::formatter<std::string> {
     auto format(const Token& token, auto& ctx) const {

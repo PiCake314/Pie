@@ -49,6 +49,24 @@ struct Assignment : Expr {
     }
 };
 
+struct UnaryOp : Expr {
+    UnaryOp(std::string t, ExprPtr e) noexcept
+    : text{std::move(t)}, expr{std::move(e)}
+    {}
+
+    void print() const override {
+        // puts("\nUNARY");
+
+        std::cout << '(' << text << ' ';
+        expr->print();
+        std::cout << ')';
+    }
+
+    // Token token; // also always name??
+    std::string text;
+    ExprPtr expr;
+};
+
 struct BinOp : Expr {
     ExprPtr lhs;
     // const TokenKind token; // always name..I think
@@ -64,6 +82,7 @@ struct BinOp : Expr {
         std::cout << '(';
 
         lhs->print();
+        // puts("\nBINARY");
         std::cout << ' ' << text << ' ';
         rhs->print();
 
@@ -71,18 +90,21 @@ struct BinOp : Expr {
     }
 };
 
-struct UnaryOp : Expr {
-    UnaryOp(const TokenKind t, ExprPtr e) noexcept
-    : token{t}, expr{std::move(e)}
+struct PostOp : Expr {
+    PostOp(std::string t, ExprPtr e) noexcept
+    : text{std::move(t)}, expr{std::move(e)}
     {}
 
     void print() const override {
-        std::cout << '(' << stringify(token);
+        // puts("\nPOST");
+
+        std::cout << "( ";
         expr->print();
-        std::cout << ')';
+        std::cout << text << ')';
     }
 
-    TokenKind token;
+    // Token token; // also always name??
+    std::string text;
     ExprPtr expr;
 };
 
@@ -132,51 +154,66 @@ struct Closure : Expr {
 
 
 
-struct Fix : Expr {
-    Fix(std::string n, const TokenKind p, const int s, Closure c)
-    : name{std::move(n)}, prec{p}, shift{s}, func{std::move(c)} {}
 
-    std::string name;
-    TokenKind prec;
+// defintions of operators. Usage is BinOp or UnaryOp
+struct Fix : Expr {
+    // these two are literally what a token is...
+    // std::string name;
+    // TokenKind prec;
+
+    Token token;
     int shift;
-    Closure func;
+    ExprPtr func;
+
+    Fix(Token t, const int s, ExprPtr c)
+    : token{std::move(t)}, shift{s}, func{std::move(c)} {}
+
+
+    virtual TokenKind type() const = 0;
 };
 
 struct Prefix : Fix {
-    Prefix(std::string n, const TokenKind p, const int s, Closure c)
-    : Fix{std::move(n), p, s, std::move(c)} {}
+    Prefix(Token t, const int s, ExprPtr c)
+    : Fix{std::move(t), s, std::move(c)} {}
 
     void print() const override {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "prefix(" << stringify(prec) << shifts << ") "  << name << ' ';
-        func.print();
+        std::cout << "prefix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        func->print();
     }
+
+
+    TokenKind type() const override { return TokenKind::PREFIX; }
 };
 
 struct Infix : Fix {
-    Infix(std::string n, const TokenKind p, const int s, Closure c)
-    : Fix{std::move(n), p, s, std::move(c)} {}
+    Infix(Token t, const int s, ExprPtr c)
+    : Fix{std::move(t), s, std::move(c)} {}
 
     void print() const override {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "infix(" << stringify(prec) << shifts << ") "  << name << ' ';
-        func.print();
+        std::cout << "infix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        func->print();
     }
+
+    TokenKind type() const override { return TokenKind::INFIX; }
 };
 
 struct Suffix : Fix {
-    Suffix(std::string n, const TokenKind p, const int s, Closure c)
-    : Fix{std::move(n), p, s, std::move(c)} {}
+    Suffix(Token t, const int s, ExprPtr c)
+    : Fix{std::move(t), s, std::move(c)} {}
 
     void print() const override {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "suffix(" << stringify(prec) << shifts << ") "  << name << ' ';
-        func.print();
+        std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        func->print();
     }
+
+    TokenKind type() const override { return TokenKind::SUFFIX; }
 };
