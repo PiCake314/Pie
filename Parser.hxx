@@ -55,7 +55,9 @@ public:
         std::vector<ExprPtr> expressions;
         for (; not atEnd(); ++lines, token_iterator = lines->begin()) {
             expressions.push_back(parseExpr());
-            if (not atEnd()) consume(TokenKind::SEMI);
+
+            if (not atEnd())
+                consume(TokenKind::SEMI);
         }
 
 
@@ -86,9 +88,7 @@ public:
             using enum TokenKind;
 
             default:
-                puts("");
-                std::copy(token_iterator, lines->end(), std::ostream_iterator<Token>{std::cout, " "});
-                puts("");
+                log();
                 error("Couldn't parse \"" + token.text + "\"!");
 
             case NUM: return std::make_unique<Num>(token.text);
@@ -105,7 +105,7 @@ public:
                         // case TokenKind::SUFFIX:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
 
-                        default: error("[in/suf]fix operator used as prefix");
+                        default: log(); error("[in/suf]fix operator used as prefix");
                     }
                 }
                 // if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
@@ -224,7 +224,7 @@ public:
                         case TokenKind::INFIX :
                             return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precFromToken(op->token.kind)));
                         case TokenKind::SUFFIX:
-                            return std::make_unique<PostOp>(token.text, parseExpr(precFromToken(op->token.kind)));
+                            return std::make_unique<PostOp>(token.text, std::move(left));
 
                         default: error("prefix operator used as [inf/suf]fix");
                     }
@@ -270,8 +270,11 @@ public:
     Token consume(const TokenKind exp, const std::source_location& loc = std::source_location::current()) {
         using std::operator""s;
 
-		if (const Token token = lookAhead(0); token.kind != exp)
-            [[unlikely]] expected(exp, token.kind, loc);
+		if (const Token token = lookAhead(0); token.kind != exp) 
+            [[unlikely]] {
+                log();
+                expected(exp, token.kind, loc);
+            }
 
 		return consume();
 	}
@@ -335,5 +338,12 @@ public:
 
             default: return 0;
         }
+    }
+
+
+    void log() const {
+        puts("");
+        std::copy(token_iterator, lines->end(), std::ostream_iterator<Token>{std::cout, " "});
+        puts("");
     }
 };

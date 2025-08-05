@@ -98,9 +98,9 @@ struct PostOp : Expr {
     void print() const override {
         // puts("\nPOST");
 
-        std::cout << "( ";
+        std::cout << '(';
         expr->print();
-        std::cout << text << ')';
+        std::cout << ' ' << text << ')';
     }
 
     // Token token; // also always name??

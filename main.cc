@@ -9,7 +9,11 @@ int main() {
     // const auto src = "1 + func(a, -+b)";
     const auto src =
 R"(
-    prefix(PROD--) y = (a) => -a;
+    prefix(PROD--) y = (a) => a;
+    infix(SUM+++) x = (a, b) => y b;
+    suffix(HIGH) z = (a) => a x a;
+    y y 1;
+    4 z z;
 )";
     std::println("{}", src);
 
