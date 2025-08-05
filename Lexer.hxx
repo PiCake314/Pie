@@ -122,6 +122,7 @@ TokenLines lex(const std::string& src) {
             case '|':
             case '-':
             case '+':
+            case '~':
                 lines.back().push_back({TokenKind::NAME, {src[index]}}); break;
 
 

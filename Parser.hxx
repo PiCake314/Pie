@@ -4,6 +4,7 @@
 #include "Token.hxx"
 #include "Expr.hxx"
 #include "Precedence.hxx"
+#include "utils.hxx"
 
 #include <print>
 #include <variant>
@@ -11,7 +12,7 @@
 #include <utility>
 #include <span>
 #include <vector>
-#include <unordered_map>
+
 #include <deque>
 #include <algorithm>
 #include <ranges>
@@ -23,11 +24,8 @@
 //     exit(1);
 // }
 
-[[noreturn]] void expected(const TokenKind exp, const TokenKind got) noexcept {
-    using std::operator""s;
-    error("Expected token "s + stringify(exp) + " and found "s + stringify(got));
-}
 
+// using Operators 
 
 
 class Parser {
@@ -38,7 +36,6 @@ class Parser {
 
 
     std::deque<Token> red;
-    std::unordered_map<std::string, Fix*> operators;
 
 public:
     Parser(TokenLines l) : __lines{std::move(l)}, lines{__lines.begin()} {
@@ -90,7 +87,11 @@ public:
 
             case NUM: return std::make_unique<Num>(token.text);
 
-            case NAME: return std::make_unique<Name>(token.text);
+            case NAME:
+                if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
+                    return std::make_unique<UnaryOp>(token.kind, parseExpr(precedence::PREFIX));
+                else
+                    return std::make_unique<Name>(token.text);
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
             case PREFIX: 
@@ -130,29 +131,33 @@ public:
             break;
 
             case L_PAREN: {
-                // auto expr = parse(); // can't be const bc it needs to be moved from
-                // consume(R_PAREN);
-                // return expr;
-                std::vector<std::string> params;
 
-                bool all_names = true;
-                if (not match(R_PAREN)) {
-                    do {
-                        if (not check(NAME)) all_names = false;
-
-                        params.push_back(consume().text);
-                    } while (match(COMMA));
-                    consume(R_PAREN);
-                }
-
-                if (all_names and match(FAT_ARROW)) {
+                if (match(R_PAREN)) {
+                    consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(std::move(params), std::move(body));
-                } else { // tt's just grouping,
+                    return std::make_unique<Closure>(std::vector<std::string>{}, std::move(body));
+                }
 
+                // could still be closure or groupings
+                Token t = consume(); // NAME or NUM
+                bool is_closure = t.kind == NAME and check(COMMA); // if there is a comma, closure, otherwise,
+
+                if (is_closure) {
+                    std::vector<std::string> params = {t.text};
+
+                    while(match(COMMA)) {
+                        t = consume(NAME);
+                        params.push_back(t.text);
+                    }
+                    consume(R_PAREN);
+                    consume(FAT_ARROW);
+
+                    auto body = parseExpr();
+                    return std::make_unique<Closure>(std::move(params), std::move(body));
+                }
+                else { // tt's just grouping,
                     // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
-                    if (params.size() > 1) error("Unexpected parameter-like list in grouping context");
                     auto expr = parseExpr();
                     consume(R_PAREN);
                     return expr;
@@ -214,11 +219,11 @@ public:
         return token;
     }
 
-    Token consume(const TokenKind exp) {
+    Token consume(const TokenKind exp, const std::source_location& loc = std::source_location::current()) {
         using std::operator""s;
 
 		if (const Token token = lookAhead(0); token.kind != exp)
-            [[unlikely]] expected(exp, token.kind);
+            [[unlikely]] expected(exp, token.kind, loc);
 
 		return consume();
 	}

@@ -9,7 +9,7 @@ int main() {
     // const auto src = "1 + func(a, -+b)";
     const auto src =
 R"(
-    infix(SUM+++) x = (a, b) => 1 + 2 * 3 - func();
+    infix(SUM+++) x = (a, b) => (~ 1) + 2 * 3 - func();
 )";
     std::println("{}", src);
 

@@ -1,14 +1,6 @@
 #pragma once
 
-#include "Token.hxx"
-
-// not sure where to put it
-// keep it here for now...
-[[noreturn]] void error(const std::string& msg) noexcept {
-    puts(msg.c_str());
-    exit(1);
-}
-
+#include "utils.hxx"
 
 namespace precedence {
   inline constexpr auto LOW         = 1;
