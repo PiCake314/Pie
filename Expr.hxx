@@ -211,7 +211,7 @@ struct Suffix : Fix {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << " = ";
         func->print();
     }
 
