@@ -1,10 +1,11 @@
 
 CC = g++
-ARGS = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough -Wno-gnu-case-range
+ARGS = -Wall -Wextra -Wimplicit-fallthrough 
+# -Wpedantic -Wno-gnu-case-range
 VER = -std=c++23
 
 clang: main.cc
-	$(CC) $(ARGS) $(VER) main.cc
+	$(CC) $(ARGS) $(VER) main.cc -o Pie
 
 
 

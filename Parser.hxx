@@ -253,9 +253,9 @@ public:
             }
 
 
-            case SEMI:
-                puts("SEMI!!!");
-                return nullptr;
+            // case SEMI:
+            //     puts("SEMI!!!");
+            //     return nullptr;
 
             default: error("Couldn't parse \"" + token.text + "\"!!");
         }

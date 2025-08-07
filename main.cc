@@ -1,36 +1,35 @@
 #include <print>
+#include <string>
+#include <sstream>
 #include <vector>
+#include <fstream>
 
 #include "Lexer.hxx"
 #include "Parser.hxx"
 #include "Interpreter.hxx"
 
 
-int main() {
-    // const auto src = "1 + func(a, -+b)";
-    const auto src =
-R"(
-prefix(PROD--) neg = (a) => __builtin_neg(a);
-infix(SUM+++) x = (a, b) => __builtin_mul(a, b);
-suffix(HIGH) z = (a) => __builtin_not(a);
+[[nodiscard]] std::string readFile(const std::string& fname) {
+    const std::ifstream fin{fname};
 
-ID = (a) => a;
-print = (something) => __builtin_print(something);
-ID(1);
-print(a);
+    if (not fin.is_open()) error("File \"" + fname + " \"not found!");
 
-w = ID(4);
-v = 10;
-s = "string test";
+    std::stringstream ss;
+    ss << fin.rdbuf();
 
-__builtin_print(v x v x v);
-__builtin_print(neg neg v);
-__builtin_print(v z z);
-print(ID);
-)";
+    return ss.str();
+}
+
+
+
+int main(const int argc, const char* argv[]) {
+    if (argc != 2) error("Wrong number of arguments!");
+
+    const auto src = readFile(argv[1]);
+
 // y y v x v x y v z z;
 
-    std::println("{}", src);
+    // std::println("{}", src);
 
     const auto v = lex(src);
     // std::println("{}", v);
@@ -44,7 +43,7 @@ print(ID);
     //     (expr->print(), puts(";"));
 
 
-    puts("Output:\n");
+    // puts("Output:\n");
     Visitor visitor{ops};
     for (const auto& expr : exprs)
         std::visit(visitor, expr->variant());
