@@ -60,7 +60,7 @@ struct Visitor {
 
         if (const auto opt = getVar(n->name); opt) return *opt;
 
-        error("Name: " + n->name + " is not defined");
+        error("Name \"" + n->name + "\" is not defined");
     }
 
     Value operator()(const Assignment *ass) {

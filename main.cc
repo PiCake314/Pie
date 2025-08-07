@@ -16,6 +16,8 @@ suffix(HIGH) z = (a) => __builtin_not(a);
 
 ID = (a) => a;
 print = (something) => __builtin_print(something);
+ID(1);
+print(a);
 
 w = ID(4);
 v = 10;
