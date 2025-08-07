@@ -1,18 +1,55 @@
 #pragma once
 
 #include "Token.hxx"
+#include <iostream>
 #include <cmath>
 #include <string>
-#include <iostream>
 #include <utility>
 #include <memory>
+#include <variant>
 
 struct Expr;
-using ExprPtr = std::unique_ptr< Expr>;
+using ExprPtr = std::shared_ptr< Expr>;
+
+
+struct Num;
+struct String;
+struct Name;
+struct Assignment;
+struct UnaryOp;
+struct BinOp;
+struct PostOp;
+struct Call;
+struct Closure;
+struct Fix;
+// struct Prefix;
+// struct Infix;
+// struct Suffix;
+
+// has to be pointers kuz we're forward declareing
+// has to be forward declared bc we're using in in the class bellow
+using Node = std::variant<
+    const Num*,
+    const String*,
+    const Name*,
+    const Assignment*,
+    const UnaryOp*,
+    const BinOp*,
+    const PostOp*,
+    const Call*,
+    const Closure*,
+    const Fix*
+    // const Prefix*,
+    // const Infix*,
+    // const Suffix*
+>;
+
 
 struct Expr {
     virtual ~Expr() = default;
     virtual void print() const = 0;
+
+    virtual Node variant() const = 0;
 };
 
 struct Num : Expr {
@@ -22,7 +59,21 @@ struct Num : Expr {
     Num(std::string n) noexcept : num{std::move(n)} {}
 
     void print() const override { std::cout << num; }
+
+    Node variant() const override { return this; }
 };
+
+
+struct String : Expr {
+    std::string str;
+
+    String(std::string s) noexcept : str{std::move(s)} {}
+
+    void print() const override { std::cout << '"' << str << '"'; }
+
+    Node variant() const override { return this; }
+};
+
 
 struct Name : Expr {
     std::string name;
@@ -31,6 +82,8 @@ struct Name : Expr {
     Name(std::string n) noexcept : name{std::move(n)} {}
 
     void print() const override { std::cout << name; }
+
+    Node variant() const override { return this; }
 };
 
 
@@ -47,9 +100,16 @@ struct Assignment : Expr {
         std::cout << name << " = ";
         expr->print();
     }
+
+    Node variant() const override { return this; }
 };
 
 struct UnaryOp : Expr {
+    // Token token; // also always name??
+    std::string text;
+    ExprPtr expr;
+
+
     UnaryOp(std::string t, ExprPtr e) noexcept
     : text{std::move(t)}, expr{std::move(e)}
     {}
@@ -62,9 +122,7 @@ struct UnaryOp : Expr {
         std::cout << ')';
     }
 
-    // Token token; // also always name??
-    std::string text;
-    ExprPtr expr;
+    Node variant() const override { return this; }
 };
 
 struct BinOp : Expr {
@@ -88,9 +146,16 @@ struct BinOp : Expr {
 
         std::cout << ')';
     }
+
+    Node variant() const override { return this; }
 };
 
 struct PostOp : Expr {
+    // Token token; // also always name??
+    std::string text;
+    ExprPtr expr;
+
+
     PostOp(std::string t, ExprPtr e) noexcept
     : text{std::move(t)}, expr{std::move(e)}
     {}
@@ -103,19 +168,20 @@ struct PostOp : Expr {
         std::cout << ' ' << text << ')';
     }
 
-    // Token token; // also always name??
-    std::string text;
-    ExprPtr expr;
+    Node variant() const override { return this; }
 };
 
 
 struct Call : Expr {
+    ExprPtr func;
+    std::vector<ExprPtr> args;
+
+
     Call(ExprPtr function, std::vector<ExprPtr> arguments)
     : func{std::move(function)}, args{std::move(arguments)}
     {}
 
-
-    void print() const noexcept {
+    void print() const override {
         func->print();
         std::cout << '(';
 
@@ -129,8 +195,7 @@ struct Call : Expr {
         std::cout << ')';
     }
 
-    ExprPtr func;
-    std::vector<ExprPtr> args;
+    Node variant() const override { return this; }
 };
 
 struct Closure : Expr {
@@ -150,6 +215,8 @@ struct Closure : Expr {
         std::cout << ") => ";
         body->print();
     }
+
+    Node variant() const override { return this; }
 };
 
 
@@ -186,6 +253,7 @@ struct Prefix : Fix {
 
 
     TokenKind type() const override { return TokenKind::PREFIX; }
+    Node variant() const override { return this; }
 };
 
 struct Infix : Fix {
@@ -201,6 +269,7 @@ struct Infix : Fix {
     }
 
     TokenKind type() const override { return TokenKind::INFIX; }
+    Node variant() const override { return this; }
 };
 
 struct Suffix : Fix {
@@ -216,4 +285,5 @@ struct Suffix : Fix {
     }
 
     TokenKind type() const override { return TokenKind::SUFFIX; }
+    Node variant() const override { return this; }
 };

@@ -3,7 +3,7 @@
 #include "utils.hxx"
 
 namespace precedence {
-  inline constexpr auto LOW         = 1;
+  inline constexpr auto LOW         = 0;
   inline constexpr auto ASSIGNMENT  = 100;
 //   inline constexpr auto CONDITIONAL = 200;
   inline constexpr auto SUM         = 300;

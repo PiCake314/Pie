@@ -59,28 +59,27 @@ TokenLines lex(const std::string& src) {
         try{
         switch (src[index]) {
             case '0' ... '9': {
-                size_t end = index;
-                while (isdigit(src.at(++end)));
+                const auto beginning = index;
+                while (isdigit(src.at(++index)));
                 // allow doubles in the future
-                if (src[end] == '.') while (isdigit(src.at(++end)));
+                if (src[index] == '.') while (isdigit(src.at(++index)));
 
-                lines.back().emplace_back(TokenKind::NUM, src.substr(index, end - index));
-                index = end -1;
+                lines.back().emplace_back(TokenKind::NUM, src.substr(beginning, index - beginning));
+                --index;
             } break;
 
-
+            case '_':
             case 'a' ... 'z':
             case 'A' ... 'Z':{
-                size_t end = index;
-                while (isalnum(src.at(++end)) || src[end] == '_');
+                const auto beginning = index;
+                while (isalnum(src.at(++index)) || src[index] == '_');
 
-                const auto word = src.substr(index, end - index);
+                const auto word = src.substr(beginning, index - beginning);
                 // check for keywords here :)
                 const TokenKind token = keyword(word);
 
                 lines.back().emplace_back(token, word);
-
-                index = end -1;
+                --index;
             } break;
 
 
@@ -102,24 +101,35 @@ TokenLines lex(const std::string& src) {
             case '(': lines.back().push_back({TokenKind::L_PAREN, {src[index]}}); break;
             case ')': lines.back().push_back({TokenKind::R_PAREN, {src[index]}}); break;
 
+            case '"':{
+                const size_t old = index;
+                while(src[++index] != '"');
+                lines.back().push_back({TokenKind::STRING, src.substr(old + 1, index - old -1)});
+            }
+            break;
 
+            case '&':
+                if (src[index + 1] == '&') {
+                    lines.back().push_back({TokenKind::NAME, src.substr(index++, 2)}); // plusplused here
+                    // ++index;
+                    break;
+                }
+            [[fallthrough]];
 
-            case '_':
+            case '|':
+                if (src[index + 1] == '|') {
+                    lines.back().push_back({TokenKind::NAME, {src[index], src[++index]}});
+                    break;
+                }
+            [[fallthrough]];
+
             case '!':
             case '@':
             case '#':
             case '$':
             case '%':
             case '^':
-            case '&':
-                // if (src[index + 1] == '&') {
-                //     tokens.push_back({TokenKind::NAME, src.substr(index++, 2)}); // plusplused here
-                //     // ++index;
-                //     break;
-                // }
-
             case '*':
-            case '|':
             case '-':
             case '+':
             case '~':

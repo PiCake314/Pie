@@ -51,7 +51,7 @@ public:
     // [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
 
 
-    std::vector<ExprPtr> parse() {
+    std::pair<std::vector<ExprPtr>, Operators> parse() {
         std::vector<ExprPtr> expressions;
         for (; not atEnd(); ++lines, token_iterator = lines->begin()) {
             expressions.push_back(parseExpr());
@@ -61,7 +61,7 @@ public:
         }
 
 
-        return expressions;
+        return {expressions, ops};
 
         // std::vector<ExprPtr> expressions;
         // expressions.push_back(parseExpr());
@@ -92,6 +92,8 @@ public:
                 error("Couldn't parse \"" + token.text + "\"!");
 
             case NUM: return std::make_unique<Num>(token.text);
+
+            case STRING: return std::make_unique<String>(token.text);
 
             case NAME:
                 if (ops.contains(token.text)) {
@@ -222,7 +224,7 @@ public:
                         // case TokenKind::PREFIX:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :
-                            return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precFromToken(op->token.kind)));
+                            return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precFromToken(op->token.kind) + op->shift));
                         case TokenKind::SUFFIX:
                             return std::make_unique<PostOp>(token.text, std::move(left));
 
@@ -317,7 +319,8 @@ public:
         //     return 0; 
         // }
 
-        switch (lookAhead(0).kind) {
+        const Token& token = lookAhead(0);
+        switch (token.kind) {
             using enum TokenKind;
 
             case ASSIGN: return precedence::ASSIGNMENT;
@@ -331,7 +334,13 @@ public:
             // case SLASH:   return precedence::PRODUCT;
 
 
-            case NAME:    return precedence::OP_CALL; // an infix name is a call to a binary operator
+            case NAME: {
+                // can't have a name as an infix if it's not an operator
+                if (not ops.contains(token.text)) error("Operator " + token.text + " not found!");
+
+                const auto op = ops[token.text];
+                return precedence::precFromToken(op->token.kind) + op->shift;
+            }
 
             case L_PAREN: return precedence::CALL;
 
