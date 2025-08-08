@@ -43,7 +43,7 @@ struct Visitor {
         for (const auto& curr_env : env)
             if (curr_env.contains(name)) return curr_env.at(name);
 
-        std::clog << "Variable " << name << " was not found!\n";
+
         return {};
     }
 
@@ -57,8 +57,6 @@ struct Visitor {
         // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :)))))
         // interesting!
         // how about a special value?
-        std::clog << "interpreting name: " << n->name << '\n';
-
         if (isBuiltIn(n->name)) return n->name;
 
         if (const auto opt = getVar(n->name); opt) return *opt;

@@ -53,7 +53,6 @@ public:
 
     std::pair<std::vector<ExprPtr>, Operators> parse() {
         std::vector<ExprPtr> expressions;
-        std::println("{}", __lines);
 
         for (; not atEnd(); ++lines, token_iterator = lines->begin()) {
             expressions.push_back(parseExpr());
@@ -100,13 +99,9 @@ public:
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
-                        puts("WHAT?");
                         using namespace precedence;
-                        case TokenKind::PREFIX:{
-                            const auto prec = precFromToken(op->token.kind) + op->shift;
-                            std::clog << "prec: " << prec << '\n';
-                            return std::make_unique<UnaryOp>(token.text, parseExpr(prec));
-                        }
+                        case TokenKind::PREFIX:
+                            return std::make_unique<UnaryOp>(token.text, parseExpr(precFromToken(op->token.kind) + op->shift));
                             // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
                         // case TokenKind::INFIX :
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
@@ -174,8 +169,7 @@ public:
             break;
 
             case L_PAREN: {
-
-                if (match(R_PAREN)) {
+                if (match(R_PAREN)) { // closure
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
@@ -183,16 +177,20 @@ public:
                 }
 
                 // could still be closure or groupings
-                Token t = consume(); // NAME or NUM
-                bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
+                // Token t = consume(); // NAME or NUM
+
+                const bool is_closure = check(NAME) and (check(COMMA, 1) or (check(R_PAREN, 1) and check(FAT_ARROW, 2)));
+                // bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
 
                 if (is_closure) {
+                    Token t = consume(NAME);
                     std::vector<std::string> params = {t.text};
 
                     while(match(COMMA)) {
                         t = consume(NAME);
                         params.push_back(t.text);
                     }
+
                     consume(R_PAREN);
                     consume(FAT_ARROW);
 
@@ -200,10 +198,14 @@ public:
                     return std::make_unique<Closure>(std::move(params), std::move(body));
                 }
                 else { // tt's just grouping,
-                    puts("GROUPING!");
+                    // log(); 
+                    // error("");
                     // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
+
+
                     auto expr = parseExpr();
                     consume(R_PAREN);
+
                     return expr;
                 }
             }
@@ -319,7 +321,7 @@ public:
         return red[distance];
     }
 
-    [[nodiscard]] bool check(const TokenKind exp) { return lookAhead(0).kind == exp; }
+    [[nodiscard]] bool check(const TokenKind exp, const size_t i = {}) { return lookAhead(i).kind == exp; }
 
     [[nodiscard]] size_t getPrecedence() {
         // assuming only for infix (duh, if it's a prefix, then no precedence is needed)
@@ -359,6 +361,9 @@ public:
     }
 
 
+    /**
+     * @attention only call right before calling error/expected
+     */
     void log() const {
         puts("");
         std::copy(token_iterator, lines->end(), std::ostream_iterator<Token>{std::cout, " "});

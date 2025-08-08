@@ -37,10 +37,9 @@ int main(const int argc, const char* argv[]) {
     Parser p{v};
     const auto [exprs, ops] = p.parse();
 
-    puts("Parsed..");
-    std::clog << "Lines: " << exprs.size() << '\n';
-    for(const auto& expr : exprs)
-        (expr->print(), puts(";"));
+    // puts("Parsed..");
+    // for(const auto& expr : exprs)
+    //     (expr->print(), puts(";"));
 
 
     // puts("Output:\n");
