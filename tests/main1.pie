@@ -1,19 +1,37 @@
+comments end with no semi colon
+so this is a comment
 
-x = 1
-y = "Hi!"
-// x = y // type error!
-
-func = () => "meow" // equals () { return "meow" }
-
-func2 = (a, b) => a + b
-
-a = func2(1, 2) // a = 3
-func3 = func2() // func3 = func2
-func4 = func3(1) // func4 = (b) => 1 + b
+variables:
+x = 1;
+y = "Hi!";
+x = y;
 
 
-v1 = 1
-v2 = v1() // valid
+func = () => "meow"; equals () { return "meow" }
+
+func2 = (a, b) => a + b;
+
+a = func2(1, 2); a = 3
+
+calling a functiong that has 2 parameters without passing any arguments
+just returns the function itself
+func3 = func2(); func3 = func2
+
+calling with 1 argument only returns a closure that takes the second argument
+basically like currying
+func4 = func3(1); func4 = (b) => 1 + b
+
+this means I can call func2 using 2 way
+res = func2(1, 2);
+res = func2(1)(2);
+
+i can also do this
+res = func2()()(1)()(2)()()(); res = 3
+
+
+v1 = 1;
+v2 = v1(); valid. all values are nullary functions
+
 
 // everything is a function, values are just functions that return their own values
 // this means you can call nullary functions without parens
@@ -21,14 +39,39 @@ f = () => 1 // equivalent to "f = 1"
 x = f; // x = 1
 
 
+the language barely defines anything for you
+there are 7 builtint functions for now
+__builtin_print
+__builtin_add
+__builtin_sub
+__builtin_mul
+__builtin_div
+__builtin_not
+__builtin_neg
+
+
+no operators. only user defined ones
+you either define prefix, infix, or suffix
+each operator needs a precedence
+there are 9 main precedences: LOW, ASSIGNMENT, SUM, PROD, OP_CALL, PREFIX, POSTFIX, CALL, HIGH
+you can either choose one of them, or do "SUM++" where the operator 2 levels above the precedence for SUM
+this means we can have another operator between it and SUM which is SUM+
+any SUM precedence cannot go higher than PROD
+so SUM++++++++++ is still less than PROD---------
+
+here is how you define an operator
+prefix(PREFIX) not = (a) => __builtint_not(a);
+not 10; yields 0
+not not 10; yields 1
+
+infix has to be assigned to a function that takes in 2 arguments.
+prefix and suffix must take one arguemnt
+infix(PROD) x = (a, b) => __builtint_nul(a, b);
+2 x 2; yields 4
+suffix(POSTFIX) ! = (x) => __builtint_neg(x);
+
+5!; yields -5
+
+still no control flow blocks yet.
 
 greet = if x == 1 then "Hi" else "Hello"
-
-
-
-// no operators. only user defined ones
-
-
-infix x = (a, b) => {
-    
-}

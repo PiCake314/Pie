@@ -1,19 +1,6 @@
+prefix(SUM++++) + = (a) => __builtin_add(a, 1); 
 
-prefix(PROD--) neg = (a) => __builtin_neg(a);
-infix(SUM+++) x = (a, b) => __builtin_mul(a, b);
-suffix(HIGH) z = (a) => __builtin_not(a);
 
-ID = (a) => a;
-print = __builtin_print;
-ID(1);
+x = 5;
++ + +x;
 
-w = ID(4);
-v = 10;
-s = "string test";
-
-__builtin_print(v x v x v);
-__builtin_print(neg neg v);
-__builtin_print(v z z);
-print(ID);
-
-print(print);

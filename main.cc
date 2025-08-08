@@ -32,15 +32,15 @@ int main(const int argc, const char* argv[]) {
     // std::println("{}", src);
 
     const auto v = lex(src);
-    // std::println("{}", v);
+    // std::println("{}", v); // uncomment this, and everything break!!!
 
     Parser p{v};
     const auto [exprs, ops] = p.parse();
 
-    // puts("Parsed..");
-
-    // for(const auto& expr : exprs)
-    //     (expr->print(), puts(";"));
+    puts("Parsed..");
+    std::clog << "Lines: " << exprs.size() << '\n';
+    for(const auto& expr : exprs)
+        (expr->print(), puts(";"));
 
 
     // puts("Output:\n");

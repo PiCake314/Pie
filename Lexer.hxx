@@ -95,8 +95,9 @@ TokenLines lex(const std::string& src) {
             case ';':
                 lines.back().push_back({TokenKind::SEMI, {src[index]}});
                 lines.push_back({});
-
                 break;
+
+            case '\n': lines.back().clear(); break;
 
             case '(': lines.back().push_back({TokenKind::L_PAREN, {src[index]}}); break;
             case ')': lines.back().push_back({TokenKind::R_PAREN, {src[index]}}); break;
@@ -109,19 +110,19 @@ TokenLines lex(const std::string& src) {
             break;
 
             case '&':
-                if (src[index + 1] == '&') {
-                    lines.back().push_back({TokenKind::NAME, src.substr(index++, 2)}); // plusplused here
-                    // ++index;
-                    break;
-                }
-            [[fallthrough]];
+            //     if (src[index + 1] == '&') {
+            //         lines.back().push_back({TokenKind::NAME, src.substr(index++, 2)}); // plusplused here
+            //         // ++index;
+            //         break;
+            //     }
+            // [[fallthrough]];
 
             case '|':
-                if (src[index + 1] == '|') {
-                    lines.back().push_back({TokenKind::NAME, {src[index], src[++index]}});
-                    break;
-                }
-            [[fallthrough]];
+            //     if (src[index + 1] == '|') {
+            //         lines.back().push_back({TokenKind::NAME, {src[index], src[++index]}});
+            //         break;
+            //     }
+            // [[fallthrough]];
 
             case '!':
             case '@':
@@ -132,8 +133,14 @@ TokenLines lex(const std::string& src) {
             case '*':
             case '-':
             case '+':
-            case '~':
-                lines.back().push_back({TokenKind::NAME, {src[index]}}); break;
+            case '~':{
+                const char op = src[index];
+                const auto beginning = index;
+                while (src[++index] == op);
+                lines.back().push_back({TokenKind::NAME, src.substr(beginning, index - beginning)});
+                --index;
+            } break;
+
 
 
             default: break;

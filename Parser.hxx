@@ -53,6 +53,8 @@ public:
 
     std::pair<std::vector<ExprPtr>, Operators> parse() {
         std::vector<ExprPtr> expressions;
+        std::println("{}", __lines);
+
         for (; not atEnd(); ++lines, token_iterator = lines->begin()) {
             expressions.push_back(parseExpr());
 
@@ -98,9 +100,13 @@ public:
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
+                        puts("WHAT?");
                         using namespace precedence;
-                        case TokenKind::PREFIX:
-                            return std::make_unique<UnaryOp>(token.text, parseExpr(precFromToken(op->token.kind)));
+                        case TokenKind::PREFIX:{
+                            const auto prec = precFromToken(op->token.kind) + op->shift;
+                            std::clog << "prec: " << prec << '\n';
+                            return std::make_unique<UnaryOp>(token.text, parseExpr(prec));
+                        }
                             // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
                         // case TokenKind::INFIX :
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
@@ -122,14 +128,16 @@ public:
                 consume(L_PAREN);
                 const auto prec = consume();
 
-                int shift;
-                if (match("+")) {
-                    shift = 1;
-                    while (match("+")) ++shift;
-                }
-                else if (match("-")) {
-                    shift = -1;
-                    while (match("-")) --shift;
+                int shift{};
+                if (check(NAME)) {
+                    const Token& shift_token = consume();
+                    if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
+
+                    switch (shift_token.text.front()) {
+                        case '+': shift += shift_token.text.length(); break;
+                        case '-': shift -= shift_token.text.length(); break;
+                        default: error("Can only have '+' or '-' when specifying precedence");
+                    }
                 }
 
                 consume(R_PAREN);
@@ -192,6 +200,7 @@ public:
                     return std::make_unique<Closure>(std::move(params), std::move(body));
                 }
                 else { // tt's just grouping,
+                    puts("GROUPING!");
                     // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
                     auto expr = parseExpr();
                     consume(R_PAREN);

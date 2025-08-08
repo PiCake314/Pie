@@ -1,7 +1,6 @@
 
 CC = g++
-ARGS = -Wall -Wextra -Wimplicit-fallthrough 
-# -Wpedantic -Wno-gnu-case-range
+ARGS = -Wall -Wextra -Wimplicit-fallthrough -Wpedantic -Wno-gnu-case-range
 VER = -std=c++23
 
 clang: main.cc
