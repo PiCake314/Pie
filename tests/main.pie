@@ -1,14 +1,13 @@
-prefix(SUM) + = (a) => __builtin_add(a, 1);
-prefix(PROD++) ++ = (a) => __builtin_add(a, 2);
-prefix(SUM) +++ = (a) => __builtin_add(a, 3);
-
 print = __builtin_print;
 
-++ = (a, b) => __builtin_add(a, b)
-print(++(1, 2))
 
-x = 5;
-print(++ (+++ (+x)));
-print(++ +++ +x);
+a = 10;
 
+everything by value
+func = (b) => __builtin_add(b, a);
+
+a = 12;
+
+
+print(func(5));
 

@@ -198,12 +198,36 @@ struct Call : Expr {
     Node variant() const override { return this; }
 };
 
+
+using Value = std::variant<int, std::string, Closure>;
+using Environment = std::unordered_map<std::string, Value>;
+
 struct Closure : Expr {
     std::vector<std::string> params;
     ExprPtr body;
+    mutable std::optional<Environment> env{}; // make this optional<const Environment> would delete move/copy constructros
 
     Closure(std::vector<std::string> ps, ExprPtr b)
     : params{std::move(ps)}, body{std::move(b)} {};
+
+    void capture(Environment e) const {
+        std::print("Captured: {{");
+        for(const auto& [key, value] : e){
+            if (value.index() == 0){
+                std::print("{}: {}, ", key, std::get<0>(value));
+            }
+            else if(value.index() == 1) {
+                std::print("{}: {}, ", key, std::get<1>(value));
+            }
+            else std::print("{}: {}, ", key, "'Closure'");
+        }
+        std::println("}}");
+
+        if (env) error("Can't capture twice. Internal inerpreter error.\nFile a bug report please at:\nhttps://github.com/PiCake314/Pie");
+
+        // env = std::move(e);
+        env.emplace(std::move(e));
+    }
 
     void print() const override {
         std::cout << '(';
@@ -240,8 +264,9 @@ struct Fix : Expr {
 };
 
 struct Prefix : Fix {
-    Prefix(Token t, const int s, ExprPtr c)
-    : Fix{std::move(t), s, std::move(c)} {}
+    // Prefix(Token t, const int s, ExprPtr c)
+    // : Fix{std::move(t), s, std::move(c)} {}
+    using Fix::Fix;
 
     void print() const override {
         const char c = shift < 0 ? '-' : '+';
@@ -257,8 +282,7 @@ struct Prefix : Fix {
 };
 
 struct Infix : Fix {
-    Infix(Token t, const int s, ExprPtr c)
-    : Fix{std::move(t), s, std::move(c)} {}
+    using Fix::Fix;
 
     void print() const override {
         const char c = shift < 0 ? '-' : '+';
@@ -273,8 +297,7 @@ struct Infix : Fix {
 };
 
 struct Suffix : Fix {
-    Suffix(Token t, const int s, ExprPtr c)
-    : Fix{std::move(t), s, std::move(c)} {}
+    using Fix::Fix;
 
     void print() const override {
         const char c = shift < 0 ? '-' : '+';

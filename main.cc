@@ -35,6 +35,7 @@ int main(const int argc, const char* argv[]) {
     // std::println("{}", v); // uncomment this, and everything break!!!
 
     Parser p{v};
+    // std::println("{}", v); // printing after constructing the parser to not break stuff
     const auto [exprs, ops] = p.parse();
 
     // puts("Parsed..");

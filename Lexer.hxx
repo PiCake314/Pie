@@ -58,7 +58,11 @@ TokenLines lex(const std::string& src) {
 
         try{
         switch (src[index]) {
+            // ! remove pragmas
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wpedantic"
             case '0' ... '9': {
+            #pragma GCC diagnostic pop
                 const auto beginning = index;
                 while (isdigit(src.at(++index)));
                 // allow doubles in the future
@@ -69,8 +73,12 @@ TokenLines lex(const std::string& src) {
             } break;
 
             case '_':
+            // ! remove pragmas
+            #pragma GCC diagnostic push
+            #pragma GCC diagnostic ignored "-Wpedantic"
             case 'a' ... 'z':
             case 'A' ... 'Z':{
+            #pragma GCC diagnostic pop
                 const auto beginning = index;
                 while (isalnum(src.at(++index)) || src[index] == '_');
 

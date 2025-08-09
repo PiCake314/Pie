@@ -3,6 +3,9 @@
 #include "Token.hxx"
 #include <iostream>
 #include <source_location>
+#include <unordered_map>
+#include <format>
+#include <print>
 
 // not sure where to put it
 // keep it here for now...
@@ -22,3 +25,5 @@
     using std::operator""s;
     error("Expected token "s + stringify(exp) + " and found "s + stringify(got), location);
 }
+
+

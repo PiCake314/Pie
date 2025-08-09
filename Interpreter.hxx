@@ -12,40 +12,20 @@
 #include <ranges>
 #include <optional>
 #include <stdexcept>
-
 #include <cassert>
 
 
 
 struct Visitor {
-    // struct Builtin { std::string name; }; // for late
+    // struct Builtin { std::string name; }; // for later
 
-    using Value = std::variant<int, std::string, Closure>;
-
-    std::vector<std::unordered_map<std::string, Value>> env;
+    std::vector<Environment> env;
     const Operators ops;
-
-    struct ScopeGuard {
-        Visitor* v;
-        ScopeGuard(Visitor* t) noexcept : v{t} { v->scope(); }
-        ~ScopeGuard() { v->unscope(); }
-    };
 
 
     Visitor(Operators ops) noexcept : env(1), ops{std::move(ops)} {};
 
-    void scope() { env.emplace_back(); }
-    void unscope() { env.pop_back(); }
 
-    const Value& addVar(const std::string& name, const Value& v) { env.back()[name] = v; return v; }
-
-    std::optional<Value> getVar(const std::string& name) {
-        for (const auto& curr_env : env)
-            if (curr_env.contains(name)) return curr_env.at(name);
-
-
-        return {};
-    }
 
 
     Value operator()(const Num *n) { return std::stoi(n->num); }
@@ -133,28 +113,39 @@ struct Visitor {
             const auto& name = std::get<std::string>(var);
             if (isBuiltIn(name)) return evaluateBuiltin(call, name);
 
-            // otherwise, access the function from the env
-            const auto& opt = getVar(name);
-            if (not opt) error("Function not defined!");
-
-            var = *opt;
+            return var;
         }
 
 
         if (std::holds_alternative<Closure>(var)) {
             const auto& func = std::get<Closure>(var);
 
+            // assert(call->args.size() == func.params.size());
+            // assert(call->args.size() <= func.params.size());
+
+            // if (call->args.size() <= func.params.size()) {
+
+            // }
+
             for (const auto& [param, arg] : std::views::zip(func.params, call->args))
                 addVar(param, std::visit(*this, arg->variant()));
                 // env.back()[param] = std::visit(*this, arg->variant());
 
-            return std::visit(*this, func.body->variant());
+
+            env.push_back(*func.env);
+            auto ret = std::visit(*this, func.body->variant());
+            env.pop_back();
+            return ret;
         }
 
-        error("operator() applied on not-a-function");
+        // error("operator() applied on not-a-function");
+        return var;
     }
 
-    Value operator()(const Closure *c) { return *c; }
+    Value operator()(const Closure *c) {
+        c->capture(envStackToEnvMap());
+        return *c;
+    }
 
     Value operator()(const Fix *fix) { return std::visit(*this, fix->func->variant()); }
 
@@ -246,6 +237,41 @@ struct Visitor {
         error("something went wrong..;-; sorry!");
     }
 
+
+
+private:
+
+    struct ScopeGuard {
+        Visitor* v;
+        ScopeGuard(Visitor* t) noexcept : v{t} { v->scope(); }
+        ~ScopeGuard() { v->unscope(); }
+    };
+
+
+    void scope() { env.emplace_back(); }
+    void unscope() { env.pop_back(); }
+
+    const Value& addVar(const std::string& name, const Value& v) { env.back()[name] = v; return v; }
+
+    std::optional<Value> getVar(const std::string& name) {
+        for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
+            if (rev_it->contains(name)) return rev_it->at(name);
+
+
+        return {};
+    }
+
+
+    Environment envStackToEnvMap() const {
+        Environment e;
+
+        for(const auto& curr_env : env)
+            for(const auto& [key, value] : curr_env)
+                e[key] = value; // I want the recent values (higher in the stack) to be the ones captured
+
+
+        return e;
+    }
 
 };
 
