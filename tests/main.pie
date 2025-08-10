@@ -1,10 +1,20 @@
+print = __builtin_print;
 
-infix(PROD ) x     = (a, b) => __builtin_print(1); comment: first
 
-infix(x-   ) plus  = (a, b) => __builtin_print(2); comment: third
+infix(PROD ) x     = (a, b) => {
+    print(__LINE__);
+    print(__TEXT__);
+};
 
-infix(plus+) over  = (a, b) => __builtin_print(3); comment: second
+infix(x-   ) plus  = (a, b) => {
+    print(__LINE__);
+    print(__TEXT__);
+};
 
+infix(plus+) over  = (a, b) => {
+    print(__LINE__);
+    print(__TEXT__);
+};
 
 
 1 x 2 plus 2 over 3;

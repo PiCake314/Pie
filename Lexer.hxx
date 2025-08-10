@@ -53,6 +53,10 @@ TokenLines lex(const std::string& src) {
     TokenLines lines = {{}};
     Tokens line;
 
+    size_t line_count = 1;
+    size_t line_starting_index{};
+
+
     for (size_t index{}; index < src.length(); ++index) {
         // if (isspace(src[index])) continue;
 
@@ -91,6 +95,24 @@ TokenLines lex(const std::string& src) {
                     break;
                 }
 
+                if (word == "__TEXT__") [[unlikely]] {
+                    std::string line_text;
+
+                    for (size_t ind = line_starting_index; ind < src.size() and src[ind] != '\n'; ++ind)
+                        line_text += src[ind];
+
+                    lines.back().push_back({TokenKind::STRING, line_text});
+                    --index;
+                    break;
+                }
+
+                if (word == "__LINE__") [[unlikely]] {
+                    lines.back().push_back({TokenKind::NUM, std::to_string(line_count)});
+                    --index;
+                    break;
+                }
+
+
                 const TokenKind token = keyword(word);
 
                 lines.back().emplace_back(token, word);
@@ -113,6 +135,10 @@ TokenLines lex(const std::string& src) {
                 break;
 
             // case '\n': lines.back().clear(); break;
+            case '\n':
+                ++line_count;
+                line_starting_index = index + 1;
+                break;
 
             case '(': lines.back().push_back({TokenKind::L_PAREN, {src[index]}}); break;
             case ')': lines.back().push_back({TokenKind::R_PAREN, {src[index]}}); break;
