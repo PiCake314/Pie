@@ -384,4 +384,7 @@ public:
         std::copy(token_iterator, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
         puts("");
     }
+
+
+    const auto& operators() const noexcept { return ops; };
 };

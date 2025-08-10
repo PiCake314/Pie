@@ -5,6 +5,9 @@
 
 #include <numeric>
 
+using Operators = std::unordered_map<std::string, Fix*>;
+
+
 namespace precedence {
   inline constexpr auto LOW         = 0;
   inline constexpr auto ASSIGNMENT  = 100;
@@ -61,7 +64,8 @@ namespace precedence {
         // should I assume it already contains?
         if (not ops.contains(token.text)) error("Token does not name any precedende level or operator!");
 
-        return {TokenKind::NAME, token.text};
+        const auto& op = ops.at(token.text);
+        return op->high == op->low ? higher(op->low /*or op->high*/, ops) : op->high;
       }
     }
   }
@@ -83,7 +87,11 @@ namespace precedence {
         // should I assume it already contains?
         if (not ops.contains(token.text)) error("Token does not name any precedende level or operator!");
 
-        return {TokenKind::NAME, token.text};
+        const auto& op = ops.at(token.text);
+        return op->high == op->low ? lower(op->high /*or op->low*/, ops) : op->low;
+
+        // return std::midpoint(fromToken(op->high), fromToken(op->low), ops);
+
       }
     }
   }

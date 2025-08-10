@@ -1,9 +1,9 @@
 
-infix(PROD ) x     = (a, b) => __builtin_print(1);
+infix(PROD ) x     = (a, b) => __builtin_print(1); comment: first
 
-infix(x-   ) plus  = (a, b) => __builtin_print(2);
+infix(x-   ) plus  = (a, b) => __builtin_print(2); comment: third
 
-infix(plus+) over  = (a, b) => __builtin_print(3);
+infix(plus+) over  = (a, b) => __builtin_print(3); comment: second
 
 
 

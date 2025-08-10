@@ -10,7 +10,7 @@
 #include <variant>
 
 struct Expr;
-using ExprPtr = std::shared_ptr< Expr>;
+using ExprPtr = std::shared_ptr<Expr>;
 
 
 struct Num;
@@ -296,8 +296,6 @@ struct Fix : Expr {
     virtual TokenKind type() const = 0;
 };
 
-using Operators = std::unordered_map<std::string, Fix*>;
-
 
 struct Prefix : Fix {
     // Prefix(Token t, const int s, ExprPtr c)
@@ -305,15 +303,17 @@ struct Prefix : Fix {
     using Fix::Fix;
 
     void print(const size_t indent) const override {
-        // const auto [c, token] = [this] -> std::pair<char, Token> {
-        //     return 
-        // }();
+        const auto [c, token] = [this] -> std::pair<char, Token> {
+            if (shift < 0) return {'-', high};
+            if (shift > 0) return {'+', low};
+            return {'\0', high}; // it doesn't matter. high == low
+        }();
 
-        // const std::string shifts(size_t(std::abs(shift)), c);
+        const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        // std::cout << "prefix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
-        // func->print(indent);
+        std::cout << "prefix(" << token.text << shifts << ") "  << name << ' ';
+        func->print(indent);
     }
 
 
@@ -325,11 +325,16 @@ struct Infix : Fix {
     using Fix::Fix;
 
     void print(const size_t indent) const override {
-        const char c = shift < 0 ? '-' : '+';
+        const auto [c, token] = [this] -> std::pair<char, Token> {
+            if (shift < 0) return {'-', high};
+            if (shift > 0) return {'+', low};
+            return {'\0', high}; // it doesn't matter. high == low
+        }();
+
         const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        // std::cout << "infix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        std::cout << "infix(" << token.text << shifts << ") "  << name << ' ';
         func->print(indent);
     }
 
@@ -341,11 +346,16 @@ struct Suffix : Fix {
     using Fix::Fix;
 
     void print(const size_t indent) const override {
-        const char c = shift < 0 ? '-' : '+';
+        const auto [c, token] = [this] -> std::pair<char, Token> {
+            if (shift < 0) return {'-', high};
+            if (shift > 0) return {'+', low};
+            return {'\0', high}; // it doesn't matter. high == low
+        }();
+
         const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        // std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << " = ";
+        std::cout << "suffix(" << token.text << shifts << ") "  << name << ' ';
         func->print(indent);
     }
 

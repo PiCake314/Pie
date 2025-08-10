@@ -51,12 +51,18 @@ int main(const int argc, const char* argv[]) {
 
     const auto [exprs, ops] = p.parse();
 
-    puts("Parsed..");
-    for(const auto& expr : exprs)
-        (expr->print(0), puts(";"));
+    // puts("Parsed..");
+    
+    // puts("\nPrecedences:");
+    // for (const auto& ops = p.operators();  const auto& [name, fix] : ops) 
+    //     std::println("OP: {} = {}", name, precedence::calculate(fix->high, fix->low, ops));
 
 
-    puts("Output:\n");
+    // for(const auto& expr : exprs)
+    //     (expr->print(0), puts(";"));
+
+    // puts("Output:\n");
+
     Visitor visitor{ops};
     for (const auto& expr : exprs)
         std::visit(visitor, expr->variant());

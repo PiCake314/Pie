@@ -80,14 +80,10 @@ const char* stringify(const TokenKind token) noexcept {
 
 
 struct Token {
-    // Token(const TokenKind k, const char c)
-    // : kind{k}, text{c} {}
-
-    // Token(const TokenKind k, std::string t)
-    // : kind{k}, text{std::move(t)} {}
-
     TokenKind kind;
     std::string text;
+
+    bool operator==(const Token&) const = default;
 };
 
 
