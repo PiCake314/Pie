@@ -283,17 +283,21 @@ struct Fix : Expr {
     // std::string name;
     // TokenKind prec;
 
+    std::string name;
     Token high;
     Token low;
     int shift; // needed for printing
     ExprPtr func;
 
-    Fix(Token up, Token down, const int s, ExprPtr c)
-    : high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
+    Fix(std::string n, Token up, Token down, const int s, ExprPtr c)
+    : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
 
 
     virtual TokenKind type() const = 0;
 };
+
+using Operators = std::unordered_map<std::string, Fix*>;
+
 
 struct Prefix : Fix {
     // Prefix(Token t, const int s, ExprPtr c)
@@ -301,12 +305,15 @@ struct Prefix : Fix {
     using Fix::Fix;
 
     void print(const size_t indent) const override {
-        const char c = shift < 0 ? '-' : '+';
-        const std::string shifts(size_t(std::abs(shift)), c);
+        // const auto [c, token] = [this] -> std::pair<char, Token> {
+        //     return 
+        // }();
+
+        // const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
         // std::cout << "prefix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
-        func->print(indent);
+        // func->print(indent);
     }
 
 

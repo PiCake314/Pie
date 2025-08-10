@@ -1,11 +1,9 @@
 #pragma once
 
 #include "utils.hxx"
+#include "Expr.hxx"
 
 #include <numeric>
-
-using Operators = std::unordered_map<std::string, Fix*>;
-
 
 namespace precedence {
   inline constexpr auto LOW         = 0;
@@ -34,60 +32,58 @@ namespace precedence {
       case TokenKind::PR_HIGH:       return HIGH;
 
       // default: 
+      default:
+        if (not ops.contains(token.text)) error("Token does not name any precedende level!");
+
+        const auto& op = ops.at(token.text);
+        return std::midpoint(fromToken(op->high, ops), fromToken(op->low, ops));
+    }
+  }
+  
+  int calculate(const Token& high, const Token& low, const Operators& ops) noexcept {
+    return std::midpoint(fromToken(high, ops), fromToken(low, ops));
+  }
+
+  Token higher(const Token& token, const Operators& ops) noexcept {
+    switch (token.kind) {
+      case TokenKind::PR_LOW:        return {TokenKind::PR_ASSIGNMENT, stringify(TokenKind::PR_ASSIGNMENT)};
+      case TokenKind::PR_ASSIGNMENT: return {TokenKind::PR_SUM, stringify(TokenKind::PR_SUM)};
+      case TokenKind::PR_SUM:        return {TokenKind::PR_PROD, stringify(TokenKind::PR_PROD)};
+      case TokenKind::PR_PROD:       return {TokenKind::PR_OP_CALL, stringify(TokenKind::PR_OP_CALL)};
+      case TokenKind::PR_OP_CALL:    return {TokenKind::PR_PREFIX, stringify(TokenKind::PR_PREFIX)};
+      case TokenKind::PR_PREFIX:     return {TokenKind::PR_POSTFIX, stringify(TokenKind::PR_POSTFIX)};
+      case TokenKind::PR_POSTFIX:    return {TokenKind::PR_CALL, stringify(TokenKind::PR_CALL)};
+      case TokenKind::PR_CALL:       return {TokenKind::PR_HIGH, stringify(TokenKind::PR_HIGH)};
+      case TokenKind::PR_HIGH:       error("Can't go higher than HIGH!");
+
+      // default: 
       default: {
+        // should I assume it already contains?
         if (not ops.contains(token.text)) error("Token does not name any precedende level or operator!");
 
-        const auto& op = ops.at(token.text);
-        return std::midpoint(
-          fromToken(op->low, ops),
-          fromToken(op->high, ops)
-        );
+        return {TokenKind::NAME, token.text};
       }
     }
   }
 
-  int higher(const Token& token, const Operators& ops) noexcept {
+  Token lower(const Token& token, const Operators& ops) noexcept {
     switch (token.kind) {
-      case TokenKind::PR_LOW:        return ASSIGNMENT;
-      case TokenKind::PR_ASSIGNMENT: return SUM;
-      case TokenKind::PR_SUM:        return PROD;
-      case TokenKind::PR_PROD:       return OP_CALL;
-      case TokenKind::PR_OP_CALL:    return PREFIX;
-      case TokenKind::PR_PREFIX:     return POSTFIX;
-      case TokenKind::PR_POSTFIX:    return CALL;
-      case TokenKind::PR_CALL:       return HIGH;
-      case TokenKind::PR_HIGH:       return 1.5 * HIGH;
+      case TokenKind::PR_LOW:        error("Can't go lower than LOW!");
+      case TokenKind::PR_ASSIGNMENT: return {TokenKind::PR_LOW, stringify(TokenKind::PR_LOW)};
+      case TokenKind::PR_SUM:        return {TokenKind::PR_ASSIGNMENT, stringify(TokenKind::PR_ASSIGNMENT)};
+      case TokenKind::PR_PROD:       return {TokenKind::PR_SUM, stringify(TokenKind::PR_SUM)};
+      case TokenKind::PR_OP_CALL:    return {TokenKind::PR_PROD, stringify(TokenKind::PR_PROD)};
+      case TokenKind::PR_PREFIX:     return {TokenKind::PR_OP_CALL, stringify(TokenKind::PR_OP_CALL)};
+      case TokenKind::PR_POSTFIX:    return {TokenKind::PR_PREFIX, stringify(TokenKind::PR_PREFIX)};
+      case TokenKind::PR_CALL:       return {TokenKind::PR_POSTFIX, stringify(TokenKind::PR_POSTFIX)};
+      case TokenKind::PR_HIGH:       return {TokenKind::PR_CALL, stringify(TokenKind::PR_CALL)};
 
       // default: 
       default: {
         // should I assume it already contains?
-        // if (not ops.contains(token.text)) error("Token does not name any precedende level or operator!");
+        if (not ops.contains(token.text)) error("Token does not name any precedende level or operator!");
 
-        const auto& op = ops.at(token.text);
-        return fromToken(op->high, ops);
-      }
-    }
-  }
-
-  int lower(const Token& token, const Operators& ops) noexcept {
-    switch (token.kind) {
-      case TokenKind::PR_LOW:        return .5 * LOW;
-      case TokenKind::PR_ASSIGNMENT: return LOW;
-      case TokenKind::PR_SUM:        return ASSIGNMENT;
-      case TokenKind::PR_PROD:       return SUM;
-      case TokenKind::PR_OP_CALL:    return PROD;
-      case TokenKind::PR_PREFIX:     return OP_CALL;
-      case TokenKind::PR_POSTFIX:    return PREFIX;
-      case TokenKind::PR_CALL:       return POSTFIX;
-      case TokenKind::PR_HIGH:       return CALL;
-
-      // default: 
-      default: {
-        // should I assume it already contains?
-        // if (not ops.contains(token.text)) error("Token does not name any precedende level or operator!");
-
-        const auto& op = ops.at(token.text);
-        return fromToken(op->high, ops);
+        return {TokenKind::NAME, token.text};
       }
     }
   }

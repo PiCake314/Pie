@@ -95,10 +95,10 @@ public:
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
-                        using namespace precedence;
-                        case TokenKind::PREFIX:
-                            const auto prec = fromToken(op->token.kind, ops);
+                        case TokenKind::PREFIX:{
+                            const auto prec = precedence::calculate(op->high, op->low, ops);
                             return std::make_unique<UnaryOp>(token.text, parseExpr(prec));
+                        }
                             // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
                         // case TokenKind::INFIX :
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
@@ -118,7 +118,7 @@ public:
             case INFIX : 
             case SUFFIX: {
                 consume(L_PAREN);
-                const auto prec = consume();
+                Token low = consume();
 
                 int shift{};
                 if (check(NAME)) {
@@ -134,9 +134,10 @@ public:
                     }
                 }
 
-                const Token other = [shift, &prec] {
-                    if (shift > 0) return precedence::higher(prec);
-
+                const Token high = [shift, &low, this] {
+                    if (shift > 0) return precedence::higher(low, ops);
+                    if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
+                    return low;
                 }();
 
                 consume(R_PAREN);
@@ -153,19 +154,19 @@ public:
                 // gotta dry out this part
                 // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
                 if (token.kind == PREFIX){
-                    auto p = std::make_unique<Prefix>(Token{prec.kind, name.text}, shift, std::move(func));
+                    auto p = std::make_unique<Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
                     ops[name.text] = p.get();
                     return p;
                 }
                 else if (token.kind == INFIX) {
-                    auto p = std::make_unique<Infix> (Token{prec.kind, name.text}, shift, std::move(func));
+                    auto p = std::make_unique<Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
                     ops[name.text] = p.get();
                     return p;
 
                 }
                 // if (token.kind == SUFFIX)
                 else {
-                    auto p = std::make_unique<Suffix>(Token{prec.kind, name.text}, shift, std::move(func));
+                    auto p = std::make_unique<Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
                     ops[name.text] = p.get();
                     return p;
                 }
@@ -245,12 +246,12 @@ public:
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
-                        using namespace precedence;
                         // case TokenKind::PREFIX:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
-                        case TokenKind::INFIX :
-                            const auto prec = fromToken(op->token.kind, ops);
+                        case TokenKind::INFIX :{
+                            const auto prec = precedence::calculate(op->high, op->low, ops);
                             return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(prec));
+                        }
                         case TokenKind::SUFFIX:
                             return std::make_unique<PostOp>(token.text, std::move(left));
 
@@ -364,7 +365,7 @@ public:
                 if (not ops.contains(token.text)) error("Operator " + token.text + " not found!");
 
                 const auto op = ops[token.text];
-                return precedence::fromToken(op->token.kind, ops);
+                return precedence::calculate(op->high, op->low, ops);
             }
 
             case L_PAREN: return precedence::CALL;

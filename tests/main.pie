@@ -1,6 +1,12 @@
 
-infix(PROD ) x     = (a, b) => __builtin_mul(a, b);
+infix(PROD ) x     = (a, b) => __builtin_print(1);
 
-infix(x-   ) plus  = (a, b) => __builtin_add(a, b);
+infix(x-   ) plus  = (a, b) => __builtin_print(2);
 
-infix(plus+) over  = (a, b) => __builtin_div(a, b);
+infix(plus+) over  = (a, b) => __builtin_print(3);
+
+
+
+1 x 2 plus 2 over 3;
+
+
