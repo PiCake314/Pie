@@ -16,16 +16,13 @@
 #include <deque>
 #include <algorithm>
 #include <ranges>
-// #include <list>
+#include <cassert>
 
 
 // [[noreturn]] void error(const std::string& msg) noexcept {
 //     puts(msg.c_str());
 //     exit(1);
 // }
-
-
-using Operators = std::unordered_map<std::string, Fix*>;
 
 
 class Parser {
@@ -100,7 +97,8 @@ public:
                     switch (const auto op = ops[token.text]; op->type()) {
                         using namespace precedence;
                         case TokenKind::PREFIX:
-                            return std::make_unique<UnaryOp>(token.text, parseExpr(precFromToken(op->token.kind) + op->shift));
+                            const auto prec = fromToken(op->token.kind, ops);
+                            return std::make_unique<UnaryOp>(token.text, parseExpr(prec));
                             // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
                         // case TokenKind::INFIX :
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
@@ -125,14 +123,21 @@ public:
                 int shift{};
                 if (check(NAME)) {
                     const Token& shift_token = consume();
-                    if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
+                    assert(shift_token.text.length() <= 1);
 
-                    switch (shift_token.text.front()) {
-                        case '+': shift += shift_token.text.length(); break;
-                        case '-': shift -= shift_token.text.length(); break;
-                        default: error("Can only have '+' or '-' when specifying precedence");
+                    if (shift_token.text.length() == 1){
+                        if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
+                            error("can only have '+' or '-' after precedene!");
+                        // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
+
+                        shift = shift_token.text[0] == '+' ? 1 : -1;
                     }
                 }
+
+                const Token other = [shift, &prec] {
+                    if (shift > 0) return precedence::higher(prec);
+
+                }();
 
                 consume(R_PAREN);
 
@@ -244,7 +249,8 @@ public:
                         // case TokenKind::PREFIX:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :
-                            return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(precFromToken(op->token.kind) + op->shift));
+                            const auto prec = fromToken(op->token.kind, ops);
+                            return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(prec));
                         case TokenKind::SUFFIX:
                             return std::make_unique<PostOp>(token.text, std::move(left));
 
@@ -358,7 +364,7 @@ public:
                 if (not ops.contains(token.text)) error("Operator " + token.text + " not found!");
 
                 const auto op = ops[token.text];
-                return precedence::precFromToken(op->token.kind) + op->shift;
+                return precedence::fromToken(op->token.kind, ops);
             }
 
             case L_PAREN: return precedence::CALL;

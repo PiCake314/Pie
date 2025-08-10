@@ -1,0 +1,6 @@
+
+infix(PROD ) x     = (a, b) => __builtin_mul(a, b);
+
+infix(x-   ) plus  = (a, b) => __builtin_add(a, b);
+
+infix(plus+) over  = (a, b) => __builtin_div(a, b);

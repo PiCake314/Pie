@@ -283,12 +283,13 @@ struct Fix : Expr {
     // std::string name;
     // TokenKind prec;
 
-    Token token;
-    int shift;
+    Token high;
+    Token low;
+    int shift; // needed for printing
     ExprPtr func;
 
-    Fix(Token t, const int s, ExprPtr c)
-    : token{std::move(t)}, shift{s}, func{std::move(c)} {}
+    Fix(Token up, Token down, const int s, ExprPtr c)
+    : high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
 
 
     virtual TokenKind type() const = 0;
@@ -303,7 +304,8 @@ struct Prefix : Fix {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "prefix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        //! FIX THIS
+        // std::cout << "prefix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
         func->print(indent);
     }
 
@@ -319,7 +321,8 @@ struct Infix : Fix {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "infix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
+        //! FIX THIS
+        // std::cout << "infix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
         func->print(indent);
     }
 
@@ -334,7 +337,8 @@ struct Suffix : Fix {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << " = ";
+        //! FIX THIS
+        // std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << " = ";
         func->print(indent);
     }
 
