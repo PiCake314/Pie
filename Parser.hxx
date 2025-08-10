@@ -29,9 +29,10 @@ using Operators = std::unordered_map<std::string, Fix*>;
 
 
 class Parser {
-    TokenLines __lines; // owner of memory for iterator below
-    typename TokenLines::iterator lines;
-    // Tokens tokens; 
+    // TokenLines __lines; // owner of memory for iterator below
+    // typename TokenLines::iterator lines;
+
+    Tokens tokens;         // this is the owner of the memory now
     typename Tokens::iterator token_iterator;
 
     Operators ops;
@@ -40,12 +41,12 @@ class Parser {
     std::deque<Token> red;
 
 public:
-    Parser(TokenLines l) : __lines{std::move(l)}, lines{__lines.begin()} {
-        if (__lines.empty()) [[unlikely]] error("Empty File!");
-        token_iterator = lines->begin();
+    Parser(Tokens t) : tokens{std::move(t)}, token_iterator{tokens.begin()} {
+        // if (__lines.empty()) [[unlikely]] error("Empty File!");
+        // token_iterator = lines->begin();
     }
 
-    [[nodiscard]] bool atEnd() const noexcept { return lines == __lines.end() or token_iterator == __lines.back().end(); }
+    [[nodiscard]] bool atEnd() const noexcept { return token_iterator == tokens.end() or token_iterator->kind == TokenKind::END; }
 
     // Parser(Tokens l) : tokens{std::move(l)}, token{tokens.begin()} { }
     // [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
@@ -54,11 +55,9 @@ public:
     std::pair<std::vector<ExprPtr>, Operators> parse() {
         std::vector<ExprPtr> expressions;
 
-        for (; not atEnd(); ++lines, token_iterator = lines->begin()) {
+        while (not atEnd()) {
             expressions.push_back(parseExpr());
-
-            if (not atEnd())
-                consume(TokenKind::SEMI);
+            consume(TokenKind::SEMI);
         }
 
 
@@ -167,6 +166,16 @@ public:
                 }
             }
             break;
+
+            case L_BRACE: {
+                std::vector<ExprPtr> lines;
+                while(not match(R_BRACE)) {
+                    lines.push_back(parseExpr());
+                    consume(SEMI);
+                }
+
+                return std::make_unique<Block>(std::move(lines));
+            }
 
             case L_PAREN: {
                 if (match(R_PAREN)) { // closure
@@ -313,7 +322,6 @@ public:
     Token lookAhead(const size_t distance) {
         while (distance >= red.size()) {
             if (atEnd()) error("out of token!");
-
             red.push_back(*token_iterator++);
         }
 
@@ -364,9 +372,9 @@ public:
     /**
      * @attention only call right before calling error/expected
      */
-    void log() const {
+    void log() {
         puts("");
-        std::copy(token_iterator, lines->end(), std::ostream_iterator<Token>{std::cout, " "});
+        std::copy(token_iterator, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
         puts("");
     }
 };

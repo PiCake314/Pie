@@ -5,6 +5,7 @@
 #include <cmath>
 #include <string>
 #include <utility>
+#include <algorithm>
 #include <memory>
 #include <variant>
 
@@ -21,6 +22,7 @@ struct BinOp;
 struct PostOp;
 struct Call;
 struct Closure;
+struct Block;
 struct Fix;
 // struct Prefix;
 // struct Infix;
@@ -38,7 +40,8 @@ using Node = std::variant<
     const PostOp*,
     const Call*,
     const Closure*,
-    const Fix*
+    const Fix*,
+    const Block*
     // const Prefix*,
     // const Infix*,
     // const Suffix*
@@ -205,28 +208,34 @@ using Environment = std::unordered_map<std::string, Value>;
 struct Closure : Expr {
     std::vector<std::string> params;
     ExprPtr body;
+
+    private:
     mutable std::optional<Environment> env{}; // make this optional<const Environment> would delete move/copy constructros
+    public:
 
     Closure(std::vector<std::string> ps, ExprPtr b)
     : params{std::move(ps)}, body{std::move(b)} {};
 
     void capture(Environment e) const {
-        std::print("Captured: {{");
-        for(const auto& [key, value] : e){
-            if (value.index() == 0){
-                std::print("{}: {}, ", key, std::get<0>(value));
-            }
-            else if(value.index() == 1) {
-                std::print("{}: {}, ", key, std::get<1>(value));
-            }
-            else std::print("{}: {}, ", key, "'Closure'");
-        }
-        std::println("}}");
+        // std::print("Captured: {{");
+        // for(const auto& [key, value] : e){
+        //     if (value.index() == 0){
+        //         std::print("{}: {}, ", key, std::get<0>(value));
+        //     }
+        //     else if(value.index() == 1) {
+        //         std::print("{}: {}, ", key, std::get<1>(value));
+        //     }
+        //     else std::print("{}: {}, ", key, "'Closure'");
+        // }
+        // std::println("}}");
 
         if (env) error("Can't capture twice. Internal inerpreter error.\nFile a bug report please at:\nhttps://github.com/PiCake314/Pie");
-
-        // env = std::move(e);
         env.emplace(std::move(e));
+    }
+
+    const Environment& environment() const {
+        if(not env) error("Use bofore initialization!");
+        return *env;
     }
 
     void print() const override {
@@ -244,6 +253,23 @@ struct Closure : Expr {
 };
 
 
+struct Block : Expr {
+    std::vector<ExprPtr> lines;
+
+    Block(std::vector<ExprPtr> l) noexcept : lines{std::move(l)} {};
+
+
+    void print() const override {
+        std::cout << " {\n";
+
+        std::ranges::for_each(lines, &Expr::print);
+
+        std::cout << "\n}\n";
+    }
+
+
+    Node variant() const override { return this; }
+};
 
 
 // defintions of operators. Usage is BinOp or UnaryOp

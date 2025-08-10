@@ -1,13 +1,30 @@
 print = __builtin_print;
 
+infix(SUM) ADD = (a, b) => __builtin_add(a, b);
+
+
+note = 5;
+x = 0; is a comment
+
+
+
+
+func = (a, b, c) => {
+    print(x);
+    print(a);
+    x = a + b;
+    print(x);
+    x = x + c;
+    print(x);
+    x;
+};
 
 a = 10;
+print(a);
+b = 20;
 
-everything by value
-func = (b) => __builtin_add(b, a);
+6 or 33?
+print(func(1, 2, 3));
 
-a = 12;
-
-
-print(func(5));
-
+print(a);
+print(b);

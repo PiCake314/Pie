@@ -3,6 +3,7 @@
 #include <sstream>
 #include <vector>
 #include <fstream>
+#include <utility>
 
 #include "Lexer.hxx"
 #include "Parser.hxx"
@@ -21,6 +22,16 @@
 }
 
 
+Tokens flattenLines(TokenLines&& lines) {
+    Tokens tokens;
+
+    for (auto&& line : lines)
+        for (auto&& t : line)
+            tokens.push_back(std::move(t));
+
+    return tokens;
+}
+
 
 int main(const int argc, const char* argv[]) {
     if (argc != 2) error("Wrong number of arguments!");
@@ -31,21 +42,23 @@ int main(const int argc, const char* argv[]) {
 
     // std::println("{}", src);
 
-    const auto v = lex(src);
+    auto v = lex(src);
     // std::println("{}", v); // uncomment this, and everything break!!!
 
-    Parser p{v};
-    // std::println("{}", v); // printing after constructing the parser to not break stuff
+    const auto flattened_v = flattenLines(std::move(v));
+    Parser p{flattened_v};
+    // std::println("{}", flattened_v);
+
     const auto [exprs, ops] = p.parse();
 
-    // puts("Parsed..");
-    // for(const auto& expr : exprs)
-    //     (expr->print(), puts(";"));
+    puts("Parsed..");
+    for(const auto& expr : exprs)
+        (expr->print(), puts(";"));
 
 
     // puts("Output:\n");
-    Visitor visitor{ops};
-    for (const auto& expr : exprs)
-        std::visit(visitor, expr->variant());
+    // Visitor visitor{ops};
+    // for (const auto& expr : exprs)
+    //     std::visit(visitor, expr->variant());
 
 }

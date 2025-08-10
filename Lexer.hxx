@@ -110,6 +110,13 @@ TokenLines lex(const std::string& src) {
             case '(': lines.back().push_back({TokenKind::L_PAREN, {src[index]}}); break;
             case ')': lines.back().push_back({TokenKind::R_PAREN, {src[index]}}); break;
 
+            case '{':
+                lines.back().push_back({TokenKind::L_BRACE, {src[index]}});
+                lines.push_back({});
+                break;
+
+            case '}': lines.back().push_back({TokenKind::R_BRACE, {src[index]}}); break;
+
             case '"':{
                 const size_t old = index;
                 while(src[++index] != '"');

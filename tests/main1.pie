@@ -66,7 +66,7 @@ not not 10; yields 1
 
 infix has to be assigned to a function that takes in 2 arguments.
 prefix and suffix must take one arguemnt
-infix(PROD) x = (a, b) => __builtint_nul(a, b);
+infix(PROD) x = (a, b) => __builtint_mul(a, b);
 2 x 2; yields 4
 suffix(POSTFIX) ! = (x) => __builtint_neg(x);
 

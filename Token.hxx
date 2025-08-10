@@ -13,10 +13,8 @@ enum class TokenKind {
     COMMA,
     NUM,
     STRING,
-    // PLUS,
-    // DASH,
-    // STAR,
-    // SLASH,
+    L_BRACE,
+    R_BRACE,
     L_PAREN,
     R_PAREN,
     FAT_ARROW,
@@ -53,6 +51,8 @@ const char* stringify(const TokenKind token) noexcept {
         case NUM:           return "NUM";
         case STRING:        return "STRING";
         case END:           return "END";
+        case L_BRACE:       return "L_BRACE";
+        case R_BRACE:       return "R_BRACE";
         case L_PAREN:       return "L_PAREN";
         case R_PAREN:       return "R_PAREN";
         case COMMA:         return "COMMA";
@@ -92,7 +92,7 @@ struct Token {
 
 
 std::ostream& operator<<(std::ostream& os, const Token& token) {
-    return os << "Token{" << stringify(token.kind) << ", " << token.text << "}";
+    return os << "Token{" << stringify(token.kind) << ", '" << token.text << "'}";
 }
 
 template <>

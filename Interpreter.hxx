@@ -123,19 +123,31 @@ struct Visitor {
             // assert(call->args.size() == func.params.size());
             // assert(call->args.size() <= func.params.size());
 
-            // if (call->args.size() <= func.params.size()) {
+            if (const auto args_size = call->args.size(); args_size < func.params.size()) {
+                Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.body};
 
-            // }
+                Environment argument_capture_list;
+                for(const auto& [name, value] : std::views::zip(func.params, call->args))
+                    argument_capture_list[name] = std::visit(*this, value->variant());
+
+                closure.capture(argument_capture_list);
+
+                return closure;
+            }
 
             for (const auto& [param, arg] : std::views::zip(func.params, call->args))
                 addVar(param, std::visit(*this, arg->variant()));
                 // env.back()[param] = std::visit(*this, arg->variant());
 
+            ScopeGuard sg{this, func.environment()};
 
-            env.push_back(*func.env);
-            auto ret = std::visit(*this, func.body->variant());
-            env.pop_back();
-            return ret;
+
+            //* this considers the capture list when evaluating
+            //* we're currently not considering the capture list envoronment to match the semantics are popular languages
+            //* this could be changed in the future
+            // ScopeGuard sg{this, func.environment()};
+
+            return std::visit(*this, func.body->variant());
         }
 
         // error("operator() applied on not-a-function");
@@ -143,8 +155,19 @@ struct Visitor {
     }
 
     Value operator()(const Closure *c) {
-        c->capture(envStackToEnvMap());
+        c->capture(envStackToEnvMap()); // always capturing is fine. It's whether we conside the captured env whe evaluating the call to the closure
         return *c;
+    }
+
+
+    Value operator()(const Block *block) {
+        ScopeGuard sg{this};
+
+        Value ret;
+        for (const auto& line : block->lines) 
+            ret = std::visit(*this, line->variant()); // a scope's value is the last expression
+
+        return ret;
     }
 
     Value operator()(const Fix *fix) { return std::visit(*this, fix->func->variant()); }
@@ -243,7 +266,14 @@ private:
 
     struct ScopeGuard {
         Visitor* v;
-        ScopeGuard(Visitor* t) noexcept : v{t} { v->scope(); }
+        ScopeGuard(Visitor* t, const Environment& e = {}) noexcept : v{t} {
+            v->scope();
+
+            if (not e.empty())
+                for (const auto& [name, value] : e)
+                    v->addVar(name, value);
+        }
+
         ~ScopeGuard() { v->unscope(); }
     };
 
