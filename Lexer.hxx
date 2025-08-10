@@ -80,10 +80,17 @@ TokenLines lex(const std::string& src) {
             case 'A' ... 'Z':{
             #pragma GCC diagnostic pop
                 const auto beginning = index;
-                while (isalnum(src.at(++index)) || src[index] == '_');
+                while (isalnum(src.at(++index)) or src[index] == '_');
 
                 const auto word = src.substr(beginning, index - beginning);
                 // check for keywords here :)
+
+                // technically "comments" and friends are keywords..ghost keywords!
+                if((word == "comment" or word == "note" or word == "PS") and src[index] == ':'){
+                    while(src.at(++index) != '\n');
+                    break;
+                }
+
                 const TokenKind token = keyword(word);
 
                 lines.back().emplace_back(token, word);
@@ -105,14 +112,14 @@ TokenLines lex(const std::string& src) {
                 lines.push_back({});
                 break;
 
-            case '\n': lines.back().clear(); break;
+            // case '\n': lines.back().clear(); break;
 
             case '(': lines.back().push_back({TokenKind::L_PAREN, {src[index]}}); break;
             case ')': lines.back().push_back({TokenKind::R_PAREN, {src[index]}}); break;
 
             case '{':
                 lines.back().push_back({TokenKind::L_BRACE, {src[index]}});
-                lines.push_back({});
+                // lines.push_back({});
                 break;
 
             case '}': lines.back().push_back({TokenKind::R_BRACE, {src[index]}}); break;

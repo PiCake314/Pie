@@ -53,12 +53,12 @@ int main(const int argc, const char* argv[]) {
 
     puts("Parsed..");
     for(const auto& expr : exprs)
-        (expr->print(), puts(";"));
+        (expr->print(0), puts(";"));
 
 
-    // puts("Output:\n");
-    // Visitor visitor{ops};
-    // for (const auto& expr : exprs)
-    //     std::visit(visitor, expr->variant());
+    puts("Output:\n");
+    Visitor visitor{ops};
+    for (const auto& expr : exprs)
+        std::visit(visitor, expr->variant());
 
 }

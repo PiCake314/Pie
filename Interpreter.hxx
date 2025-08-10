@@ -223,7 +223,7 @@ struct Visitor {
 
             if (std::holds_alternative<Closure>(value1)){
                 const auto& v = std::get<Closure>(value1);
-                v.print();
+                v.print(0);
                 puts(""); // .print() doesn't add a \n so we add it manually
                 return value1; // I have to return a value. Maybe return what I printed?
             }

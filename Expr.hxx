@@ -50,7 +50,7 @@ using Node = std::variant<
 
 struct Expr {
     virtual ~Expr() = default;
-    virtual void print() const = 0;
+    virtual void print(const size_t indent) const = 0;
 
     virtual Node variant() const = 0;
 };
@@ -61,7 +61,7 @@ struct Num : Expr {
 
     Num(std::string n) noexcept : num{std::move(n)} {}
 
-    void print() const override { std::cout << num; }
+    void print(const size_t) const override { std::cout << num; }
 
     Node variant() const override { return this; }
 };
@@ -72,7 +72,7 @@ struct String : Expr {
 
     String(std::string s) noexcept : str{std::move(s)} {}
 
-    void print() const override { std::cout << '"' << str << '"'; }
+    void print(const size_t) const override { std::cout << '"' << str << '"'; }
 
     Node variant() const override { return this; }
 };
@@ -84,7 +84,7 @@ struct Name : Expr {
 
     Name(std::string n) noexcept : name{std::move(n)} {}
 
-    void print() const override { std::cout << name; }
+    void print(const size_t) const override { std::cout << name; }
 
     Node variant() const override { return this; }
 };
@@ -99,9 +99,9 @@ struct Assignment : Expr {
     : name{std::move(n)}, expr{std::move(e)}
     {}
 
-    void print() const override {
+    void print(const size_t indent) const override {
         std::cout << name << " = ";
-        expr->print();
+        expr->print(indent);
     }
 
     Node variant() const override { return this; }
@@ -117,11 +117,11 @@ struct UnaryOp : Expr {
     : text{std::move(t)}, expr{std::move(e)}
     {}
 
-    void print() const override {
+    void print(const size_t indent) const override {
         // puts("\nUNARY");
 
         std::cout << '(' << text << ' ';
-        expr->print();
+        expr->print(indent);
         std::cout << ')';
     }
 
@@ -139,13 +139,13 @@ struct BinOp : Expr {
     : lhs{std::move(e1)}, text{std::move(txt)}, rhs{std::move(e2)}
     {}
 
-    void print() const override {
+    void print(const size_t indent) const override {
         std::cout << '(';
 
-        lhs->print();
+        lhs->print(indent);
         // puts("\nBINARY");
         std::cout << ' ' << text << ' ';
-        rhs->print();
+        rhs->print(indent);
 
         std::cout << ')';
     }
@@ -163,11 +163,11 @@ struct PostOp : Expr {
     : text{std::move(t)}, expr{std::move(e)}
     {}
 
-    void print() const override {
+    void print(const size_t indent) const override {
         // puts("\nPOST");
 
         std::cout << '(';
-        expr->print();
+        expr->print(indent);
         std::cout << ' ' << text << ')';
     }
 
@@ -184,14 +184,14 @@ struct Call : Expr {
     : func{std::move(function)}, args{std::move(arguments)}
     {}
 
-    void print() const override {
-        func->print();
+    void print(const size_t indent) const override {
+        func->print(indent);
         std::cout << '(';
 
         std::string_view comma = "";
         for (const auto& arg : args) {
             std::cout << comma;
-            arg->print();
+            arg->print(indent);
             comma = ", ";
         }
 
@@ -238,7 +238,7 @@ struct Closure : Expr {
         return *env;
     }
 
-    void print() const override {
+    void print(const size_t indent) const override {
         std::cout << '(';
 
         if (not params.empty()) std::cout << params[0];
@@ -246,7 +246,7 @@ struct Closure : Expr {
             std::cout << ", " << params[i];
 
         std::cout << ") => ";
-        body->print();
+        body->print(indent);
     }
 
     Node variant() const override { return this; }
@@ -259,12 +259,17 @@ struct Block : Expr {
     Block(std::vector<ExprPtr> l) noexcept : lines{std::move(l)} {};
 
 
-    void print() const override {
-        std::cout << " {\n";
+    void print(const size_t indent) const override {
+        std::cout << "{\n";
 
-        std::ranges::for_each(lines, &Expr::print);
+        // std::ranges::for_each(lines, &Expr::print);
+        for(const auto& line : lines) {
+            std::cout << std::string(indent + 4, ' ');
+            line->print(indent + 4);
+            puts(";");
+        }
 
-        std::cout << "\n}\n";
+        std::cout << std::string(indent, ' ') << "}";
     }
 
 
@@ -294,12 +299,12 @@ struct Prefix : Fix {
     // : Fix{std::move(t), s, std::move(c)} {}
     using Fix::Fix;
 
-    void print() const override {
+    void print(const size_t indent) const override {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
         std::cout << "prefix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
-        func->print();
+        func->print(indent);
     }
 
 
@@ -310,12 +315,12 @@ struct Prefix : Fix {
 struct Infix : Fix {
     using Fix::Fix;
 
-    void print() const override {
+    void print(const size_t indent) const override {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
         std::cout << "infix(" << stringify(token.kind) << shifts << ") "  << token.text << ' ';
-        func->print();
+        func->print(indent);
     }
 
     TokenKind type() const override { return TokenKind::INFIX; }
@@ -325,12 +330,12 @@ struct Infix : Fix {
 struct Suffix : Fix {
     using Fix::Fix;
 
-    void print() const override {
+    void print(const size_t indent) const override {
         const char c = shift < 0 ? '-' : '+';
         const std::string shifts(size_t(std::abs(shift)), c);
 
         std::cout << "suffix(" << stringify(token.kind) << shifts << ") "  << token.text << " = ";
-        func->print();
+        func->print(indent);
     }
 
     TokenKind type() const override { return TokenKind::SUFFIX; }
