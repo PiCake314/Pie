@@ -58,7 +58,6 @@ struct Expr {
 struct Num : Expr {
     std::string num;
 
-
     Num(std::string n) noexcept : num{std::move(n)} {}
 
     void print(const size_t) const override { std::cout << num; }
@@ -91,17 +90,19 @@ struct Name : Expr {
 
 
 struct Assignment : Expr {
-    std::string name;
-    ExprPtr expr;
+    // std::string name;
+    ExprPtr lhs;
+    ExprPtr rhs;
 
 
-    Assignment(std::string n, ExprPtr e) noexcept
-    : name{std::move(n)}, expr{std::move(e)}
+    Assignment(ExprPtr l, ExprPtr r) noexcept
+    : lhs{std::move(l)}, rhs{std::move(r)}
     {}
 
     void print(const size_t indent) const override {
-        std::cout << name << " = ";
-        expr->print(indent);
+        lhs->print(indent);
+        std::cout << " = ";
+        rhs->print(indent);
     }
 
     Node variant() const override { return this; }
@@ -202,40 +203,23 @@ struct Call : Expr {
 };
 
 
-using Value = std::variant<int, std::string, Closure>;
+// redeclared in Interpreter.hxx
+using Value = std::variant<int, double, bool, std::string, Closure>;
 using Environment = std::unordered_map<std::string, Value>;
 
 struct Closure : Expr {
     std::vector<std::string> params;
     ExprPtr body;
 
-    private:
-    mutable std::optional<Environment> env{}; // make this optional<const Environment> would delete move/copy constructros
-    public:
+    mutable Environment env{};
 
     Closure(std::vector<std::string> ps, ExprPtr b)
     : params{std::move(ps)}, body{std::move(b)} {};
 
-    void capture(Environment e) const {
-        // std::print("Captured: {{");
-        // for(const auto& [key, value] : e){
-        //     if (value.index() == 0){
-        //         std::print("{}: {}, ", key, std::get<0>(value));
-        //     }
-        //     else if(value.index() == 1) {
-        //         std::print("{}: {}, ", key, std::get<1>(value));
-        //     }
-        //     else std::print("{}: {}, ", key, "'Closure'");
-        // }
-        // std::println("}}");
 
-        if (env) error("Can't capture twice. Internal inerpreter error.\nFile a bug report please at:\nhttps://github.com/PiCake314/Pie");
-        env.emplace(std::move(e));
-    }
-
-    const Environment& environment() const {
-        if(not env) error("Use bofore initialization!");
-        return *env;
+    void capture(const Environment& e) const { // const as in doesn't change params or body.
+        for(const auto& [key, value] : e)
+        env[key] = value;
     }
 
     void print(const size_t indent) const override {
@@ -243,7 +227,7 @@ struct Closure : Expr {
 
         if (not params.empty()) std::cout << params[0];
         for(size_t i{1}; i < params.size(); ++i)
-            std::cout << ", " << params[i];
+        std::cout << ", " << params[i];
 
         std::cout << ") => ";
         body->print(indent);
@@ -269,7 +253,7 @@ struct Block : Expr {
             puts(";");
         }
 
-        std::cout << std::string(indent, ' ') << "}";
+        std::cout << std::string(indent, ' ') << "};";
     }
 
 

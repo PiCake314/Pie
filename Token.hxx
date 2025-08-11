@@ -11,7 +11,10 @@ enum class TokenKind {
     NAME,
     ASSIGN,
     COMMA,
-    NUM,
+
+    INT,
+    FLT,
+
     STRING,
     L_BRACE,
     R_BRACE,
@@ -48,7 +51,8 @@ const char* stringify(const TokenKind token) noexcept {
         using enum TokenKind;
         case NAME:          return "NAME";
         case ASSIGN:        return "ASSIGN";
-        case NUM:           return "NUM";
+        case INT:           return "INT";
+        case FLT:           return "FLT";
         case STRING:        return "STRING";
         case END:           return "END";
         case L_BRACE:       return "L_BRACE";

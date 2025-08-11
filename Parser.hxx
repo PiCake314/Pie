@@ -88,7 +88,8 @@ public:
                 log();
                 error("Couldn't parse \"" + token.text + "\"!");
 
-            case NUM: return std::make_unique<Num>(token.text);
+            case INT:
+            case FLT: return std::make_unique<Num>(token.text);
 
             case STRING: return std::make_unique<String>(token.text);
 
@@ -262,9 +263,15 @@ public:
                 return std::make_unique<Name>(token.text);
 
             case ASSIGN:
-                if (const auto name = dynamic_cast<const Name*>(left.get()))
-                    return std::make_unique<Assignment>(name->name, parseExpr(precedence::ASSIGNMENT));
-                else expected(ASSIGN, token.kind);
+                return std::make_unique<Assignment>(left, parseExpr(precedence::ASSIGNMENT));
+
+                // if (const auto name = dynamic_cast<const Name*>(left.get()))
+                //     return std::make_unique<Assignment>(name, parseExpr(precedence::ASSIGNMENT));
+                // if (const auto call = dynamic_cast<const Call*>(left.get()))
+                //     return std::make_unique<Assignment>(call->func, parseExpr(precedence::ASSIGNMENT));
+
+
+                // expected(NAME, token.kind);
 
             case L_PAREN: {
                 std::vector<ExprPtr> args;

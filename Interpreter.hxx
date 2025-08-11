@@ -16,6 +16,9 @@
 
 
 
+using Value = std::variant<int, double, bool, std::string, Closure>;
+using Environment = std::unordered_map<std::string, Value>;
+
 struct Visitor {
     // struct Builtin { std::string name; }; // for later
 
@@ -28,7 +31,13 @@ struct Visitor {
 
 
 
-    Value operator()(const Num *n) { return std::stoi(n->num); }
+    Value operator()(const Num *n) {
+        if (const auto& var = getVar(n->num); var) return *var;
+
+        if (n->num.find('.') == std::string::npos) return std::stoi(n->num);
+
+        return std::stod(n->num);
+    }
 
     Value operator()(const String *s) { return s->str; }
 
@@ -45,7 +54,22 @@ struct Visitor {
     }
 
     Value operator()(const Assignment *ass) {
-        return addVar(ass->name, std::visit(*this, ass->expr->variant()));
+
+
+        if (const auto name = dynamic_cast<const Name*>(ass->lhs.get()))
+            return addVar(name->name, std::visit(*this, ass->rhs->variant()));
+
+        if (const auto num = dynamic_cast<const Num*>(ass->lhs.get())){
+            // if (*num == )
+            return addVar(num->num, std::visit(*this, ass->rhs->variant()));
+        }
+
+        if (const auto closure = dynamic_cast<const Closure*>(ass->lhs.get()))
+            return addVar("Closure", std::visit(*this, ass->rhs->variant()));
+
+
+        error();
+        // return addVar(ass->name, std::visit(*this, ass->expr->variant()));
 
         // const auto& value = std::visit(*this, ass->expr->variant());
         // addVar(ass->name, value);
@@ -121,12 +145,12 @@ struct Visitor {
             const auto& func = std::get<Closure>(var);
 
             // assert(call->args.size() == func.params.size());
-            // assert(call->args.size() <= func.params.size());
+            if (call->args.size() > func.params.size()) error("Wrong arity call!");
 
             if (const auto args_size = call->args.size(); args_size < func.params.size()) {
                 Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.body};
 
-                Environment argument_capture_list;
+                Environment argument_capture_list = func.env;
                 for(const auto& [name, value] : std::views::zip(func.params, call->args))
                     argument_capture_list[name] = std::visit(*this, value->variant());
 
@@ -135,17 +159,12 @@ struct Visitor {
                 return closure;
             }
 
+
             for (const auto& [param, arg] : std::views::zip(func.params, call->args))
                 addVar(param, std::visit(*this, arg->variant()));
                 // env.back()[param] = std::visit(*this, arg->variant());
 
-            ScopeGuard sg{this, func.environment()};
-
-
-            //* this considers the capture list when evaluating
-            //* we're currently not considering the capture list envoronment to match the semantics are popular languages
-            //* this could be changed in the future
-            // ScopeGuard sg{this, func.environment()};
+            ScopeGuard sg{this, func.env};
 
             return std::visit(*this, func.body->variant());
         }
@@ -155,7 +174,8 @@ struct Visitor {
     }
 
     Value operator()(const Closure *c) {
-        c->capture(envStackToEnvMap()); // always capturing is fine. It's whether we conside the captured env whe evaluating the call to the closure
+        // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
+        c->capture(envStackToEnvMap());
         return *c;
     }
 
@@ -182,7 +202,7 @@ struct Visitor {
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
-        for(const auto& builtin : {"neg", "not", "add", "sub", "mul", "div", "print"})
+        for(const auto& builtin : {"neg", "not", "add", "sub", "mul", "div", "print", "reset"})
             if (func == make_builtin(builtin)) return true;
 
         return false;
@@ -199,37 +219,29 @@ struct Visitor {
             if (call->args.size() != arity) error("Wrong arity with call to \"__builtin_" + name + "\"");
         };
 
-        const auto int_check = [&name] (const Value val) {
+        const auto int_check = [&name] (const Value& val) {
             if (not std::holds_alternative<int>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
         };
+
+        if (name == "reset") {
+            arity_check(1);
+            const auto num = dynamic_cast<const Num*>(call->args.front().get());
+            removeVar(num->num);
+            return std::stoi(num->num);
+        }
 
 
         const auto& value1 = std::visit(*this, call->args.front()->variant());
 
         if (name == "print") {
             arity_check(1);
-
-            if (std::holds_alternative<int>(value1)){
-                const auto& v = std::get<int>(value1);
-                std::cout << v << '\n';
-                return value1; // I have to return a value. Maybe return what I printed?
-            }
-
-            if (std::holds_alternative<std::string>(value1)){
-                const auto& v = std::get<std::string>(value1);
-                std::cout << v << '\n';
-                return value1; // I have to return a value. Maybe return what I printed?
-            }
-
-            if (std::holds_alternative<Closure>(value1)){
-                const auto& v = std::get<Closure>(value1);
-                v.print(0);
-                puts(""); // .print() doesn't add a \n so we add it manually
-                return value1; // I have to return a value. Maybe return what I printed?
-            }
-
+            print(value1);
+            return value1;
         }
 
+
+
+        // functions on integers
         int_check(value1);
         const int num1 = std::get<int>(value1);
 
@@ -242,6 +254,7 @@ struct Visitor {
             arity_check(1);
             return not num1;
         }
+
 
 
         arity_check(2); // all the rest of those funcs expect 2 arguments
@@ -261,6 +274,42 @@ struct Visitor {
     }
 
 
+
+    void print(const Value& value) const noexcept {
+        if (std::holds_alternative<int>(value)) {
+            const auto& v = std::get<int>(value);
+
+            if (const auto var = getVar(std::to_string(v)); var) print(*var);
+            else std::println("{}", v);
+        }
+
+        if (std::holds_alternative<double>(value)) {
+            const auto& v = std::get<double>(value);
+
+            if (const auto var = getVar(std::to_string(v)); var)  print(*var);
+            else std::println("{}", v);
+        }
+
+        if (std::holds_alternative<std::string>(value)) {
+            const auto& v = std::get<std::string>(value);
+
+            // if (const auto var = getVar(""); var) print(*var);
+            // else  std::println("{}", v);
+            std::println("{}", v);
+        }
+
+        if (std::holds_alternative<Closure>(value)) {
+            const auto& v = std::get<Closure>(value);
+
+            // ! this is new
+            if (const auto var = getVar("Closure"); var) print(*var);
+            else {
+                v.print(0);
+                puts(""); // .print() doesn't add a \n so we add it manually
+            }
+
+        }
+    }
 
 private:
 
@@ -283,12 +332,18 @@ private:
 
     const Value& addVar(const std::string& name, const Value& v) { env.back()[name] = v; return v; }
 
-    std::optional<Value> getVar(const std::string& name) {
+    std::optional<Value> getVar(const std::string& name) const {
         for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
             if (rev_it->contains(name)) return rev_it->at(name);
 
 
         return {};
+    }
+
+    void removeVar(const std::string& name) {
+        std::println("removing: {}", name);
+        for(auto& curr_env : env)
+            curr_env.erase(name);
     }
 
 

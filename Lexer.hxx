@@ -69,10 +69,11 @@ TokenLines lex(const std::string& src) {
             #pragma GCC diagnostic pop
                 const auto beginning = index;
                 while (isdigit(src.at(++index)));
-                // allow doubles in the future
-                if (src[index] == '.') while (isdigit(src.at(++index)));
 
-                lines.back().emplace_back(TokenKind::NUM, src.substr(beginning, index - beginning));
+                bool is_float = src[index] == '.';
+                if (is_float) while (isdigit(src.at(++index)));
+
+                lines.back().emplace_back(is_float ? TokenKind::FLT : TokenKind::INT, src.substr(beginning, index - beginning));
                 --index;
             } break;
 
@@ -107,7 +108,7 @@ TokenLines lex(const std::string& src) {
                 }
 
                 if (word == "__LINE__") [[unlikely]] {
-                    lines.back().push_back({TokenKind::NUM, std::to_string(line_count)});
+                    lines.back().push_back({TokenKind::INT, std::to_string(line_count)});
                     --index;
                     break;
                 }
@@ -181,7 +182,8 @@ TokenLines lex(const std::string& src) {
             case '*':
             case '-':
             case '+':
-            case '~':{
+            case '~':
+            {
                 const char op = src[index];
                 const auto beginning = index;
                 while (src[++index] == op);
