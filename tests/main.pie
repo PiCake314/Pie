@@ -1,22 +1,11 @@
 print = __builtin_print;
 
 
-infix(PROD ) x     = (a, b) => {
-    print(__LINE__);
-    print(__TEXT__);
-};
+1num = 2;
 
-infix(x-   ) plus  = (a, b) => {
-    print(__LINE__);
-    print(__TEXT__);
-};
+__builtin_reset(1);
 
-infix(plus+) over  = (a, b) => {
-    print(__LINE__);
-    print(__TEXT__);
-};
-
-
-1 x 2 plus 2 over 3;
+print(1num);
+print(1);
 
 

@@ -50,7 +50,7 @@ using Node = std::variant<
 
 struct Expr {
     virtual ~Expr() = default;
-    virtual void print(const size_t indent) const = 0;
+    virtual std::string print(const size_t indent) const = 0;
 
     virtual Node variant() const = 0;
 };
@@ -58,10 +58,9 @@ struct Expr {
 struct Num : Expr {
     std::string num;
 
-
     Num(std::string n) noexcept : num{std::move(n)} {}
 
-    void print(const size_t) const override { std::cout << num; }
+    std::string print(const size_t) const override { return num; }
 
     Node variant() const override { return this; }
 };
@@ -72,7 +71,7 @@ struct String : Expr {
 
     String(std::string s) noexcept : str{std::move(s)} {}
 
-    void print(const size_t) const override { std::cout << '"' << str << '"'; }
+    std::string print(const size_t) const override { return '"' + str + '"'; }
 
     Node variant() const override { return this; }
 };
@@ -84,24 +83,24 @@ struct Name : Expr {
 
     Name(std::string n) noexcept : name{std::move(n)} {}
 
-    void print(const size_t) const override { std::cout << name; }
+    std::string print(const size_t) const override { return name; }
 
     Node variant() const override { return this; }
 };
 
 
 struct Assignment : Expr {
-    std::string name;
-    ExprPtr expr;
+    // std::string name;
+    ExprPtr lhs;
+    ExprPtr rhs;
 
 
-    Assignment(std::string n, ExprPtr e) noexcept
-    : name{std::move(n)}, expr{std::move(e)}
+    Assignment(ExprPtr l, ExprPtr r) noexcept
+    : lhs{std::move(l)}, rhs{std::move(r)}
     {}
 
-    void print(const size_t indent) const override {
-        std::cout << name << " = ";
-        expr->print(indent);
+    std::string print(const size_t indent) const override {
+        return lhs->print(indent) + " = " + rhs->print(indent);
     }
 
     Node variant() const override { return this; }
@@ -117,12 +116,8 @@ struct UnaryOp : Expr {
     : text{std::move(t)}, expr{std::move(e)}
     {}
 
-    void print(const size_t indent) const override {
-        // puts("\nUNARY");
-
-        std::cout << '(' << text << ' ';
-        expr->print(indent);
-        std::cout << ')';
+    std::string print(const size_t indent) const override {
+        return '(' + text + ' ' + expr->print(indent) + ')';
     }
 
     Node variant() const override { return this; }
@@ -139,15 +134,8 @@ struct BinOp : Expr {
     : lhs{std::move(e1)}, text{std::move(txt)}, rhs{std::move(e2)}
     {}
 
-    void print(const size_t indent) const override {
-        std::cout << '(';
-
-        lhs->print(indent);
-        // puts("\nBINARY");
-        std::cout << ' ' << text << ' ';
-        rhs->print(indent);
-
-        std::cout << ')';
+    std::string print(const size_t indent) const override {
+        return '(' + lhs->print(indent) + ' ' + text + ' ' + rhs->print(indent) + ')';
     }
 
     Node variant() const override { return this; }
@@ -163,12 +151,8 @@ struct PostOp : Expr {
     : text{std::move(t)}, expr{std::move(e)}
     {}
 
-    void print(const size_t indent) const override {
-        // puts("\nPOST");
-
-        std::cout << '(';
-        expr->print(indent);
-        std::cout << ' ' << text << ')';
+    std::string print(const size_t indent) const override {
+        return '(' + expr->print(indent) + ' ' + text + ')';
     }
 
     Node variant() const override { return this; }
@@ -184,69 +168,53 @@ struct Call : Expr {
     : func{std::move(function)}, args{std::move(arguments)}
     {}
 
-    void print(const size_t indent) const override {
-        func->print(indent);
-        std::cout << '(';
+    std::string print(const size_t indent) const override {
+        std::string s;
+        s = func->print(indent) + '(';
 
         std::string_view comma = "";
         for (const auto& arg : args) {
-            std::cout << comma;
-            arg->print(indent);
+            s += comma;
+            s += arg->print(indent);
             comma = ", ";
         }
 
-        std::cout << ')';
+        return s + ')';
     }
 
     Node variant() const override { return this; }
 };
 
 
-using Value = std::variant<int, std::string, Closure>;
+// redeclared in Interpreter.hxx
+using Value = std::variant<int, double, bool, std::string, Closure>;
 using Environment = std::unordered_map<std::string, Value>;
 
 struct Closure : Expr {
     std::vector<std::string> params;
     ExprPtr body;
 
-    private:
-    mutable std::optional<Environment> env{}; // make this optional<const Environment> would delete move/copy constructros
-    public:
+    mutable Environment env{};
 
     Closure(std::vector<std::string> ps, ExprPtr b)
     : params{std::move(ps)}, body{std::move(b)} {};
 
-    void capture(Environment e) const {
-        // std::print("Captured: {{");
-        // for(const auto& [key, value] : e){
-        //     if (value.index() == 0){
-        //         std::print("{}: {}, ", key, std::get<0>(value));
-        //     }
-        //     else if(value.index() == 1) {
-        //         std::print("{}: {}, ", key, std::get<1>(value));
-        //     }
-        //     else std::print("{}: {}, ", key, "'Closure'");
-        // }
-        // std::println("}}");
 
-        if (env) error("Can't capture twice. Internal inerpreter error.\nFile a bug report please at:\nhttps://github.com/PiCake314/Pie");
-        env.emplace(std::move(e));
+    void capture(const Environment& e) const { // const as in doesn't change params or body.
+        for(const auto& [key, value] : e)
+        env[key] = value;
     }
 
-    const Environment& environment() const {
-        if(not env) error("Use bofore initialization!");
-        return *env;
-    }
+    std::string print(const size_t indent) const override {
+        std::string s = "(";
 
-    void print(const size_t indent) const override {
-        std::cout << '(';
-
-        if (not params.empty()) std::cout << params[0];
+        if (not params.empty()) s += params[0];
         for(size_t i{1}; i < params.size(); ++i)
-            std::cout << ", " << params[i];
+            s += ", " + params[i];
 
-        std::cout << ") => ";
-        body->print(indent);
+        s += ") => " + body->print(indent);
+
+        return s;
     }
 
     Node variant() const override { return this; }
@@ -259,17 +227,19 @@ struct Block : Expr {
     Block(std::vector<ExprPtr> l) noexcept : lines{std::move(l)} {};
 
 
-    void print(const size_t indent) const override {
-        std::cout << "{\n";
+    std::string print(const size_t indent) const override {
+        std::string s = "{\n";
 
         // std::ranges::for_each(lines, &Expr::print);
         for(const auto& line : lines) {
-            std::cout << std::string(indent + 4, ' ');
-            line->print(indent + 4);
-            puts(";");
+            s += std::string(indent + 4, ' ');
+            s += line->print(indent + 4);
+            s += ";\n";
         }
 
-        std::cout << std::string(indent, ' ') << "}";
+        s += std::string(indent, ' ') + "};";
+
+        return s;
     }
 
 
@@ -302,7 +272,7 @@ struct Prefix : Fix {
     // : Fix{std::move(t), s, std::move(c)} {}
     using Fix::Fix;
 
-    void print(const size_t indent) const override {
+    std::string print(const size_t indent) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
@@ -311,9 +281,8 @@ struct Prefix : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        //! FIX THIS
-        std::cout << "prefix(" << token.text << shifts << ") "  << name << ' ';
-        func->print(indent);
+
+        return "prefix(" + token.text + shifts + ") " + name + ' ' +func->print(indent);
     }
 
 
@@ -324,7 +293,7 @@ struct Prefix : Fix {
 struct Infix : Fix {
     using Fix::Fix;
 
-    void print(const size_t indent) const override {
+    std::string print(const size_t indent) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
@@ -333,9 +302,8 @@ struct Infix : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        //! FIX THIS
-        std::cout << "infix(" << token.text << shifts << ") "  << name << ' ';
-        func->print(indent);
+
+        return "infix(" + token.text + shifts + ") " + name + ' ' + func->print(indent);
     }
 
     TokenKind type() const override { return TokenKind::INFIX; }
@@ -345,7 +313,7 @@ struct Infix : Fix {
 struct Suffix : Fix {
     using Fix::Fix;
 
-    void print(const size_t indent) const override {
+    std::string print(const size_t indent) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
@@ -355,8 +323,7 @@ struct Suffix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        std::cout << "suffix(" << token.text << shifts << ") "  << name << ' ';
-        func->print(indent);
+        return "suffix(" + token.text + shifts + ") " + name + ' ' + func->print(indent);
     }
 
     TokenKind type() const override { return TokenKind::SUFFIX; }
