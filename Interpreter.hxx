@@ -226,6 +226,9 @@ struct Visitor {
         if (name == "reset") {
             arity_check(1);
             const auto num = dynamic_cast<const Num*>(call->args.front().get());
+
+            if (not num) error("Can only reset numbers!");
+
             removeVar(num->num);
             return std::stoi(num->num);
         }

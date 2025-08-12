@@ -6,9 +6,11 @@
 #include <cctype>
 #include <string>
 #include <string_view>
+#include <cctype>
 #include <vector>
 #include <tuple>
 #include <unordered_map>
+#include <algorithm>
 
 
 
@@ -49,6 +51,26 @@ TokenKind keyword(const std::string_view word) noexcept {
     return TokenKind::NAME;
 }
 
+
+bool validNameChar(const char c) noexcept {
+    switch (c) {
+        case '!':
+        case '@':
+        case '#':
+        case '$':
+        case '%':
+        case '^':
+        case '*':
+        case '+':
+        case '~':
+        case '-':
+        case '_':
+            return true;
+    }
+
+    return isalnum(c);
+}
+
 TokenLines lex(const std::string& src) {
     TokenLines lines = {{}};
     Tokens line;
@@ -65,10 +87,19 @@ TokenLines lex(const std::string& src) {
             // ! remove pragmas
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
-            case '0' ... '9': {
+            case '0' ... '9':
             #pragma GCC diagnostic pop
+            {
                 const auto beginning = index;
                 while (isdigit(src.at(++index)));
+
+                bool is_name = validNameChar(src[index]);
+                if (is_name) {
+                    while (validNameChar(src.at(++index)));
+                    lines.back().emplace_back(TokenKind::NAME, src.substr(beginning, index - beginning));
+                    --index;
+                    break;
+                }
 
                 bool is_float = src[index] == '.';
                 if (is_float) while (isdigit(src.at(++index)));
@@ -77,13 +108,25 @@ TokenLines lex(const std::string& src) {
                 --index;
             } break;
 
+
+            case '!':
+            case '@':
+            case '#':
+            case '$':
+            case '%':
+            case '^':
+            case '*':
+            case '+':
+            case '~':
+            case '-':
             case '_':
             // ! remove pragmas
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
             case 'a' ... 'z':
-            case 'A' ... 'Z':{
+            case 'A' ... 'Z':
             #pragma GCC diagnostic pop
+            {
                 const auto beginning = index;
                 while (isalnum(src.at(++index)) or src[index] == '_');
 
@@ -91,7 +134,10 @@ TokenLines lex(const std::string& src) {
                 // check for keywords here :)
 
                 // technically "comments" and friends are keywords..ghost keywords!
-                if((word == "comment" or word == "note" or word == "PS") and src[index] == ':'){
+                std::string lower = word;
+                std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) { return std::tolower(c); });
+
+                if((lower == "comment" or lower == "note" or lower == "ps" or lower == "todo") and src[index] == ':'){
                     while(src.at(++index) != '\n');
                     break;
                 }
@@ -122,7 +168,7 @@ TokenLines lex(const std::string& src) {
 
 
             case '=':
-                if (src[index + 1] == '>')
+                if (src.at(index + 1) == '>')
                     lines.back().push_back({TokenKind::FAT_ARROW, src.substr(index++, 2)});
                 else
                     lines.back().push_back({TokenKind::ASSIGN, {src[index]}});
@@ -155,8 +201,7 @@ TokenLines lex(const std::string& src) {
                 const size_t old = index;
                 while(src[++index] != '"');
                 lines.back().push_back({TokenKind::STRING, src.substr(old + 1, index - old -1)});
-            }
-            break;
+            } break;
 
             case '&':
             //     if (src[index + 1] == '&') {
@@ -173,23 +218,23 @@ TokenLines lex(const std::string& src) {
             //     }
             // [[fallthrough]];
 
-            case '!':
-            case '@':
-            case '#':
-            case '$':
-            case '%':
-            case '^':
-            case '*':
-            case '-':
-            case '+':
-            case '~':
-            {
-                const char op = src[index];
-                const auto beginning = index;
-                while (src[++index] == op);
-                lines.back().push_back({TokenKind::NAME, src.substr(beginning, index - beginning)});
-                --index;
-            } break;
+            // case '!':
+            // case '@':
+            // case '#':
+            // case '$':
+            // case '%':
+            // case '^':
+            // case '*':
+            // case '-':
+            // case '+':
+            // case '~':
+            // {
+            //     const char op = src[index];
+            //     const auto beginning = index;
+            //     while (src[++index] == op);
+            //     lines.back().push_back({TokenKind::NAME, src.substr(beginning, index - beginning)});
+            //     --index;
+            // } break;
 
 
 

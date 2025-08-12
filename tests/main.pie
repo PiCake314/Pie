@@ -1,16 +1,11 @@
 print = __builtin_print;
 
-infix(SUM) + = (a, b) => __builtin_add(a, b);
 
-
-
-_one = 1;
-one = () => _one;
-
-1 = 2;
-print(1);
+1num = 2;
 
 __builtin_reset(1);
 
+print(1num);
 print(1);
+
 

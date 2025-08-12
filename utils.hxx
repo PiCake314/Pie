@@ -12,11 +12,11 @@
 [[noreturn]] inline void error(const std::string& msg = {}, [[maybe_unused]] const std::source_location& location = std::source_location::current()) noexcept {
     puts(msg.c_str());
 
-    std::cout
-        << "(File: " << location.file_name() 
-        << ", Line: " << location.line() 
-        << ", Function: " << location.function_name()
-        << ")\n";
+    // std::cout
+    //     << "(File: " << location.file_name() 
+    //     << ", Line: " << location.line() 
+    //     << ", Function: " << location.function_name()
+    // << ")\n";
 
     exit(1);
 }
