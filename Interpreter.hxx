@@ -15,9 +15,14 @@
 #include <cassert>
 
 
+#include <stdx/tuple.hpp>
 
-using Value = std::variant<int, double, bool, std::string, Closure>;
+
+#define FUNC(NAME, ARG_COUNT) if (name == NAME) return execute<ARG_COUNT>(stdx::get<S<NAME>>(functions).value, {value1, value2});
+
+
 using Environment = std::unordered_map<std::string, Value>;
+
 
 struct Visitor {
     // struct Builtin { std::string name; }; // for later
@@ -26,7 +31,10 @@ struct Visitor {
     const Operators ops;
 
 
-    Visitor(Operators ops) noexcept : env(1), ops{std::move(ops)} {};
+    // inline static const std::unordered_map<const char*, 
+
+
+    Visitor(Operators ops) noexcept : env(1), ops{std::move(ops)} { }
 
 
 
@@ -209,8 +217,89 @@ struct Visitor {
     }
 
 
+
     // the gate into the META operators!
     Value evaluateBuiltin(const Call* call, std::string name) {
+
+        //* ============================ FUNCTIONS ============================
+        const auto functions = stdx::make_indexed_tuple<KeyFor>(
+            //* UNARY FUNCTIONS
+            MapEntry<
+                S<"neg">,
+                Func<
+                    decltype([](auto&& x, const auto&) { return -x; }),
+                    TypeList<int>,
+                    TypeList<double>
+                >
+            >{},
+
+            MapEntry<
+                S<"not">,
+                Func<
+                    decltype([](auto&& x, const auto&) { return not x; }),
+                    TypeList<int>,
+                    TypeList<double>
+                    //! TypeList<bool>,
+                >
+            >{},
+
+            MapEntry<
+                S<"print">,
+                Func<
+                    decltype([](auto&& x, const auto&) { std::println("{}", x); return x; }),
+                    TypeList<int>,
+                    TypeList<double>,
+                    TypeList<std::string>
+                    //! TypeList<bool>,
+                >
+            >{},
+
+            //* BINARY FUNCTIONS
+            MapEntry<
+                S<"add">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a + b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"sub">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a - b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"mul">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a * b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"div">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a / b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{}
+        );
+
 
 
         name = name.substr(10); // cutout the "__builtin_"
@@ -219,59 +308,109 @@ struct Visitor {
             if (call->args.size() != arity) error("Wrong arity with call to \"__builtin_" + name + "\"");
         };
 
-        const auto int_check = [&name] (const Value& val) {
-            if (not std::holds_alternative<int>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
-        };
+        // const auto int_check = [&name] (const Value& val) {
+        //     if (not std::holds_alternative<int>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
+        // };
 
+
+
+        // Since this is a meta function that operates on AST nodes rather than values
+        // it gets its special treatment here..
         if (name == "reset") {
             arity_check(1);
             const auto num = dynamic_cast<const Num*>(call->args.front().get());
 
             if (not num) error("Can only reset numbers!");
 
-            removeVar(num->num);
+            if (const auto& v = getVar(num->num); not v) error("Reseting an unset number!");
+            else removeVar(num->num);
+
             return std::stoi(num->num);
         }
 
 
-        const auto& value1 = std::visit(*this, call->args.front()->variant());
-
         if (name == "print") {
             arity_check(1);
-            print(value1);
-            return value1;
+            const auto& value = std::visit(*this, call->args.front()->variant());
+            return execute<1>(stdx::get<S<"print">>(functions).value, {value}, this);
         }
 
 
-
-        // functions on integers
-        int_check(value1);
-        const int num1 = std::get<int>(value1);
-
         if (name == "neg") {
             arity_check(1);
-            return -num1;
+            const auto& value = std::visit(*this, call->args.front()->variant());
+            return execute<1>(stdx::get<S<"neg">>(functions).value, {value}, this);
         }
 
         if (name == "not") {
             arity_check(1);
-            return not num1;
+            const auto& value = std::visit(*this, call->args.front()->variant());
+            return execute<1>(stdx::get<S<"not">>(functions).value, {value}, this);
         }
 
 
 
         arity_check(2); // all the rest of those funcs expect 2 arguments
 
-
+        const auto& value1 = std::visit(*this, call->args[0]->variant());
         const auto& value2 = std::visit(*this, call->args[1]->variant());
-        int_check(value2);
-        const int num2 = std::get<int>(value2);
+
+        if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
+        if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);
+        if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
+        if (name == "div") return execute<2>(stdx::get<S<"div">>(functions).value, {value1, value2}, this);
 
 
-        if (name == "add") return num1 + num2;
-        if (name == "sub") return num1 - num2;
-        if (name == "mul") return num1 * num2;
-        if (name == "div") return num1 / num2;
+        // FUNC("add", 2)
+        // FUNC("sub", 2)
+        // FUNC("mul", 2)
+        // FUNC("div", 2)
+
+        // if (name == "add") return num1 + num2;
+        // if (name == "sub") return num1 - num2;
+        // if (name == "mul") return num1 * num2;
+        // if (name == "div") return num1 / num2;
+
+
+
+        // const auto& value1 = std::visit(*this, call->args.front()->variant());
+
+        // if (name == "print") {
+        //     arity_check(1);
+        //     print(value1);
+        //     return value1;
+        // }
+
+
+
+        // // functions on integers
+        // int_check(value1);
+        // const int num1 = std::get<int>(value1);
+
+        // if (name == "neg") {
+        //     arity_check(1);
+        //     return -num1;
+        // }
+
+        // if (name == "not") {
+        //     arity_check(1);
+        //     return not num1;
+        // }
+
+
+
+        // arity_check(2); // all the rest of those funcs expect 2 arguments
+
+
+        // const auto& value2 = std::visit(*this, call->args[1]->variant());
+        // int_check(value2);
+        // const int num2 = std::get<int>(value2);
+
+
+        // if (name == "add") return num1 + num2;
+        // if (name == "sub") return num1 - num2;
+        // if (name == "mul") return num1 * num2;
+        // if (name == "div") return num1 / num2;
 
         error("something went wrong..;-; sorry!");
     }
@@ -344,9 +483,7 @@ private:
     }
 
     void removeVar(const std::string& name) {
-        std::println("removing: {}", name);
-        for(auto& curr_env : env)
-            curr_env.erase(name);
+        for(auto& curr_env : env) curr_env.erase(name);
     }
 
 
