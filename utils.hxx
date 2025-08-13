@@ -1,11 +1,17 @@
 #pragma once
 
-#include "Token.hxx"
 #include <iostream>
 #include <source_location>
 #include <unordered_map>
+#include <variant>
 #include <format>
 #include <print>
+
+#include "Token.hxx"
+#include "Expr.hxx"
+
+
+#include <stdx/tuple.hpp>
 
 // not sure where to put it
 // keep it here for now...
@@ -29,3 +35,106 @@
 }
 
 
+
+// Some Bullshit
+
+template<size_t Sz>
+struct ConstexprString
+{
+  static constexpr size_t buffer_size = Sz + 1;
+  char _str[buffer_size];
+
+  template<size_t InnerSz>
+  constexpr ConstexprString(char const (&str)[InnerSz]) { std::ranges::copy(str, _str); }
+
+  constexpr auto begin() { return _str; }
+  constexpr auto end() { return _str + buffer_size; }
+};
+
+template<size_t InnerSz>
+ConstexprString(char const (&)[InnerSz]) -> ConstexprString<InnerSz - 1>;
+
+
+template <ConstexprString s>
+struct S;
+
+template <typename Key, typename Value> struct MapEntry {
+  using key_t = Key;
+  using value_t = Value;
+  value_t value;
+};
+template <typename T> using KeyFor = typename T::key_t;
+
+
+
+
+template <size_t N, typename First, typename... Ts>
+auto getHelper() {
+    if constexpr (N == 0) return First{};
+    else return getHelper<N - 1, Ts...>();
+}
+
+
+template <typename... Ts>
+struct TypeList {
+  inline constexpr static size_t count = sizeof...(Ts);
+
+    template <size_t N>
+    auto get() {
+        return getHelper<N, Ts...>();
+    }
+};
+
+
+template <size_t N, size_t M, typename L1, typename... Ls>
+auto getHelper2() {
+    if constexpr (N == 0) return L1{}.template get<M>();
+    else return getHelper2<N - 1, M, Ls...>();
+}
+
+
+
+template <typename Lambda, typename First, typename... Ts>
+struct Func {
+    Lambda func;
+
+    inline static constexpr size_t count = sizeof...(Ts) + 1; // + 1 for First
+
+    template <size_t N, size_t M>
+    auto get2() {
+        return getHelper2<N, M, First, Ts...>();
+    }
+
+};
+
+
+using Value = std::variant<int, double, bool, std::string, Closure>;
+
+template <size_t SIZE, size_t N = 0, typename... Ts>
+requires (SIZE == 1)
+static Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+    if constexpr (N < decltype(func)::count) {
+        using T = decltype(func.template get2<N, 0>());
+
+        if (not std::holds_alternative<T>(args[0]))
+            return execute<SIZE, N + 1>(func, args, that);
+
+        return func.func(std::get<T>(args[0]), that);
+    }
+    else error("Wrong type passed to function!");
+}
+
+template <size_t SIZE, size_t N = 0, typename... Ts>
+requires (SIZE == 2)
+static Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+    if constexpr (N < decltype(func)::count) {
+        using T1 = decltype(func.template get2<N, 0>());
+        using T2 = decltype(func.template get2<N, 1>());
+
+        if (not std::holds_alternative<T1>(args[0]) or not std::holds_alternative<T2>(args[1]))
+            return execute<SIZE, N + 1>(func, args, that);
+
+        return func.func(std::get<T1>(args[0]), std::get<T2>(args[1]), that);
+    }
+    else error("Wrong type passed to function!");
+}

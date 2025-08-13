@@ -1,11 +1,13 @@
 print = __builtin_print;
 
+before = () => print(1);
 
-1num = 2;
+1 = "hmmmm";
+
+after = () => print(1);
 
 __builtin_reset(1);
 
-print(1num);
-print(1);
-
+before();
+after();
 
