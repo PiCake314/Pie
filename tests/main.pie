@@ -1,13 +1,7 @@
 print = __builtin_print;
+true = __builtin_true();
+false = __builtin_false();
 
-before = () => print(1);
-
-1 = "hmmmm";
-
-after = () => print(1);
-
-__builtin_reset(1);
-
-before();
-after();
-
+print("WE HAVE BOOLEANS!");
+print(true);
+print(false);
