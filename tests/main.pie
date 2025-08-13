@@ -1,6 +1,7 @@
 print = __builtin_print;
-true = __builtin_true();
+true  = __builtin_true();
 false = __builtin_false();
+
 
 print("WE HAVE BOOLEANS!");
 print(true);
