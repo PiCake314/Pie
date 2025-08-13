@@ -89,7 +89,7 @@ public:
                 error("Couldn't parse \"" + token.text + "\"!");
 
             case INT:
-            case FLT: return std::make_unique<Num>(token.text);
+            case FLOAT: return std::make_unique<Num>(token.text);
 
             case STRING: return std::make_unique<String>(token.text);
 

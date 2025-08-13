@@ -18,9 +18,8 @@
 #include <stdx/tuple.hpp>
 
 
-#define FUNC(NAME, ARG_COUNT) if (name == NAME) return execute<ARG_COUNT>(stdx::get<S<NAME>>(functions).value, {value1, value2});
 
-
+using Value = std::variant<int, double, bool, std::string, Closure>;
 using Environment = std::unordered_map<std::string, Value>;
 
 
@@ -210,7 +209,9 @@ struct Visitor {
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
-        for(const auto& builtin : {"neg", "not", "add", "sub", "mul", "div", "print", "reset"})
+        for(const auto& builtin :
+            {"print", "reset", "neg", "not", "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt", "true", "false"}
+        )
             if (func == make_builtin(builtin)) return true;
 
         return false;
@@ -223,6 +224,22 @@ struct Visitor {
 
         //* ============================ FUNCTIONS ============================
         const auto functions = stdx::make_indexed_tuple<KeyFor>(
+            //* NULLARY FUNCTIONS
+            MapEntry<
+                S<"true">,
+                Func<
+                    decltype([](const auto&) { return true; }),
+                    void
+                >
+            >{},
+            MapEntry<
+                S<"false">,
+                Func<
+                    decltype([](const auto&) { return false; }),
+                    void
+                >
+            >{},
+
             //* UNARY FUNCTIONS
             MapEntry<
                 S<"neg">,
@@ -238,8 +255,8 @@ struct Visitor {
                 Func<
                     decltype([](auto&& x, const auto&) { return not x; }),
                     TypeList<int>,
-                    TypeList<double>
-                    //! TypeList<bool>,
+                    TypeList<double>,
+                    TypeList<bool>
                 >
             >{},
 
@@ -249,8 +266,8 @@ struct Visitor {
                     decltype([](auto&& x, const auto&) { std::println("{}", x); return x; }),
                     TypeList<int>,
                     TypeList<double>,
-                    TypeList<std::string>
-                    //! TypeList<bool>,
+                    TypeList<std::string>,
+                    TypeList<bool>
                 >
             >{},
 
@@ -297,6 +314,61 @@ struct Visitor {
                     TypeList<double, int>,
                     TypeList<double, double>
                 >
+            >{},
+
+            MapEntry<
+                S<"gt">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a > b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"geq">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"eq">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a == b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"leq">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"lt">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a < b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
             >{}
         );
 
@@ -313,7 +385,6 @@ struct Visitor {
         // };
 
 
-
         // Since this is a meta function that operates on AST nodes rather than values
         // it gets its special treatment here..
         if (name == "reset") {
@@ -328,31 +399,25 @@ struct Visitor {
             return std::stoi(num->num);
         }
 
-
-        if (name == "print") {
-            arity_check(1);
-            const auto& value = std::visit(*this, call->args.front()->variant());
-            return execute<1>(stdx::get<S<"print">>(functions).value, {value}, this);
-        }
+        if (name == "true" or name == "false") arity_check(0);
+        if (name == "true")  return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
+        if (name == "false") return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
 
 
-        if (name == "neg") {
-            arity_check(1);
-            const auto& value = std::visit(*this, call->args.front()->variant());
-            return execute<1>(stdx::get<S<"neg">>(functions).value, {value}, this);
-        }
 
-        if (name == "not") {
-            arity_check(1);
-            const auto& value = std::visit(*this, call->args.front()->variant());
-            return execute<1>(stdx::get<S<"not">>(functions).value, {value}, this);
-        }
+        if (name == "print" or name == "neg" or name == "not") arity_check(1); // just for now..
+
+        const auto& value1 = std::visit(*this, call->args[0]->variant());
+        if (name == "print") return execute<1>(stdx::get<S<"print">>(functions).value, {value1}, this);
+
+        if (name == "neg") return execute<1>(stdx::get<S<"neg">>(functions).value, {value1}, this);
+
+        if (name == "not") return execute<1>(stdx::get<S<"not">>(functions).value, {value1}, this);
 
 
 
         arity_check(2); // all the rest of those funcs expect 2 arguments
 
-        const auto& value1 = std::visit(*this, call->args[0]->variant());
         const auto& value2 = std::visit(*this, call->args[1]->variant());
 
         if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
@@ -360,98 +425,53 @@ struct Visitor {
         if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
         if (name == "div") return execute<2>(stdx::get<S<"div">>(functions).value, {value1, value2}, this);
 
-
-        // FUNC("add", 2)
-        // FUNC("sub", 2)
-        // FUNC("mul", 2)
-        // FUNC("div", 2)
-
-        // if (name == "add") return num1 + num2;
-        // if (name == "sub") return num1 - num2;
-        // if (name == "mul") return num1 * num2;
-        // if (name == "div") return num1 / num2;
+        if (name == "gt")  return execute<2>(stdx::get<S<"gt" >>(functions).value, {value1, value2}, this);
+        if (name == "geq") return execute<2>(stdx::get<S<"geq">>(functions).value, {value1, value2}, this);
+        if (name == "eq")  return execute<2>(stdx::get<S<"eq" >>(functions).value, {value1, value2}, this);
+        if (name == "leq") return execute<2>(stdx::get<S<"leq">>(functions).value, {value1, value2}, this);
+        if (name == "lt")  return execute<2>(stdx::get<S<"lt" >>(functions).value, {value1, value2}, this);
 
 
-
-        // const auto& value1 = std::visit(*this, call->args.front()->variant());
-
-        // if (name == "print") {
-        //     arity_check(1);
-        //     print(value1);
-        //     return value1;
-        // }
-
-
-
-        // // functions on integers
-        // int_check(value1);
-        // const int num1 = std::get<int>(value1);
-
-        // if (name == "neg") {
-        //     arity_check(1);
-        //     return -num1;
-        // }
-
-        // if (name == "not") {
-        //     arity_check(1);
-        //     return not num1;
-        // }
-
-
-
-        // arity_check(2); // all the rest of those funcs expect 2 arguments
-
-
-        // const auto& value2 = std::visit(*this, call->args[1]->variant());
-        // int_check(value2);
-        // const int num2 = std::get<int>(value2);
-
-
-        // if (name == "add") return num1 + num2;
-        // if (name == "sub") return num1 - num2;
-        // if (name == "mul") return num1 * num2;
-        // if (name == "div") return num1 / num2;
-
-        error("something went wrong..;-; sorry!");
+        error("Calling a builtin fuction that doesn't exist!");
     }
 
 
 
-    void print(const Value& value) const noexcept {
-        if (std::holds_alternative<int>(value)) {
-            const auto& v = std::get<int>(value);
+    // void print(const Value& value) const noexcept {
+    //     if (std::holds_alternative<int>(value)) {
+    //         const auto& v = std::get<int>(value);
 
-            if (const auto var = getVar(std::to_string(v)); var) print(*var);
-            else std::println("{}", v);
-        }
+    //         if (const auto var = getVar(std::to_string(v)); var) print(*var);
+    //         else std::println("{}", v);
+    //     }
 
-        if (std::holds_alternative<double>(value)) {
-            const auto& v = std::get<double>(value);
+    //     if (std::holds_alternative<double>(value)) {
+    //         const auto& v = std::get<double>(value);
 
-            if (const auto var = getVar(std::to_string(v)); var)  print(*var);
-            else std::println("{}", v);
-        }
+    //         if (const auto var = getVar(std::to_string(v)); var)  print(*var);
+    //         else std::println("{}", v);
+    //     }
 
-        if (std::holds_alternative<std::string>(value)) {
-            const auto& v = std::get<std::string>(value);
+    //     if (std::holds_alternative<std::string>(value)) {
+    //         const auto& v = std::get<std::string>(value);
 
-            // if (const auto var = getVar(""); var) print(*var);
-            // else  std::println("{}", v);
-            std::println("{}", v);
-        }
+    //         // if (const auto var = getVar(""); var) print(*var);
+    //         // else  std::println("{}", v);
+    //         std::println("{}", v);
+    //     }
 
-        if (std::holds_alternative<Closure>(value)) {
-            const auto& v = std::get<Closure>(value);
+    //     if (std::holds_alternative<Closure>(value)) {
+    //         const auto& v = std::get<Closure>(value);
 
-            // ! this is new
-            if (const auto var = getVar("Closure"); var) print(*var);
-            else {
-                v.print(0);
-                puts(""); // .print() doesn't add a \n so we add it manually
-            }
+    //         // ! this is new
+    //         if (const auto var = getVar("Closure"); var) print(*var);
+    //         else {
+    //             v.print(0);
+    //             puts(""); // .print() doesn't add a \n so we add it manually
+    //         }
 
-        }
-    }
+    //     }
+    // }
 
 private:
 

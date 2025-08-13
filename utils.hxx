@@ -6,6 +6,7 @@
 #include <variant>
 #include <format>
 #include <print>
+#include <type_traits>
 
 #include "Token.hxx"
 #include "Expr.hxx"
@@ -97,11 +98,12 @@ auto getHelper2() {
 template <typename Lambda, typename First, typename... Ts>
 struct Func {
     Lambda func;
-
-    inline static constexpr size_t count = sizeof...(Ts) + 1; // + 1 for First
+    inline static constexpr size_t count = sizeof...(Ts) + not std::is_same_v<First, void>; // + 1 for First
 
     template <size_t N, size_t M>
     auto get2() {
+        static_assert(not std::is_same_v<First, void>);
+
         return getHelper2<N, M, First, Ts...>();
     }
 
@@ -109,6 +111,16 @@ struct Func {
 
 
 using Value = std::variant<int, double, bool, std::string, Closure>;
+
+
+
+template <size_t SIZE, size_t N = 0, typename... Ts>
+requires (SIZE == 0)
+static Value execute(Func<Ts...> func, const std::vector<Value>&, const auto& that) {
+    static_assert(SIZE == decltype(func)::count);
+
+    return func.func(that);
+}
 
 template <size_t SIZE, size_t N = 0, typename... Ts>
 requires (SIZE == 1)

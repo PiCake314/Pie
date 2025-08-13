@@ -104,7 +104,7 @@ TokenLines lex(const std::string& src) {
                 bool is_float = src[index] == '.';
                 if (is_float) while (isdigit(src.at(++index)));
 
-                lines.back().emplace_back(is_float ? TokenKind::FLT : TokenKind::INT, src.substr(beginning, index - beginning));
+                lines.back().emplace_back(is_float ? TokenKind::FLOAT : TokenKind::INT, src.substr(beginning, index - beginning));
                 --index;
             } break;
 
