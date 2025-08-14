@@ -515,8 +515,6 @@ struct Visitor {
 
 
     void print(const Value& value) const noexcept {
-        std::clog << value.index() << '\n';
-
         if (std::holds_alternative<bool>(value)) {
             const auto& v = std::get<bool>(value);
 

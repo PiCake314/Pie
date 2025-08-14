@@ -9,6 +9,7 @@ prefix(PREFIX) if   = (expr) => expr;
 infix (CALL  ) then = (cond, branch) => __builtin_conditional(cond, branch(), "magic=false=value");
 infix (CALL  ) else = (cond, branch) => __builtin_conditional(__builtin_eq(cond, "magic=false=value"), branch(), cond);
 
+infix (PROD  ) *    = (lhs, rhs) => __builtin_mul(lhs, rhs);
 infix (SUM   ) +    = (lhs, rhs) => __builtin_add(lhs, rhs);
 infix (SUM   ) -    = (lhs, rhs) => __builtin_sub(lhs, rhs);
 infix (SUM - ) eq   = (lhs, rhs) => __builtin_eq(lhs, rhs);
@@ -16,18 +17,22 @@ infix (SUM - ) or   = (lhs, rhs) => __builtin_or(lhs, rhs);
 
 
 
-fib = (n, f) => {
-    (((if __builtin_lt(n, 1)) then 1) else (() => f(n - 1, f) + f(n - 2, f)));
-};
+fact = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => n * f(n - 1, f)());
 
-comment: print(if ((1 eq 1) or (1 eq 0)) then 1 else 0);
-print(fib(1, fib));
-comment: print(fib(2, fib));
-comment: print(fib(1, fib));
-comment: print(fib(2, fib));
-comment: print(fib(3, fib));
-comment: print(fib(4, fib));
-comment: print(fib(5, fib));
+fi = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => f(n - 1, f)() + f(n - 2, f)());
+fib = (n) => fi(n, fi)();
+
+suffix(POSTFIX) ! = (n) => fact(n, fact)();
+
+print(5 !);
+print(6 !);
+print(7 !);
+
+print(fib(5));
+print(fib(6));
+print(fib(7));
+print(fib(8));
+
 
 comment: ~$#%!-+ = 5;
 
