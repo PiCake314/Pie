@@ -138,7 +138,7 @@ TokenLines lex(const std::string& src) {
                 std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) { return std::tolower(c); });
 
                 if((lower == "comment" or lower == "note" or lower == "ps" or lower == "todo") and src[index] == ':'){
-                    while(src.at(++index) != '\n');
+                    while(++index < src.length() and src[index] != '\n');
                     break;
                 }
 
@@ -241,7 +241,12 @@ TokenLines lex(const std::string& src) {
             default: break;
         }
         }
-        catch(...) {
+        catch(const std::exception& err) {
+            std::cerr << err.what() << ":\n";
+            for (auto&& line : lines)
+                for (auto&& tok : line)
+                    std::cout << tok << '\n';
+
             error("Lexing Error!");
         }
 

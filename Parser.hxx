@@ -369,7 +369,10 @@ public:
 
             case NAME: {
                 // can't have a name as an infix if it's not an operator
-                if (not ops.contains(token.text)) error("Operator " + token.text + " not found!");
+                if (not ops.contains(token.text)) {
+                    log(true);
+                    error("Operator " + token.text + " not found!");
+                }
 
                 const auto op = ops[token.text];
                 return precedence::calculate(op->high, op->low, ops);
@@ -386,12 +389,13 @@ public:
     /**
      * @attention only call right before calling error/expected
      */
-    void log() {
+    void log(bool begin = false) {
         puts("");
-        std::copy(token_iterator, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
+        std::copy(begin ? tokens.begin() : token_iterator, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
         puts("");
     }
 
 
     const auto& operators() const noexcept { return ops; };
 };
+

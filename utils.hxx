@@ -29,7 +29,6 @@
 }
 
 
-
 [[noreturn]] inline void expected(const TokenKind exp, const TokenKind got, const std::source_location& location = std::source_location::current()) noexcept {
     using std::operator""s;
     error("Expected token "s + stringify(exp) + " and found "s + stringify(got), location);
@@ -112,6 +111,7 @@ struct Func {
 
 using Value = std::variant<int, double, bool, std::string, Closure>;
 
+struct Any {};
 
 
 template <size_t SIZE, size_t N = 0, typename... Ts>
@@ -128,10 +128,18 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
     if constexpr (N < decltype(func)::count) {
         using T = decltype(func.template get2<N, 0>());
 
-        if (not std::holds_alternative<T>(args[0]))
-            return execute<SIZE, N + 1>(func, args, that);
+        if constexpr (not std::is_same_v<T, Any>)
+            if (std::holds_alternative<T>(args[0])) 
+                return execute<SIZE, N + 1>(func, args, that); // try the next type list
 
-        return func.func(std::get<T>(args[0]), that);
+
+        constexpr bool is_any1 = std::is_same_v<T, Any>;
+        std::conditional_t<is_any1, Value, T> v1;
+        if constexpr (is_any1) v1 = args[0];
+        else v1 = std::get<T>(args[0]);
+
+
+        return func.func(v1, that);
     }
     else error("Wrong type passed to function!");
 }
@@ -143,10 +151,74 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
         using T1 = decltype(func.template get2<N, 0>());
         using T2 = decltype(func.template get2<N, 1>());
 
-        if (not std::holds_alternative<T1>(args[0]) or not std::holds_alternative<T2>(args[1]))
-            return execute<SIZE, N + 1>(func, args, that);
+        if constexpr (not std::is_same_v<T1, Any>)
+            if (std::holds_alternative<T1>(args[0])) 
+                return execute<SIZE, N + 1>(func, args, that); // try the next type list
 
-        return func.func(std::get<T1>(args[0]), std::get<T2>(args[1]), that);
+        if constexpr (not std::is_same_v<T2, Any>)
+            if (std::holds_alternative<T2>(args[1])) 
+                return execute<SIZE, N + 1>(func, args, that);
+
+
+        constexpr bool is_any1 = std::is_same_v<T1, Any>;
+        std::conditional_t<is_any1, Value, T1> v1;
+        if constexpr (is_any1) v1 = args[0];
+        else v1 = std::get<T1>(args[0]);
+
+
+        constexpr bool is_any2 = std::is_same_v<T2, Any>;
+        std::conditional_t<is_any2, Value, T2> v2;
+        if constexpr (is_any2) v2 = args[1];
+        else v2 = std::get<T2>(args[1]);
+
+
+        return func.func(v1, v2, that);
     }
+    else error("Wrong type passed to function!");
+}
+
+template <size_t SIZE, size_t N = 0, typename... Ts>
+requires (SIZE == 3)
+static Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+    if constexpr (N < decltype(func)::count) {
+        using T1 = decltype(func.template get2<N, 0>());
+        using T2 = decltype(func.template get2<N, 1>());
+        using T3 = decltype(func.template get2<N, 2>());
+
+        if constexpr (not std::is_same_v<T1, Any>)
+            if (std::holds_alternative<T1>(args[0])) 
+                return execute<SIZE, N + 1>(func, args, that); // try the next type list
+
+        if constexpr (not std::is_same_v<T2, Any>)
+            if (std::holds_alternative<T2>(args[1])) 
+                return execute<SIZE, N + 1>(func, args, that);
+
+        if constexpr (not std::is_same_v<T3, Any>)
+            if (std::holds_alternative<T3>(args[2])) 
+                return execute<SIZE, N + 1>(func, args, that);
+
+
+        constexpr bool is_any1 = std::is_same_v<T1, Any>;
+        std::conditional_t<is_any1, Value, T1> v1;
+        if constexpr (is_any1) v1 = args[0];
+        else v1 = std::get<T1>(args[0]);
+
+
+        constexpr bool is_any2 = std::is_same_v<T2, Any>;
+        std::conditional_t<is_any2, Value, T2> v2;
+        if constexpr (is_any2) v2 = args[1];
+        else v2 = std::get<T2>(args[1]);
+
+
+        constexpr bool is_any3 = std::is_same_v<T3, Any>;
+        std::conditional_t<is_any3, Value, T3> v3;
+        if constexpr (is_any3) v3 = args[2];
+        else v3 = std::get<T3>(args[2]);
+
+
+        return func.func(v1, v2, v3, that);
+
+    }
+
     else error("Wrong type passed to function!");
 }

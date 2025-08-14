@@ -51,13 +51,13 @@ int main(const int argc, const char* argv[]) {
 
     const auto [exprs, ops] = p.parse();
 
-    // puts("Parsed..");
 
     // puts("\nPrecedences:");
     // for (const auto& ops = p.operators();  const auto& [name, fix] : ops) 
     //     std::println("OP: {} = {}", name, precedence::calculate(fix->high, fix->low, ops));
 
 
+    // puts("Parsed..");
     // for(const auto& expr : exprs)
     //     std::println("{};", expr->print(0));
 
