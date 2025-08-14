@@ -21,13 +21,14 @@ infix (SUM - ) or   = (lhs, rhs) => __builtin_or(lhs, rhs);
 
 1 + 1 = 5;
 
-print(2);
-print(1 + 1);
+print(2);       BTW: prints 2
+print(1 + 1 + 1 + 1);   BTW: prints 5
 
 __builtin_reset(1 + 1);
 
-print(2);
-print(1 + 1);
+print(2);       BTW: prints 2
+print(1 + 1);   BTW: prints 2
+
 
 
 

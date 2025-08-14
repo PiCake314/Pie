@@ -142,7 +142,7 @@ TokenLines lex(const std::string& src) {
                 std::string lower = word;
                 std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) { return std::tolower(c); });
 
-                if((lower == "comment" or lower == "note" or lower == "ps" or lower == "todo") and src[index] == ':'){
+                if((lower == "comment" or lower == "note" or lower == "ps" or lower == "btw" or lower == "todo") and src[index] == ':'){
                     while(++index < src.length() and src[index] != '\n');
                     break;
                 }
