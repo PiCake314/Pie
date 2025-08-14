@@ -59,7 +59,7 @@ int main(const int argc, const char* argv[]) {
 
     // puts("Parsed..");
     // for(const auto& expr : exprs)
-    //     std::println("{};", expr->print(0));
+    //     std::println("{};", expr->stringify(0));
 
     // puts("Output:\n");
 

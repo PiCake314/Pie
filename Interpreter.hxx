@@ -37,17 +37,20 @@ struct Visitor {
     Visitor(Operators ops) noexcept : env(1), ops{std::move(ops)} { }
 
 
-
-
     Value operator()(const Num *n) {
-        if (const auto& var = getVar(n->num); var) return *var;
+        if (const auto& var = getVar(n->stringify(0)); var) return *var;
 
-        if (n->num.find('.') == std::string::npos) return std::stoi(n->num);
 
-        return std::stod(n->num);
+        // have to do an if rather than ternary so the return value isn't always coerced into doubles
+        if (n->num.find('.') != std::string::npos) return std::stod(n->num);
+        else return std::stoi(n->num);
     }
 
-    Value operator()(const String *s) { return s->str; }
+    Value operator()(const String *s) {
+        if (const auto& var = getVar(s->stringify(0)); var) return *var;
+
+        return s->str; 
+    }
 
     Value operator()(const Name *n) {
         // what should builtins evaluate to?
@@ -64,19 +67,31 @@ struct Visitor {
     Value operator()(const Assignment *ass) {
 
 
-        if (const auto name = dynamic_cast<const Name*>(ass->lhs.get()))
-            return addVar(name->name, std::visit(*this, ass->rhs->variant()));
+        // if (const auto name = dynamic_cast<const String*>(ass->lhs.get()))
+        //     return addVar(name->str, std::visit(*this, ass->rhs->variant()));
 
-        if (const auto num = dynamic_cast<const Num*>(ass->lhs.get())){
-            // if (*num == )
-            return addVar(num->num, std::visit(*this, ass->rhs->variant()));
-        }
+        // if (const auto num = dynamic_cast<const Num*>(ass->lhs.get())){
+        //     return addVar(num->num, std::visit(*this, ass->rhs->variant()));
+        // }
 
-        if (const auto closure = dynamic_cast<const Closure*>(ass->lhs.get()))
-            return addVar("Closure", std::visit(*this, ass->rhs->variant()));
+        // if (const auto closure = dynamic_cast<const Closure*>(ass->lhs.get()))
+        //     return addVar(closure->stringify(0), std::visit(*this, ass->rhs->variant()));
 
 
-        error();
+        // if (
+        //     not std::holds_alternative<const Name*>(ass->lhs->variant()) and
+        //     not std::holds_alternative<const Num*>(ass->lhs->variant()) and
+        //     not std::holds_alternative<const String*>(ass->lhs->variant()) and
+        //     not std::holds_alternative<const Closure*>(ass->lhs->variant())
+        // )
+        //     error();
+
+
+        return std::visit(
+            [this, ass] (const auto& value) { return addVar(value->stringify(0), std::visit(*this, ass->rhs->variant())); },
+            ass->lhs->variant()
+        );
+
         // return addVar(ass->name, std::visit(*this, ass->expr->variant()));
 
         // const auto& value = std::visit(*this, ass->expr->variant());
@@ -87,6 +102,9 @@ struct Visitor {
     }
 
     Value operator()(const UnaryOp *up) {
+        if (const auto& var = getVar(up->stringify(0)); var) return *var;
+
+
         ScopeGuard sg{this}; // RAII is so cool
         // scope();
 
@@ -105,6 +123,9 @@ struct Visitor {
     }
 
     Value operator()(const BinOp *bp) {
+        if (const auto& var = getVar(bp->stringify(0)); var) return *var;
+
+
         ScopeGuard sg{this};
 
         const Fix* op = ops.at(bp->text);
@@ -122,6 +143,9 @@ struct Visitor {
     }
 
     Value operator()(const PostOp *pp) {
+        if (const auto& var = getVar(pp->stringify(0)); var) return *var;
+
+
         ScopeGuard sg{this};
 
         const Fix* op = ops.at(pp->text);
@@ -137,6 +161,9 @@ struct Visitor {
     }
 
     Value operator()(const Call* call) {
+        if (const auto& var = getVar(call->stringify(0)); var) return *var;
+
+
         ScopeGuard sg{this};
 
         auto var = std::visit(*this, call->func->variant());
@@ -182,6 +209,8 @@ struct Visitor {
     }
 
     Value operator()(const Closure *c) {
+        if (const auto& var = getVar(c->stringify(0)); var) return *var;
+
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
         c->capture(envStackToEnvMap());
         return *c;
@@ -189,6 +218,9 @@ struct Visitor {
 
 
     Value operator()(const Block *block) {
+        if (const auto& var = getVar(block->stringify(0)); var) return *var;
+
+
         ScopeGuard sg{this};
 
         Value ret;
@@ -198,7 +230,11 @@ struct Visitor {
         return ret;
     }
 
-    Value operator()(const Fix *fix) { return std::visit(*this, fix->func->variant()); }
+    Value operator()(const Fix *fix) {
+        if (const auto& var = getVar(fix->stringify(0)); var) return *var;
+
+        return std::visit(*this, fix->func->variant());
+    }
 
     // Value operator()(const Prefix *fix) { }
 
@@ -274,12 +310,32 @@ struct Visitor {
                         return x;
                     }),
                     TypeList<Any>
-                    // TypeList<int>,
-                    // TypeList<double>,
-                    // TypeList<std::string>,
-                    // TypeList<bool>
                 >
             >{},
+
+
+
+            // MapEntry<
+            //     S<"reset">,
+            //     Func<
+            //         decltype([](auto&& v, const auto& that)  {
+            //             // const auto num = dynamic_cast<const Num*>(call->args.front().get());
+
+            //             // if (not num) error("Can only reset numbers!");
+            //             std::visit(
+            //                 [that](const auto& value) {
+            //                     const std::string& s = value->stringify();
+            //                     if (const auto& v = that->getVar(s); not v) error("Reseting an unset value: " + s);
+            //                     else that->removeVar(s);
+
+            //                     return value;
+            //                 },
+            //                 v
+            //             );
+            //         }),
+            //         TypeList<Any>
+            //     >
+            // >{},
 
             //* BINARY FUNCTIONS
             MapEntry<
@@ -448,31 +504,31 @@ struct Visitor {
         //     if (not std::holds_alternative<int>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
         // };
 
-
-        // Since this is a meta function that operates on AST nodes rather than values
-        // it gets its special treatment here..
-        if (name == "reset") {
-            arity_check(1);
-            const auto num = dynamic_cast<const Num*>(call->args.front().get());
-
-            if (not num) error("Can only reset numbers!");
-
-            if (const auto& v = getVar(num->num); not v) error("Reseting an unset number!");
-            else removeVar(num->num);
-
-            return std::stoi(num->num);
-        }
-
         if (name == "true" or name == "false") arity_check(0);
         if (name == "true")  return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
         if (name == "false") return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
 
 
 
-        if (name == "print" or name == "neg" or name == "not") arity_check(1); // just for now..
+        if (name == "print" or name == "neg" or name == "not" or name == "reset") arity_check(1); // just for now..
+
 
 
         const auto& value1 = std::visit(*this, call->args[0]->variant());
+
+        // Since this is a meta function that operates on AST nodes rather than values
+        // it gets its special treatment here..
+        if (name == "reset") {
+
+            const std::string& s = call->args[0]->stringify(0);
+            if (const auto& v = getVar(s); not v) error("Reseting an unset value: " + s);
+            else removeVar(s);
+
+            // return std::stoi(num->num);
+            return value1;
+        }
+
+
         if (name == "print") return execute<1>(stdx::get<S<"print">>(functions).value, {value1}, this);
 
         if (name == "neg") return execute<1>(stdx::get<S<"neg">>(functions).value, {value1}, this);
@@ -550,7 +606,7 @@ struct Visitor {
             // ! this is new
             if (const auto var = getVar("Closure"); var) print(*var);
             else {
-                std::cout << v.print(0);
+                std::cout << v.stringify(0);
                 puts(""); // .print() doesn't add a \n so we add it manually
             }
 
