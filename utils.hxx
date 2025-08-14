@@ -19,11 +19,11 @@
 [[noreturn]] inline void error(const std::string& msg = {}, [[maybe_unused]] const std::source_location& location = std::source_location::current()) noexcept {
     puts(msg.c_str());
 
-    // std::cout
-    //     << "(File: " << location.file_name() 
-    //     << ", Line: " << location.line() 
-    //     << ", Function: " << location.function_name()
-    // << ")\n";
+    std::cerr
+        << "(File: " << location.file_name() 
+        << ", Line: " << location.line() 
+        << ", Function: " << location.function_name()
+    << ")\n";
 
     exit(1);
 }
@@ -129,7 +129,7 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
         using T = decltype(func.template get2<N, 0>());
 
         if constexpr (not std::is_same_v<T, Any>)
-            if (std::holds_alternative<T>(args[0])) 
+            if (not std::holds_alternative<T>(args[0])) 
                 return execute<SIZE, N + 1>(func, args, that); // try the next type list
 
 
@@ -152,11 +152,11 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
         using T2 = decltype(func.template get2<N, 1>());
 
         if constexpr (not std::is_same_v<T1, Any>)
-            if (std::holds_alternative<T1>(args[0])) 
+            if (not std::holds_alternative<T1>(args[0])) 
                 return execute<SIZE, N + 1>(func, args, that); // try the next type list
 
         if constexpr (not std::is_same_v<T2, Any>)
-            if (std::holds_alternative<T2>(args[1])) 
+            if (not std::holds_alternative<T2>(args[1])) 
                 return execute<SIZE, N + 1>(func, args, that);
 
 
@@ -174,7 +174,11 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
 
         return func.func(v1, v2, that);
     }
-    else error("Wrong type passed to function!");
+
+    puts("Args:");
+    that->print(args[0]);
+    that->print(args[1]);
+    error("Wrong type passed to function!");
 }
 
 template <size_t SIZE, size_t N = 0, typename... Ts>
@@ -186,15 +190,15 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
         using T3 = decltype(func.template get2<N, 2>());
 
         if constexpr (not std::is_same_v<T1, Any>)
-            if (std::holds_alternative<T1>(args[0])) 
+            if (not std::holds_alternative<T1>(args[0])) 
                 return execute<SIZE, N + 1>(func, args, that); // try the next type list
 
         if constexpr (not std::is_same_v<T2, Any>)
-            if (std::holds_alternative<T2>(args[1])) 
+            if (not std::holds_alternative<T2>(args[1])) 
                 return execute<SIZE, N + 1>(func, args, that);
 
         if constexpr (not std::is_same_v<T3, Any>)
-            if (std::holds_alternative<T3>(args[2])) 
+            if (not std::holds_alternative<T3>(args[2])) 
                 return execute<SIZE, N + 1>(func, args, that);
 
 

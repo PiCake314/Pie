@@ -84,10 +84,6 @@ public:
         switch (token.kind) {
             using enum TokenKind;
 
-            default:
-                log();
-                error("Couldn't parse \"" + token.text + "\"!");
-
             case INT:
             case FLOAT: return std::make_unique<Num>(token.text);
 
@@ -176,16 +172,17 @@ public:
 
             case L_BRACE: {
                 std::vector<ExprPtr> lines;
-                while(not match(R_BRACE)) {
-                    lines.push_back(parseExpr());
+                do {
+                    lines.emplace_back(parseExpr());
                     consume(SEMI);
                 }
+                while(not match(R_BRACE));
 
                 return std::make_unique<Block>(std::move(lines));
             }
 
             case L_PAREN: {
-                if (match(R_PAREN)) { // closure
+                if (match(R_PAREN)) { // nullary closure
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
@@ -225,6 +222,12 @@ public:
                     return expr;
                 }
             }
+
+            case R_BRACE: error("Can't have empty block!");
+
+            default:
+                log();
+                error("Couldn't parse \"" + token.text + "\"!");
         }
     }
 
@@ -276,9 +279,7 @@ public:
             case L_PAREN: {
                 std::vector<ExprPtr> args;
                 if (not match(R_PAREN)) { // while not closing the paren for the call
-                    do
-                        args.emplace_back(parseExpr());
-                    while(match(COMMA));
+                    do args.emplace_back(parseExpr()); while(match(COMMA));
 
                     consume(R_PAREN);
                 }
@@ -306,11 +307,10 @@ public:
     Token consume(const TokenKind exp, const std::source_location& loc = std::source_location::current()) {
         using std::operator""s;
 
-		if (const Token token = lookAhead(0); token.kind != exp) 
-            [[unlikely]] {
-                log();
-                expected(exp, token.kind, loc);
-            }
+		if (const Token token = lookAhead(0); token.kind != exp) [[unlikely]] {
+            log();
+            expected(exp, token.kind, loc);
+        }
 
 		return consume();
 	}
@@ -391,7 +391,7 @@ public:
      */
     void log(bool begin = false) {
         puts("");
-        std::copy(begin ? tokens.begin() : token_iterator, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
+        std::copy(begin ? tokens.begin() : (token_iterator - 5), tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
         puts("");
     }
 

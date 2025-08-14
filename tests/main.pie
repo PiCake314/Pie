@@ -6,20 +6,41 @@ ifelse = __builtin_conditional;
 
 
 prefix(PREFIX) if   = (expr) => expr;
-infix( CALL  ) then = (cond, branch) => __builtin_conditional(cond, branch, "magic=false=value");
-infix( CALL  ) else = (cond, branch) => __builtin_conditional(__builtin_eq(cond, "magic=false=value"), branch, cond);
+infix (CALL  ) then = (cond, branch) => __builtin_conditional(cond, branch(), "magic=false=value");
+infix (CALL  ) else = (cond, branch) => __builtin_conditional(__builtin_eq(cond, "magic=false=value"), branch(), cond);
 
-~$#%!-+ = 5;
+infix (SUM   ) +    = (lhs, rhs) => __builtin_add(lhs, rhs);
+infix (SUM   ) -    = (lhs, rhs) => __builtin_sub(lhs, rhs);
+infix (SUM - ) eq   = (lhs, rhs) => __builtin_eq(lhs, rhs);
+infix (SUM - ) or   = (lhs, rhs) => __builtin_or(lhs, rhs);
 
-print(~$#%!-+);
 
-1 = "Hi";
-x = 1;
-__builtin_reset(1);
 
-print(x);
-print(1);
+fib = (n, f) => {
+    (((if __builtin_lt(n, 1)) then 1) else (() => f(n - 1, f) + f(n - 2, f)));
+};
 
-result = if __builtin_eq(x, 1) then x else "Bye";
-print(result);
-comment: print(((if __builtin_eq(x, 2)) then 5) else 10);
+comment: print(if ((1 eq 1) or (1 eq 0)) then 1 else 0);
+print(fib(1, fib));
+comment: print(fib(2, fib));
+comment: print(fib(1, fib));
+comment: print(fib(2, fib));
+comment: print(fib(3, fib));
+comment: print(fib(4, fib));
+comment: print(fib(5, fib));
+
+comment: ~$#%!-+ = 5;
+
+comment: print(~$#%!-+);
+
+comment: 1 = "Hi";
+comment: x = 1;
+comment: __builtin_reset(1);
+
+comment: print(x);
+comment: print(1);
+
+comment: result = if __builtin_eq(x, 1) then x else "Bye";
+comment: print(result);
+
+

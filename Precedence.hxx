@@ -36,7 +36,7 @@ namespace precedence {
 
       // default: 
       default:
-        if (not ops.contains(token.text)) error("Token does not name any precedende level!");
+        if (not ops.contains(token.text)) error("Token " + token.text + " does not name any precedende level!");
 
         const auto& op = ops.at(token.text);
         return std::midpoint(fromToken(op->high, ops), fromToken(op->low, ops));

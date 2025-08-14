@@ -213,7 +213,7 @@ struct Visitor {
         for(const auto& builtin : {
             "true", "false",                                                            //* nullary
             "print", "reset",                                                           //* unary
-            "neg", "not", "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt",   //* binary
+            "neg", "not", "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt", "and", "or",   //* binary
             "conditional"                                                               //* trinary
         })
             if (func == make_builtin(builtin)) return true;
@@ -395,6 +395,23 @@ struct Visitor {
                 >
             >{},
 
+            // * BOOLEAN FUNCTIONS
+            MapEntry<
+                S<"or">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a or b; }),
+                    TypeList<bool, bool>
+                >
+            >{},
+
+            MapEntry<
+                S<"and">,
+                Func<
+                    decltype([](auto&& a, auto&& b, const auto&) { return a and b; }),
+                    TypeList<bool, bool>
+                >
+            >{},
+
             //* TRUNARY FUNCTIONS
 
             MapEntry<
@@ -466,7 +483,7 @@ struct Visitor {
         // all the rest of those funcs expect 2 arguments
 
         using std::operator""sv;
-        const auto names_2 = {"add"sv, "sub"sv, "mul"sv, "div"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
+        const auto names_2 = {"add"sv, "sub"sv, "mul"sv, "div"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv, "and"sv, "or"sv};
 
         if (std::ranges::find(names_2, name) != names_2.end()) arity_check(2); 
 
@@ -477,11 +494,14 @@ struct Visitor {
         if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
         if (name == "div") return execute<2>(stdx::get<S<"div">>(functions).value, {value1, value2}, this);
 
-        if (name == "gt")  return execute<2>(stdx::get<S<"gt" >>(functions).value, {value1, value2}, this);
+        if (name == "gt" ) return execute<2>(stdx::get<S<"gt" >>(functions).value, {value1, value2}, this);
         if (name == "geq") return execute<2>(stdx::get<S<"geq">>(functions).value, {value1, value2}, this);
-        if (name == "eq")  return execute<2>(stdx::get<S<"eq" >>(functions).value, {value1, value2}, this);
+        if (name == "eq" ) return execute<2>(stdx::get<S<"eq" >>(functions).value, {value1, value2}, this);
         if (name == "leq") return execute<2>(stdx::get<S<"leq">>(functions).value, {value1, value2}, this);
-        if (name == "lt")  return execute<2>(stdx::get<S<"lt" >>(functions).value, {value1, value2}, this);
+        if (name == "lt" ) return execute<2>(stdx::get<S<"lt" >>(functions).value, {value1, value2}, this);
+
+        if (name == "and") return execute<2>(stdx::get<S<"and">>(functions).value, {value1, value2}, this);
+        if (name == "or" ) return execute<2>(stdx::get<S<"or" >>(functions).value, {value1, value2}, this);
 
 
         arity_check(3);
@@ -495,6 +515,7 @@ struct Visitor {
 
 
     void print(const Value& value) const noexcept {
+        std::clog << value.index() << '\n';
 
         if (std::holds_alternative<bool>(value)) {
             const auto& v = std::get<bool>(value);
@@ -527,11 +548,11 @@ struct Visitor {
 
         if (std::holds_alternative<Closure>(value)) {
             const auto& v = std::get<Closure>(value);
-
+            
             // ! this is new
             if (const auto var = getVar("Closure"); var) print(*var);
             else {
-                v.print(0);
+                std::cout << v.print(0);
                 puts(""); // .print() doesn't add a \n so we add it manually
             }
 
