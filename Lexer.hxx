@@ -128,7 +128,7 @@ TokenLines lex(const std::string& src) {
             #pragma GCC diagnostic pop
             {
                 const auto beginning = index;
-                while (isalnum(src.at(++index)) or src[index] == '_');
+                while (validNameChar(src.at(++index)));
 
                 const auto word = src.substr(beginning, index - beginning);
                 // check for keywords here :)
