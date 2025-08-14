@@ -12,9 +12,9 @@ namespace precedence {
   inline constexpr auto LOW         = 0;
   inline constexpr auto ASSIGNMENT  = 100;
 //   inline constexpr auto CONDITIONAL = 200;
-  inline constexpr auto SUM         = 300;
-  inline constexpr auto PROD        = 400;
-  inline constexpr auto OP_CALL     = 500;
+  inline constexpr auto INFIX       = 300;
+  inline constexpr auto SUM         = 400;
+  inline constexpr auto PROD        = 500;
 //   inline constexpr auto EXPONENT    = 600;
   inline constexpr auto PREFIX      = 700;
   inline constexpr auto POSTFIX     = 800;
@@ -28,7 +28,7 @@ namespace precedence {
       case TokenKind::PR_ASSIGNMENT: return ASSIGNMENT;
       case TokenKind::PR_SUM:        return SUM;
       case TokenKind::PR_PROD:       return PROD;
-      case TokenKind::PR_OP_CALL:    return OP_CALL;
+      case TokenKind::PR_INFIX:      return INFIX;
       case TokenKind::PR_PREFIX:     return PREFIX;
       case TokenKind::PR_POSTFIX:    return POSTFIX;
       case TokenKind::PR_CALL:       return CALL;
@@ -52,8 +52,8 @@ namespace precedence {
       case TokenKind::PR_LOW:        return {TokenKind::PR_ASSIGNMENT, stringify(TokenKind::PR_ASSIGNMENT)};
       case TokenKind::PR_ASSIGNMENT: return {TokenKind::PR_SUM, stringify(TokenKind::PR_SUM)};
       case TokenKind::PR_SUM:        return {TokenKind::PR_PROD, stringify(TokenKind::PR_PROD)};
-      case TokenKind::PR_PROD:       return {TokenKind::PR_OP_CALL, stringify(TokenKind::PR_OP_CALL)};
-      case TokenKind::PR_OP_CALL:    return {TokenKind::PR_PREFIX, stringify(TokenKind::PR_PREFIX)};
+      case TokenKind::PR_PROD:       return {TokenKind::PR_INFIX, stringify(TokenKind::PR_INFIX)};
+      case TokenKind::PR_INFIX:    return {TokenKind::PR_PREFIX, stringify(TokenKind::PR_PREFIX)};
       case TokenKind::PR_PREFIX:     return {TokenKind::PR_POSTFIX, stringify(TokenKind::PR_POSTFIX)};
       case TokenKind::PR_POSTFIX:    return {TokenKind::PR_CALL, stringify(TokenKind::PR_CALL)};
       case TokenKind::PR_CALL:       return {TokenKind::PR_HIGH, stringify(TokenKind::PR_HIGH)};
@@ -76,8 +76,8 @@ namespace precedence {
       case TokenKind::PR_ASSIGNMENT: return {TokenKind::PR_LOW, stringify(TokenKind::PR_LOW)};
       case TokenKind::PR_SUM:        return {TokenKind::PR_ASSIGNMENT, stringify(TokenKind::PR_ASSIGNMENT)};
       case TokenKind::PR_PROD:       return {TokenKind::PR_SUM, stringify(TokenKind::PR_SUM)};
-      case TokenKind::PR_OP_CALL:    return {TokenKind::PR_PROD, stringify(TokenKind::PR_PROD)};
-      case TokenKind::PR_PREFIX:     return {TokenKind::PR_OP_CALL, stringify(TokenKind::PR_OP_CALL)};
+      case TokenKind::PR_INFIX:    return {TokenKind::PR_PROD, stringify(TokenKind::PR_PROD)};
+      case TokenKind::PR_PREFIX:     return {TokenKind::PR_INFIX, stringify(TokenKind::PR_INFIX)};
       case TokenKind::PR_POSTFIX:    return {TokenKind::PR_PREFIX, stringify(TokenKind::PR_PREFIX)};
       case TokenKind::PR_CALL:       return {TokenKind::PR_POSTFIX, stringify(TokenKind::PR_POSTFIX)};
       case TokenKind::PR_HIGH:       return {TokenKind::PR_CALL, stringify(TokenKind::PR_CALL)};

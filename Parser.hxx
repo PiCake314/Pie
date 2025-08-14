@@ -141,6 +141,10 @@ public:
 
                 const Token name = consume(NAME);
 
+                // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
+                if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW))
+                    error("Can't have set operator precedence to only LOW/HIGH: " + name.text);
+
                 consume(ASSIGN);
 
                 ExprPtr func = parseExpr();
@@ -309,7 +313,7 @@ public:
 
 		if (const Token token = lookAhead(0); token.kind != exp) [[unlikely]] {
             log();
-            expected(exp, token.kind, loc);
+            expected(exp, token, loc);
         }
 
 		return consume();
@@ -370,7 +374,7 @@ public:
             case NAME: {
                 // can't have a name as an infix if it's not an operator
                 if (not ops.contains(token.text)) {
-                    log(true);
+                    log();
                     error("Operator " + token.text + " not found!");
                 }
 

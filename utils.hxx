@@ -29,9 +29,9 @@
 }
 
 
-[[noreturn]] inline void expected(const TokenKind exp, const TokenKind got, const std::source_location& location = std::source_location::current()) noexcept {
+[[noreturn]] inline void expected(const TokenKind exp, const Token got, const std::source_location& location = std::source_location::current()) noexcept {
     using std::operator""s;
-    error("Expected token "s + stringify(exp) + " and found "s + stringify(got), location);
+    error("Expected token "s + stringify(exp) + " and found "s + stringify(got.kind) + ": " + got.text, location);
 }
 
 
@@ -124,7 +124,7 @@ static Value execute(Func<Ts...> func, const std::vector<Value>&, const auto& th
 
 template <size_t SIZE, size_t N = 0, typename... Ts>
 requires (SIZE == 1)
-static Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
     if constexpr (N < decltype(func)::count) {
         using T = decltype(func.template get2<N, 0>());
 
@@ -146,7 +146,7 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
 
 template <size_t SIZE, size_t N = 0, typename... Ts>
 requires (SIZE == 2)
-static Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
     if constexpr (N < decltype(func)::count) {
         using T1 = decltype(func.template get2<N, 0>());
         using T2 = decltype(func.template get2<N, 1>());
@@ -183,7 +183,7 @@ static Value execute(Func<Ts...> func, const std::vector<Value>& args, const aut
 
 template <size_t SIZE, size_t N = 0, typename... Ts>
 requires (SIZE == 3)
-static Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
     if constexpr (N < decltype(func)::count) {
         using T1 = decltype(func.template get2<N, 0>());
         using T2 = decltype(func.template get2<N, 1>());

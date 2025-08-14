@@ -41,7 +41,7 @@ TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "ASSIGNMENT") return TokenKind::PR_ASSIGNMENT;
     else if (word == "SUM"       ) return TokenKind::PR_SUM;
     else if (word == "PROD"      ) return TokenKind::PR_PROD;
-    else if (word == "OP_CALL"   ) return TokenKind::PR_OP_CALL;
+    else if (word == "OP_CALL"   ) return TokenKind::PR_INFIX;
     else if (word == "PREFIX"    ) return TokenKind::PR_PREFIX;
     else if (word == "POSTFIX"   ) return TokenKind::PR_POSTFIX;
     else if (word == "CALL"      ) return TokenKind::PR_CALL;
@@ -65,6 +65,9 @@ bool validNameChar(const char c) noexcept {
         case '~':
         case '-':
         case '_':
+        case '<':
+        case '>':
+        case '=': // function would only be used when checking chars that are not the first in the name
             return true;
     }
 
@@ -120,6 +123,8 @@ TokenLines lex(const std::string& src) {
             case '~':
             case '-':
             case '_':
+            case '<':
+            case '>':
             // ! remove pragmas
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
@@ -169,7 +174,9 @@ TokenLines lex(const std::string& src) {
 
             case '=':
                 if (src.at(index + 1) == '>')
-                    lines.back().push_back({TokenKind::FAT_ARROW, src.substr(index++, 2)});
+                    lines.back().push_back({TokenKind::FAT_ARROW, {src[index], src[++index]}});
+                else if ((src[index + 1] == '='))
+                    lines.back().push_back({TokenKind::NAME, {src[index], src[++index]}});
                 else
                     lines.back().push_back({TokenKind::ASSIGN, {src[index]}});
 

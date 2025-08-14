@@ -36,7 +36,7 @@ enum class TokenKind {
     PR_ASSIGNMENT,
     PR_SUM,
     PR_PROD,
-    PR_OP_CALL,
+    PR_INFIX,
     PR_PREFIX,
     PR_POSTFIX,
     PR_CALL,
@@ -73,7 +73,7 @@ const char* stringify(const TokenKind token) noexcept {
         case PR_ASSIGNMENT: return "ASSIGNMENT"; 
         case PR_SUM:        return "SUM"; 
         case PR_PROD:       return "PROD"; 
-        case PR_OP_CALL:    return "OP_CALL"; 
+        case PR_INFIX:      return "PR_INFIX"; 
         case PR_PREFIX:     return "PREFIX"; 
         case PR_POSTFIX:    return "POSTFIX"; 
         case PR_CALL:       return "CALL"; 

@@ -6,32 +6,35 @@ ifelse = __builtin_conditional;
 
 
 prefix(PREFIX) if   = (expr) => expr;
-infix (CALL  ) then = (cond, branch) => __builtin_conditional(cond, branch(), "magic=false=value");
-infix (CALL  ) else = (cond, branch) => __builtin_conditional(__builtin_eq(cond, "magic=false=value"), branch(), cond);
+infix (LOW + ) then = (cond, branch) => __builtin_conditional(cond, branch(), "magic=false=value");
+infix (LOW   ) else = (cond, branch) => __builtin_conditional(__builtin_eq(cond, "magic=false=value"), branch(), cond);
 
 infix (PROD  ) *    = (lhs, rhs) => __builtin_mul(lhs, rhs);
 infix (SUM   ) +    = (lhs, rhs) => __builtin_add(lhs, rhs);
 infix (SUM   ) -    = (lhs, rhs) => __builtin_sub(lhs, rhs);
-infix (SUM - ) eq   = (lhs, rhs) => __builtin_eq(lhs, rhs);
+infix (SUM - ) ==   = (lhs, rhs) => __builtin_eq(lhs, rhs);
+infix (SUM - ) !=   = (lhs, rhs) => __builtin_not(__builtin_eq(lhs, rhs));
 infix (SUM - ) or   = (lhs, rhs) => __builtin_or(lhs, rhs);
 
 
+print(if 1 == 1 then "ye" else "nu");
 
-fact = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => n * f(n - 1, f)());
+comment: fact = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => n * f(n - 1, f)());
 
-fi = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => f(n - 1, f)() + f(n - 2, f)());
-fib = (n) => fi(n, fi)();
+comment: fi = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => f(n - 1, f)() + f(n - 2, f)());
+comment: fib = (n) => fi(n, fi)();
 
-suffix(POSTFIX) ! = (n) => fact(n, fact)();
+comment: suffix(POSTFIX) ! = (n) => fact(n, fact)();
 
-print(5 !);
-print(6 !);
-print(7 !);
+comment: print(5 !);
+comment: print(6 !);
+comment: print(7 !);
 
-print(fib(5));
-print(fib(6));
-print(fib(7));
-print(fib(8));
+comment: print(fib(5));
+comment: print(fib(6));
+comment: print(fib(7));
+comment: print(fib(8));
+comment: print(fib(10));
 
 
 comment: ~$#%!-+ = 5;

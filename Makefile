@@ -8,11 +8,3 @@ INCLUDE = -I/usr/local/include/mp11/include/ -I/usr/local/include/cpp-std-extens
 clang: main.cc
 	$(CC) $(ARGS) $(VER) $(INCLUDE) main.cc -o Pie
 
-
-
-# CC = g++-14
-# ARGS = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough 
-# VER = -std=c++23
-
-# gcc: main.cc
-# 	$(GCC) $(ARGS) $(VER) main.cc
