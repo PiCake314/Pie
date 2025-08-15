@@ -1,28 +1,4 @@
-print = __builtin_print;
 
 
 
-Human = class {
-    pretty = () => {
-        print("Age: ");
-        print(age);
 
-        print("Name: ");
-        print(name);
-    };
-
-    age = 0;
-    name = "";
-};
-
-v = Human();
-
-v.pretty();
-
-v.name = "Ali";
-p = v.pretty;
-
-v.age = 23;
-
-p();
-v.pretty();

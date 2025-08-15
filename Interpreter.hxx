@@ -76,7 +76,6 @@ struct Visitor {
     }
 
     Value operator()(const Assignment *ass) {
-        // std::clog << "ASS: " << ass->lhs->stringify(0) << '\n';
         const auto& value = std::visit(*this, ass->rhs->variant());
 
         if (const auto acc = dynamic_cast<Access*>(ass->lhs.get())) {
@@ -109,6 +108,9 @@ struct Visitor {
 
 
     Value operator()(const Class *cls) {
+        if (auto&& var = getVar(cls->stringify(0)); var) return *var;
+
+
         std::vector<std::pair<std::string, Value>> members;
 
         for (const auto& field : cls->fields) {
@@ -133,6 +135,7 @@ struct Visitor {
 
 
     Value operator()(const Access *acc) {
+
         const auto& left = std::visit(*this, acc->var->variant());
 
         if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
