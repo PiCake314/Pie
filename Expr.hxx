@@ -1,13 +1,17 @@
 #pragma once
 
-#include "Token.hxx"
 #include <iostream>
 #include <cmath>
 #include <string>
+#include <vector>
 #include <utility>
 #include <algorithm>
 #include <memory>
 #include <variant>
+
+#include "Token.hxx"
+#include "Declarations.hxx"
+
 
 struct Expr;
 using ExprPtr = std::shared_ptr<Expr>;
@@ -17,6 +21,8 @@ struct Num;
 struct String;
 struct Name;
 struct Assignment;
+struct Class;
+struct Access;
 struct UnaryOp;
 struct BinOp;
 struct PostOp;
@@ -35,6 +41,8 @@ using Node = std::variant<
     const String*,
     const Name*,
     const Assignment*,
+    const Class*,
+    const Access*,
     const UnaryOp*,
     const BinOp*,
     const PostOp*,
@@ -58,7 +66,7 @@ struct Expr {
 struct Num : Expr {
     std::string num;
 
-    Num(std::string n) noexcept : num{std::move(n)} {}
+    explicit Num(std::string n) noexcept : num{std::move(n)} {}
 
     std::string stringify(const size_t) const override { return num; }
 
@@ -69,7 +77,7 @@ struct Num : Expr {
 struct String : Expr {
     std::string str;
 
-    String(std::string s) noexcept : str{std::move(s)} {}
+    explicit String(std::string s) noexcept : str{std::move(s)} {}
 
     std::string stringify(const size_t) const override { return '"' + str + '"'; }
 
@@ -81,7 +89,7 @@ struct Name : Expr {
     std::string name;
 
 
-    Name(std::string n) noexcept : name{std::move(n)} {}
+    explicit Name(std::string n) noexcept : name{std::move(n)} {}
 
     std::string stringify(const size_t) const override { return name; }
 
@@ -101,6 +109,42 @@ struct Assignment : Expr {
 
     std::string stringify(const size_t indent) const override {
         return lhs->stringify(indent) + " = " + rhs->stringify(indent);
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct Class : Expr {
+    std::vector<Assignment> fields;
+
+    explicit Class(std::vector<Assignment> f) noexcept
+    : fields{std::move(f)}
+    {}
+
+    std::string stringify(const size_t indent) const override {
+        std::string s = "class {\n";
+
+        for (const auto& ass : fields) 
+            s += std::string(indent + 4, ' ') + ass.stringify(indent + 4) + ";\n";
+
+        return s + std::string(indent, ' ') + "}";
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct Access : Expr {
+    ExprPtr var;
+    std::string name;
+
+    Access(ExprPtr v, std::string n) noexcept
+    : var{std::move(v)}, name{std::move(n)}
+    {}
+
+    std::string stringify(const size_t indent) const override {
+        return var->stringify(indent) + '.' + name;
     }
 
     Node variant() const override { return this; }
@@ -187,7 +231,10 @@ struct Call : Expr {
 
 
 // redeclared in Interpreter.hxx
-using Value = std::variant<int, double, bool, std::string, Closure>;
+// using Value = std::variant<int, double, bool, std::string, Closure>;
+
+
+using Value = std::variant<int, double, bool, std::string, Closure, ClassValue, std::shared_ptr<Dict>>;
 using Environment = std::unordered_map<std::string, Value>;
 
 struct Closure : Expr {
@@ -212,9 +259,7 @@ struct Closure : Expr {
         for(size_t i{1}; i < params.size(); ++i)
             s += ", " + params[i];
 
-        s += ") => " + body->stringify(indent);
-
-        return s;
+        return s + ") => " + body->stringify(indent);
     }
 
     Node variant() const override { return this; }
@@ -224,7 +269,7 @@ struct Closure : Expr {
 struct Block : Expr {
     std::vector<ExprPtr> lines;
 
-    Block(std::vector<ExprPtr> l) noexcept : lines{std::move(l)} {};
+    explicit Block(std::vector<ExprPtr> l) noexcept : lines{std::move(l)} {};
 
 
     std::string stringify(const size_t indent) const override {
@@ -237,7 +282,7 @@ struct Block : Expr {
             s += ";\n";
         }
 
-        s += std::string(indent, ' ') + "};";
+        s += std::string(indent, ' ') + "}";
 
         return s;
     }

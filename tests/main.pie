@@ -1,50 +1,28 @@
 print = __builtin_print;
-true  = __builtin_true();
-false = __builtin_false();
-
-ifelse = __builtin_conditional;
-
-
-prefix(PREFIX) if   = (expr) => expr;
-infix (LOW + ) then = (cond, branch) => __builtin_conditional(cond, branch(), "magic=false=value");
-infix (LOW + ) else = (cond, branch) => __builtin_conditional(__builtin_eq(cond, "magic=false=value"), branch(), cond);
-
-
-infix (PROD  ) *    = (lhs, rhs) => __builtin_mul(lhs, rhs);
-infix (SUM   ) +    = (lhs, rhs) => __builtin_add(lhs, rhs);
-infix (SUM   ) -    = (lhs, rhs) => __builtin_sub(lhs, rhs);
-infix (SUM - ) ==   = (lhs, rhs) => __builtin_eq(lhs, rhs);
-infix (SUM - ) !=   = (lhs, rhs) => __builtin_not(__builtin_eq(lhs, rhs));
-infix (SUM - ) or   = (lhs, rhs) => __builtin_or(lhs, rhs);
 
 
 
-1 + 1 = 5;
+Human = class {
+    pretty = () => {
+        print("Age: ");
+        print(age);
 
-print(2);       BTW: prints 2
-print(1 + 1 + 1 + 1);   BTW: prints 5
+        print("Name: ");
+        print(name);
+    };
 
-__builtin_reset(1 + 1);
+    age = 0;
+    name = "";
+};
 
-print(2);       BTW: prints 2
-print(1 + 1);   BTW: prints 2
+v = Human();
 
+v.pretty();
 
+v.name = "Ali";
+p = v.pretty;
 
+v.age = 23;
 
-comment: fact = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => n * f(n - 1, f)());
-
-comment: fi = (n, f) => __builtin_conditional(__builtin_lt(n, 2), () => 1, () => f(n - 1, f)() + f(n - 2, f)());
-comment: fib = (n) => fi(n, fi)();
-
-comment: suffix(POSTFIX) ! = (n) => fact(n, fact)();
-
-comment: print(5 !);
-comment: print(6 !);
-comment: print(7 !);
-
-comment: print(fib(5));
-comment: print(fib(6));
-comment: print(fib(7));
-comment: print(fib(8));
-comment: print(fib(10));
+p();
+v.pretty();

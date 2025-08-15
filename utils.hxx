@@ -109,8 +109,7 @@ struct Func {
 };
 
 
-using Value = std::variant<int, double, bool, std::string, Closure>;
-
+// using Value = std::variant<int, double, bool, std::string, Closure>;
 struct Any {};
 
 

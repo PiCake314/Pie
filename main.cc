@@ -1,5 +1,6 @@
 #include <print>
 #include <string>
+#include <string_view>
 #include <sstream>
 #include <vector>
 #include <fstream>
@@ -33,8 +34,21 @@
 }
 
 
-int main(const int argc, const char* argv[]) {
-    if (argc != 2) error("Wrong number of arguments!");
+int main(int argc, char *argv[]) {
+    using std::operator""sv;
+    if (argc < 2) error("Wrong number of arguments!");
+
+
+    bool print_tokens = false;
+    bool print_parsed = false;
+
+    // this would leave file name at argv[1]
+    for(; argc > 2; --argc, ++argv) {
+        if (argv[1] == "-t"sv) print_tokens = true;
+
+        if (argv[1] == "-p"sv) print_parsed = true;
+    }
+
 
     const auto src = readFile(argv[1]);
 
@@ -47,7 +61,7 @@ int main(const int argc, const char* argv[]) {
 
     const auto flattened_v = flattenLines(std::move(v));
     Parser p{flattened_v};
-    // std::println("{}", flattened_v);
+    if (print_tokens) std::println("{}", flattened_v);
 
     const auto [exprs, ops] = p.parse();
 
@@ -57,11 +71,11 @@ int main(const int argc, const char* argv[]) {
     //     std::println("OP: {} = {}", name, precedence::calculate(fix->high, fix->low, ops));
 
 
-    // puts("Parsed..");
-    // for(const auto& expr : exprs)
-    //     std::println("{};", expr->stringify(0));
+    if (print_parsed)
+        for(const auto& expr : exprs)
+            std::println("{};", expr->stringify(0));
 
-    // puts("Output:\n");
+    if (print_parsed) puts("Output:\n");
 
     Visitor visitor{ops};
     for (const auto& expr : exprs)

@@ -111,6 +111,26 @@ public:
                 return std::make_unique<Name>(token.text);
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
+            case CLASS:{
+                consume(L_BRACE);
+
+                std::vector<Assignment> fields;
+
+                while (not match(R_BRACE)) {
+                    auto expr = parseExpr();
+                    consume(SEMI);
+
+                    auto ass = dynamic_cast<const Assignment*>(expr.get());
+                    if (not ass) error("Can only have assignments in class definition!");
+
+                    fields.push_back(*ass);
+                }
+
+
+                return std::make_unique<Class>(std::move(fields));
+
+            }
+
             case PREFIX: 
             case INFIX : 
             case SUFFIX: {
@@ -240,17 +260,6 @@ public:
         switch (token.kind) {
             using enum TokenKind;
 
-            // case PLUS:
-            // case DASH:
-            //     left = std::make_unique<BinOp>(std::move(left), token.kind, parse(precedence::SUM));
-            //     break;
-
-            // case STAR:
-            // case SLASH:
-            //     left = std::make_unique<BinOp>(std::move(left), token.kind, parse(precedence::PRODUCT));
-            //     break;
-
-
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
@@ -268,6 +277,14 @@ public:
                 }
 
                 return std::make_unique<Name>(token.text);
+
+            case DOT:{
+                const auto& accessee = parseExpr(precedence::HIGH);
+                auto accessee_ptr = dynamic_cast<Name*>(accessee.get());
+                if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
+
+                return std::make_unique<Access>(left, std::move(accessee_ptr->name));
+            }
 
             case ASSIGN:
                 return std::make_unique<Assignment>(left, parseExpr(precedence::ASSIGNMENT));
@@ -361,6 +378,7 @@ public:
             using enum TokenKind;
 
             case ASSIGN: return precedence::ASSIGNMENT;
+            case DOT   : return precedence::HIGH;
 
             // case TokenKind::NUM: return precedence::SUM;
 

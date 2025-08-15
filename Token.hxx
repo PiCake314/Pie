@@ -8,10 +8,12 @@
 enum class TokenKind {
     // UNKNOWN = -1,
     // NONE = 0,
-    NAME,
     ASSIGN,
+    FAT_ARROW,
     COMMA,
+    DOT,
 
+    NAME,
     INT,
     FLOAT,
     BOOL,
@@ -21,15 +23,13 @@ enum class TokenKind {
     R_BRACE,
     L_PAREN,
     R_PAREN,
-    FAT_ARROW,
 
 // Keywords
-    // IF,
-
 
     PREFIX,
     INFIX,
     SUFFIX,
+    CLASS,
 
 // PRECEDENCE
     PR_LOW,
@@ -62,11 +62,13 @@ const char* stringify(const TokenKind token) noexcept {
         case L_PAREN:       return "L_PAREN";
         case R_PAREN:       return "R_PAREN";
         case COMMA:         return "COMMA";
+        case DOT:           return "DOT";
         case SEMI:          return "SEMI";
         case FAT_ARROW:     return "FAT_ARROW";
         case PREFIX:        return "PREFIX";
         case INFIX:         return "INFIX";
         case SUFFIX:        return "SUFFIX";
+        case CLASS:          return "CLASS";
 
         // should probs prefix the strings with PR_ but maybe it's fine for now
         case PR_LOW:        return "LOW"; 

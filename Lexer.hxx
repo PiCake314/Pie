@@ -32,23 +32,25 @@ using TokenLines = std::vector<Tokens>;
 
 
 TokenKind keyword(const std::string_view word) noexcept {
-         if (word == "prefix"    ) return TokenKind::PREFIX;
-    else if (word == "infix"     ) return TokenKind::INFIX;
-    else if (word == "suffix"    ) return TokenKind::SUFFIX;
+    using enum TokenKind;
+         if (word == "prefix"    ) return PREFIX;
+    else if (word == "infix"     ) return INFIX;
+    else if (word == "suffix"    ) return SUFFIX;
+    else if (word == "class"     ) return CLASS;
 
     // PRIORITIES
-    else if (word == "LOW"       ) return TokenKind::PR_LOW;
-    else if (word == "ASSIGNMENT") return TokenKind::PR_ASSIGNMENT;
-    else if (word == "SUM"       ) return TokenKind::PR_SUM;
-    else if (word == "PROD"      ) return TokenKind::PR_PROD;
-    else if (word == "OP_CALL"   ) return TokenKind::PR_INFIX;
-    else if (word == "PREFIX"    ) return TokenKind::PR_PREFIX;
-    else if (word == "POSTFIX"   ) return TokenKind::PR_POSTFIX;
-    else if (word == "CALL"      ) return TokenKind::PR_CALL;
-    else if (word == "HIGH"      ) return TokenKind::PR_HIGH;
+    else if (word == "LOW"       ) return PR_LOW;
+    else if (word == "ASSIGNMENT") return PR_ASSIGNMENT;
+    else if (word == "SUM"       ) return PR_SUM;
+    else if (word == "PROD"      ) return PR_PROD;
+    else if (word == "OP_CALL"   ) return PR_INFIX;
+    else if (word == "PREFIX"    ) return PR_PREFIX;
+    else if (word == "POSTFIX"   ) return PR_POSTFIX;
+    else if (word == "CALL"      ) return PR_CALL;
+    else if (word == "HIGH"      ) return PR_HIGH;
 
 
-    return TokenKind::NAME;
+    return NAME;
 }
 
 
@@ -87,6 +89,8 @@ TokenLines lex(const std::string& src) {
 
         try{
         switch (src[index]) {
+            using enum TokenKind;
+
             // ! remove pragmas
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
@@ -99,7 +103,7 @@ TokenLines lex(const std::string& src) {
                 bool is_name = validNameChar(src[index]);
                 if (is_name) {
                     while (validNameChar(src.at(++index)));
-                    lines.back().emplace_back(TokenKind::NAME, src.substr(beginning, index - beginning));
+                    lines.back().emplace_back(NAME, src.substr(beginning, index - beginning));
                     --index;
                     break;
                 }
@@ -107,7 +111,7 @@ TokenLines lex(const std::string& src) {
                 bool is_float = src[index] == '.';
                 if (is_float) while (isdigit(src.at(++index)));
 
-                lines.back().emplace_back(is_float ? TokenKind::FLOAT : TokenKind::INT, src.substr(beginning, index - beginning));
+                lines.back().emplace_back(is_float ? FLOAT : INT, src.substr(beginning, index - beginning));
                 --index;
             } break;
 
@@ -153,13 +157,13 @@ TokenLines lex(const std::string& src) {
                     for (size_t ind = line_starting_index; ind < src.size() and src[ind] != '\n'; ++ind)
                         line_text += src[ind];
 
-                    lines.back().push_back({TokenKind::STRING, line_text});
+                    lines.back().push_back({STRING, line_text});
                     --index;
                     break;
                 }
 
                 if (word == "__LINE__") [[unlikely]] {
-                    lines.back().push_back({TokenKind::INT, std::to_string(line_count)});
+                    lines.back().push_back({INT, std::to_string(line_count)});
                     --index;
                     break;
                 }
@@ -174,17 +178,19 @@ TokenLines lex(const std::string& src) {
 
             case '=':
                 if (src.at(index + 1) == '>')
-                    lines.back().push_back({TokenKind::FAT_ARROW, {src[index], src[++index]}});
+                    lines.back().push_back({FAT_ARROW, {src[index], src[++index]}});
                 else if ((src[index + 1] == '='))
-                    lines.back().push_back({TokenKind::NAME, {src[index], src[++index]}});
+                    lines.back().push_back({NAME, {src[index], src[++index]}});
                 else
-                    lines.back().push_back({TokenKind::ASSIGN, {src[index]}});
+                    lines.back().push_back({ASSIGN, {src[index]}});
 
                 break;
 
-            case ',': lines.back().push_back({TokenKind::COMMA, {src[index]}}); break;
+            case ',': lines.back().push_back({COMMA, {src[index]}}); break;
+            case '.': lines.back().push_back({DOT, {src[index]}}); break;
+
             case ';':
-                lines.back().push_back({TokenKind::SEMI, {src[index]}});
+                lines.back().push_back({SEMI, {src[index]}});
                 lines.push_back({});
                 break;
 
@@ -194,25 +200,25 @@ TokenLines lex(const std::string& src) {
                 line_starting_index = index + 1;
                 break;
 
-            case '(': lines.back().push_back({TokenKind::L_PAREN, {src[index]}}); break;
-            case ')': lines.back().push_back({TokenKind::R_PAREN, {src[index]}}); break;
+            case '(': lines.back().push_back({L_PAREN, {src[index]}}); break;
+            case ')': lines.back().push_back({R_PAREN, {src[index]}}); break;
 
             case '{':
-                lines.back().push_back({TokenKind::L_BRACE, {src[index]}});
+                lines.back().push_back({L_BRACE, {src[index]}});
                 // lines.push_back({});
                 break;
 
-            case '}': lines.back().push_back({TokenKind::R_BRACE, {src[index]}}); break;
+            case '}': lines.back().push_back({R_BRACE, {src[index]}}); break;
 
             case '"':{
                 const size_t old = index;
                 while(src[++index] != '"');
-                lines.back().push_back({TokenKind::STRING, src.substr(old + 1, index - old -1)});
+                lines.back().push_back({STRING, src.substr(old + 1, index - old -1)});
             } break;
 
             case '&':
             //     if (src[index + 1] == '&') {
-            //         lines.back().push_back({TokenKind::NAME, src.substr(index++, 2)}); // plusplused here
+            //         lines.back().push_back({NAME, src.substr(index++, 2)}); // plusplused here
             //         // ++index;
             //         break;
             //     }
@@ -220,7 +226,7 @@ TokenLines lex(const std::string& src) {
 
             case '|':
             //     if (src[index + 1] == '|') {
-            //         lines.back().push_back({TokenKind::NAME, {src[index], src[++index]}});
+            //         lines.back().push_back({NAME, {src[index], src[++index]}});
             //         break;
             //     }
             // [[fallthrough]];
@@ -239,7 +245,7 @@ TokenLines lex(const std::string& src) {
             //     const char op = src[index];
             //     const auto beginning = index;
             //     while (src[++index] == op);
-            //     lines.back().push_back({TokenKind::NAME, src.substr(beginning, index - beginning)});
+            //     lines.back().push_back({NAME, src.substr(beginning, index - beginning)});
             //     --index;
             // } break;
 
@@ -258,6 +264,8 @@ TokenLines lex(const std::string& src) {
         }
 
     }
+
+    if (not lines.empty() and not lines.back().empty() and lines.back().back().kind != TokenKind::SEMI) error("Last line doesn't end with a ';'!");
 
 
     lines.pop_back();

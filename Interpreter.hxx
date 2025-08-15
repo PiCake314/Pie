@@ -1,28 +1,39 @@
 #pragma once
 
+#include <string>
+#include <string_view>
+#include <vector>
+#include <map>
+#include <unordered_map>
+#include <ranges>
+#include <optional>
+#include <utility>
+#include <stdexcept>
+#include <cassert>
+
 
 #include "utils.hxx"
 #include "Expr.hxx"
 #include "Parser.hxx"
-
-#include <string>
-#include <string_view>
-#include <vector>
-#include <unordered_map>
-#include <ranges>
-#include <optional>
-#include <stdexcept>
-#include <cassert>
+#include "Declarations.hxx"
 
 
 #include <stdx/tuple.hpp>
 
 
 
-using Value = std::variant<int, double, bool, std::string, Closure>;
+struct Dict;
+
+// carrys the default values to be copied into an object. essentially const
+// carrys objects' values. could be changed
+
+using Object = std::shared_ptr<Dict>; 
+using Value = std::variant<int, double, bool, std::string, Closure, ClassValue, Object>;
+
+struct Dict { std::vector<std::pair<std::string, Value>> members; };
+
 using Environment = std::unordered_map<std::string, Value>;
 
-struct Any;
 
 struct Visitor {
     // struct Builtin { std::string name; }; // for later
@@ -38,7 +49,7 @@ struct Visitor {
 
 
     Value operator()(const Num *n) {
-        if (const auto& var = getVar(n->stringify(0)); var) return *var;
+        if (auto&& var = getVar(n->stringify(0)); var) return *var;
 
 
         // have to do an if rather than ternary so the return value isn't always coerced into doubles
@@ -47,7 +58,7 @@ struct Visitor {
     }
 
     Value operator()(const String *s) {
-        if (const auto& var = getVar(s->stringify(0)); var) return *var;
+        if (auto&& var = getVar(s->stringify(0)); var) return *var;
 
         return s->str; 
     }
@@ -59,50 +70,96 @@ struct Visitor {
         // how about a special value?
         if (isBuiltIn(n->name)) return n->name;
 
-        if (const auto opt = getVar(n->name); opt) return *opt;
+        if (auto&& opt = getVar(n->name); opt) return *opt;
 
         error("Name \"" + n->name + "\" is not defined");
     }
 
     Value operator()(const Assignment *ass) {
+        // std::clog << "ASS: " << ass->lhs->stringify(0) << '\n';
+        const auto& value = std::visit(*this, ass->rhs->variant());
+
+        if (const auto acc = dynamic_cast<Access*>(ass->lhs.get())) {
+            const auto& left = std::visit(*this, acc->var->variant());
+
+            if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
+
+            const auto& obj = get<Object>(left);
+
+            for (auto&& [name, member_value] : obj->members) {
+                if (name == acc->name) {
+                    member_value = value;
+                    break; // found the field. no need to keep iterating
+                }
+
+                // obj->members[acc->name] = std::visit(*this, ass->rhs->variant());
+            }
+
+            return value;
+            // return obj->members[acc->name];
+        }
+
+        return addVar(ass->lhs->stringify(0), value);
+
+        // return std::visit(
+        //     [this, ass] (const auto& value) { return addVar(value->stringify(0), std::visit(*this, ass->rhs->variant())); },
+        //     ass->lhs->variant()
+        // );
+    }
 
 
-        // if (const auto name = dynamic_cast<const String*>(ass->lhs.get()))
-        //     return addVar(name->str, std::visit(*this, ass->rhs->variant()));
+    Value operator()(const Class *cls) {
+        std::vector<std::pair<std::string, Value>> members;
 
-        // if (const auto num = dynamic_cast<const Num*>(ass->lhs.get())){
-        //     return addVar(num->num, std::visit(*this, ass->rhs->variant()));
+        for (const auto& field : cls->fields) {
+            // const auto& name = std::visit(*this, field.lhs->variant());
+
+            // lots of a std::move 's lol
+            members.push_back({field.lhs->stringify(0),  std::visit(*this, field.rhs->variant())});
+        }
+
+
+        // for (auto&& [name, value] : members) {
+        //     if (std::holds_alternative<Closure>(value)) {
+        //         const auto& c = get<Closure>(value);
+        //         c.capture(members);
+
+        //         members[name] = c;
+        //     }
         // }
 
-        // if (const auto closure = dynamic_cast<const Closure*>(ass->lhs.get()))
-        //     return addVar(closure->stringify(0), std::visit(*this, ass->rhs->variant()));
+        return ClassValue{std::make_shared<Dict>(std::move(members))};
+    }
 
 
-        // if (
-        //     not std::holds_alternative<const Name*>(ass->lhs->variant()) and
-        //     not std::holds_alternative<const Num*>(ass->lhs->variant()) and
-        //     not std::holds_alternative<const String*>(ass->lhs->variant()) and
-        //     not std::holds_alternative<const Closure*>(ass->lhs->variant())
-        // )
-        //     error();
+    Value operator()(const Access *acc) {
+        const auto& left = std::visit(*this, acc->var->variant());
+
+        if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
+
+        const auto& obj = std::get<Object>(left);
+
+        const auto& found = std::ranges::find_if(obj->members, [&name = acc->name] (auto&& e) { return e.first == name; });
+        if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
 
-        return std::visit(
-            [this, ass] (const auto& value) { return addVar(value->stringify(0), std::visit(*this, ass->rhs->variant())); },
-            ass->lhs->variant()
-        );
+        if (std::holds_alternative<Closure>(found->second)) {
+            const auto& closure = get<Closure>(found->second);
 
-        // return addVar(ass->name, std::visit(*this, ass->expr->variant()));
+            std::unordered_map<std::string, Value> capture_list;
+            for (const auto& [name, value] : obj->members)
+                capture_list[name] = value;
 
-        // const auto& value = std::visit(*this, ass->expr->variant());
-        // addVar(ass->name, value);
-        // return value;
+            closure.capture(capture_list);
 
-        // return env.back()[ass->name] = std::visit(*this, ass->expr->variant());
+            return closure;
+        }
+
+        return found->second;
     }
 
     Value operator()(const UnaryOp *up) {
-        if (const auto& var = getVar(up->stringify(0)); var) return *var;
+        if (auto&& var = getVar(up->stringify(0)); var) return *var;
 
 
         ScopeGuard sg{this}; // RAII is so cool
@@ -123,7 +180,7 @@ struct Visitor {
     }
 
     Value operator()(const BinOp *bp) {
-        if (const auto& var = getVar(bp->stringify(0)); var) return *var;
+        if (auto&& var = getVar(bp->stringify(0)); var) return *var;
 
 
         ScopeGuard sg{this};
@@ -143,7 +200,7 @@ struct Visitor {
     }
 
     Value operator()(const PostOp *pp) {
-        if (const auto& var = getVar(pp->stringify(0)); var) return *var;
+        if (auto&& var = getVar(pp->stringify(0)); var) return *var;
 
 
         ScopeGuard sg{this};
@@ -161,7 +218,7 @@ struct Visitor {
     }
 
     Value operator()(const Call* call) {
-        if (const auto& var = getVar(call->stringify(0)); var) return *var;
+        if (auto&& var = getVar(call->stringify(0)); var) return *var;
 
 
         ScopeGuard sg{this};
@@ -204,12 +261,20 @@ struct Visitor {
             return std::visit(*this, func.body->variant());
         }
 
+        if (std::holds_alternative<ClassValue>(var)) {
+            const auto& cls = std::get<ClassValue>(var);
+
+            Object obj{ std::make_shared<Dict>(cls.blueprint->members) }; // copying defaults field values from class definition
+
+            return obj;
+        }
+
         // error("operator() applied on not-a-function");
         return var;
     }
 
     Value operator()(const Closure *c) {
-        if (const auto& var = getVar(c->stringify(0)); var) return *var;
+        if (auto&& var = getVar(c->stringify(0)); var) return *var;
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
         c->capture(envStackToEnvMap());
@@ -218,7 +283,7 @@ struct Visitor {
 
 
     Value operator()(const Block *block) {
-        if (const auto& var = getVar(block->stringify(0)); var) return *var;
+        if (auto&& var = getVar(block->stringify(0)); var) return *var;
 
 
         ScopeGuard sg{this};
@@ -231,7 +296,7 @@ struct Visitor {
     }
 
     Value operator()(const Fix *fix) {
-        if (const auto& var = getVar(fix->stringify(0)); var) return *var;
+        if (auto&& var = getVar(fix->stringify(0)); var) return *var;
 
         return std::visit(*this, fix->func->variant());
     }
@@ -570,47 +635,91 @@ struct Visitor {
 
 
 
-    void print(const Value& value) const noexcept {
+    void print(const Value& value, bool new_line = true, const size_t indent = {}) const noexcept {
         if (std::holds_alternative<bool>(value)) {
             const auto& v = std::get<bool>(value);
 
-            if (const auto var = getVar(std::to_string(v)); var) print(*var);
-            else std::println("{}", v);
+            // if (const auto var = getVar(std::to_string(v)); var) print(*var); else
+            std::print("{}", v);
         }
 
         if (std::holds_alternative<int>(value)) {
             const auto& v = std::get<int>(value);
 
-            if (const auto var = getVar(std::to_string(v)); var) print(*var);
-            else std::println("{}", v);
+            // if (const auto var = getVar(std::to_string(v)); var) print(*var); else
+            std::print("{}", v);
         }
 
         if (std::holds_alternative<double>(value)) {
             const auto& v = std::get<double>(value);
 
-            if (const auto var = getVar(std::to_string(v)); var)  print(*var);
-            else std::println("{}", v);
+            // if (const auto var = getVar(std::to_string(v)); var)  print(*var); else
+            std::print("{}", v);
         }
 
         if (std::holds_alternative<std::string>(value)) {
             const auto& v = std::get<std::string>(value);
 
-            // if (const auto var = getVar(""); var) print(*var);
-            // else  std::println("{}", v);
-            std::println("{}", v);
+            std::print("{}", v);
         }
 
         if (std::holds_alternative<Closure>(value)) {
             const auto& v = std::get<Closure>(value);
-            
+
             // ! this is new
-            if (const auto var = getVar("Closure"); var) print(*var);
-            else {
-                std::cout << v.stringify(0);
-                puts(""); // .print() doesn't add a \n so we add it manually
+            // if (const auto var = getVar(v.stringify(0)); var) print(*var); else
+            std::print("{}", v.stringify(indent));
+        }
+
+
+        if (std::holds_alternative<ClassValue>(value)) {
+            const auto& v = std::get<ClassValue>(value);
+
+            // std::println("{}", v.stringify(0));
+            puts("class {");
+
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v.blueprint->members) {
+                std::print("{}{} = ", space, name);
+
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) std::print("\"");
+
+                print(value, false, indent + 4);
+
+                if (is_string) std::print("\"");
+
+                puts(";");
             }
 
+            puts("}");
         }
+
+
+        if (std::holds_alternative<Object>(value)) {
+            const auto& v = std::get<Object>(value);
+
+            puts("Object {");
+
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v->members) {
+                std::print("{}{} = ", space, name);
+
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) std::print("\"");
+
+                print(value, false, indent + 4);
+
+                if (is_string) std::print("\"");
+
+
+                puts(";");
+            }
+
+            std::print("{}}}", std::string(indent, ' '));
+        }
+
+        if (new_line) puts("");
     }
 
 private:
