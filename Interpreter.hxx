@@ -85,14 +85,20 @@ struct Visitor {
 
             const auto& obj = get<Object>(left);
 
-            for (auto&& [name, member_value] : obj->members) {
-                if (name == acc->name) {
-                    member_value = value;
-                    break; // found the field. no need to keep iterating
-                }
+            const auto& found = std::ranges::find_if(obj->members, [name = acc->name](auto&& member) { return member.first == name; });
 
-                // obj->members[acc->name] = std::visit(*this, ass->rhs->variant());
-            }
+            if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+
+            found->second = value;
+
+            // for (auto&& [name, member_value] : obj->members) {
+            //     if (name == acc->name) {
+            //         member_value = value;
+            //         break; // found the field. no need to keep iterating
+            //     }
+
+            //     // obj->members[acc->name] = std::visit(*this, ass->rhs->variant());
+            // }
 
             return value;
             // return obj->members[acc->name];
@@ -142,7 +148,7 @@ struct Visitor {
 
         const auto& obj = std::get<Object>(left);
 
-        const auto& found = std::ranges::find_if(obj->members, [&name = acc->name] (auto&& e) { return e.first == name; });
+        const auto& found = std::ranges::find_if(obj->members, [&name = acc->name] (auto&& member) { return member.first == name; });
         if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
 

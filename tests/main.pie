@@ -1,6 +1,16 @@
 
 
-comment: __builtin_print(__builtin_sub(0.3, __builtin_add(0.1, 0.2)));
+
+T = class { hmm = () => 1; };
+
+v1 = T();
+
+v1.hmm = 4;
+
+v2 = T();
+
+__builtin_print(v1.hmm);
+__builtin_print(v2.hmm);
 
 
 
