@@ -523,47 +523,37 @@ struct Visitor {
                     TypeList<double, int>,
                     TypeList<double, double>
                 >
-            >{},
-
-            // * BOOLEAN FUNCTIONS
-            MapEntry<
-                S<"or">,
-                Func<
-                    decltype([](auto&& a, auto&& b, const auto&) { return a or b; }),
-                    TypeList<bool, bool>
-                >
-            >{},
-
-            MapEntry<
-                S<"and">,
-                Func<
-                    decltype([](auto&& a, auto&& b, const auto&) { return a and b; }),
-                    TypeList<bool, bool>
-                >
-            >{},
-
-            //* TRUNARY FUNCTIONS
-
-            MapEntry<
-                S<"conditional">,
-                Func<
-                    decltype([](auto&& a, auto&& b, auto&& c, const auto&) -> Value {
-                        return std::visit(
-                            [] (const Value& aa, const Value& bb, const Value& cc) -> Value {
-                                if (std::holds_alternative<bool>(aa)) {
-                                    if (std::get<bool>(aa)) return bb;
-                                    else return cc;
-                                }
-
-                                 // if it's not a bool, always return the else branch
-                                return cc;
-                            },
-                            a, b, c
-                        );
-                    }),
-                    TypeList<Any, Any, Any>
-                >
             >{}
+
+            // // * BOOLEAN FUNCTIONS
+            // MapEntry<
+            //     S<"or">,
+            //     Func<
+            //         decltype([](auto&& a, auto&& b, const auto&) { return a or b; }),
+            //         TypeList<bool, bool>
+            //     >
+            // >{},
+
+            // MapEntry<
+            //     S<"and">,
+            //     Func<
+            //         decltype([](auto&& a, auto&& b, const auto&) { return a and b; }),
+            //         TypeList<bool, bool>
+            //     >
+            // >{}
+
+            // // * TRINARY FUNCTIONS
+            // MapEntry<
+            //     S<"conditional">,
+            //     Func<
+            //         decltype([](auto&& cond, auto&& then, auto&& otherwise, const auto&) -> Value {
+            //             if (std::holds_alternative<bool>(cond) and get<bool>(cond)) return then;
+
+            //             return otherwise;
+            //         }),
+            //         TypeList<Node, Node, Node>
+            //     >
+            // >{}
         );
 
 
@@ -587,7 +577,8 @@ struct Visitor {
         if (name == "print" or name == "neg" or name == "not" or name == "reset") arity_check(1); // just for now..
 
 
-
+        // evaluating arguments from left to right as needed
+        // first argument is always evaluated
         const auto& value1 = std::visit(*this, call->args[0]->variant());
 
         // Since this is a meta function that operates on AST nodes rather than values
@@ -613,30 +604,64 @@ struct Visitor {
         // all the rest of those funcs expect 2 arguments
 
         using std::operator""sv;
-        const auto names_2 = {"add"sv, "sub"sv, "mul"sv, "div"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv, "and"sv, "or"sv};
 
-        if (std::ranges::find(names_2, name) != names_2.end()) arity_check(2); 
+        const auto eager = {"add"sv, "sub"sv, "mul"sv, "div"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
+        if (std::ranges::find(eager, name) != eager.end()) {
+            arity_check(2);
+            const auto& value2 = std::visit(*this, call->args[1]->variant());
 
-        const auto& value2 = std::visit(*this, call->args[1]->variant());
+            // this is disgusting..I know
+            if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
+            if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);
+            if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
+            if (name == "div") return execute<2>(stdx::get<S<"div">>(functions).value, {value1, value2}, this);
+            if (name == "gt" ) return execute<2>(stdx::get<S<"gt" >>(functions).value, {value1, value2}, this);
+            if (name == "geq") return execute<2>(stdx::get<S<"geq">>(functions).value, {value1, value2}, this);
+            if (name == "eq" ) return execute<2>(stdx::get<S<"eq" >>(functions).value, {value1, value2}, this);
+            if (name == "leq") return execute<2>(stdx::get<S<"leq">>(functions).value, {value1, value2}, this);
+            if (name == "lt" ) return execute<2>(stdx::get<S<"lt" >>(functions).value, {value1, value2}, this);
 
-        if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
-        if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);
-        if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
-        if (name == "div") return execute<2>(stdx::get<S<"div">>(functions).value, {value1, value2}, this);
+            error("This shouldn't happen. File a bug report!");
 
-        if (name == "gt" ) return execute<2>(stdx::get<S<"gt" >>(functions).value, {value1, value2}, this);
-        if (name == "geq") return execute<2>(stdx::get<S<"geq">>(functions).value, {value1, value2}, this);
-        if (name == "eq" ) return execute<2>(stdx::get<S<"eq" >>(functions).value, {value1, value2}, this);
-        if (name == "leq") return execute<2>(stdx::get<S<"leq">>(functions).value, {value1, value2}, this);
-        if (name == "lt" ) return execute<2>(stdx::get<S<"lt" >>(functions).value, {value1, value2}, this);
-
-        if (name == "and") return execute<2>(stdx::get<S<"and">>(functions).value, {value1, value2}, this);
-        if (name == "or" ) return execute<2>(stdx::get<S<"or" >>(functions).value, {value1, value2}, this);
+        }
 
 
-        arity_check(3);
-        const auto& value3 = std::visit(*this, call->args[2]->variant());
-        if (name == "conditional")  return execute<3>(stdx::get<S<"conditional">>(functions).value, {value1, value2, value3}, this);
+        if (name == "and") {
+            arity_check(2);
+
+            if (not std::holds_alternative<bool>(value1)) return value1; // return first falsy value
+            if (not get<bool>(value1)) return value1; // first falsey value
+
+
+            return std::visit(*this, call->args[1]->variant()); // last truthy value
+        }
+
+        if (name == "or" ) {
+            arity_check(2);
+            if (not std::holds_alternative<bool>(value1)) return std::visit(*this, call->args[1]->variant()); // last falsey value
+
+
+            if(get<bool>(value1)) return value1; // first truthy value
+            return std::visit(*this, call->args[1]->variant()); // last falsey value
+        }
+
+
+        if (name == "conditional") {
+            arity_check(3);
+            const auto& then      = call->args[1]->variant();
+            const auto& otherwise = call->args[2]->variant();
+
+            if (not std::holds_alternative<bool>(value1)) return std::visit(*this, otherwise);
+
+
+            if(get<bool>(value1)) return std::visit(*this, then);
+
+            return std::visit(*this, otherwise); // Oh ffs! [for cogs on discord!]
+        }
+
+
+        // const auto& value3 = std::visit(*this, call->args[2]->variant());
+        // if (name == "conditional") return execute<3>(stdx::get<S<"conditional">>(functions).value, {value1, value2, value3}, this);
 
 
         error("Calling a builtin fuction that doesn't exist!");

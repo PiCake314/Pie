@@ -1,16 +1,13 @@
 
 
 
-T = class { hmm = () => 1; };
-
-v1 = T();
-
-v1.hmm = 4;
-
-v2 = T();
-
-__builtin_print(v1.hmm);
-__builtin_print(v2.hmm);
+fact = (n, f) => {
+    __builtin_conditional(__builtin_lt(n, 2), 1, __builtin_mul(n, f(__builtin_sub(n, 1), f)));
+};
 
 
+suffix(POSTFIX) ! = (n) => fact(n, fact);
+
+
+comment: __builtin_print(5 !);
 
