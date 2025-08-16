@@ -8,6 +8,7 @@
 - [ ] Add collections
 - [ ] Add looping
 - [ ] Add iterators
+- [ ] Add variadic arguments
 - [ ] Add constructor to classes..somehow
 - [ ] Add method operators..?
 - [ ] Allow recursion..somhow

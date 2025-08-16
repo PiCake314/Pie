@@ -17,19 +17,16 @@
 // not sure where to put it
 // keep it here for now...
 [[noreturn]] inline void error(const std::string& msg = "[no diagnostic]", [[maybe_unused]] const std::source_location& location = std::source_location::current()) noexcept {
-    puts(msg.c_str());
+    // puts(msg.c_str());
 
-    std::cerr
-        << "(File: " << location.file_name() 
-        << ", Line: " << location.line() 
-        << ", Function: " << location.function_name()
-    << ")\n";
+    // std::cerr << location.file_name()  << ", Line: " << location.line() << ", Function: " << location.function_name() << '';
+    std::println(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m {}", location.file_name(), location.line(), location.column(), msg);
 
     exit(1);
 }
 
 
-[[noreturn]] inline void expected(const TokenKind exp, const Token got, const std::source_location& location = std::source_location::current()) noexcept {
+[[noreturn]] inline void expected(const TokenKind exp, const Token& got, const std::source_location& location = std::source_location::current()) noexcept {
     using std::operator""s;
     error("Expected token "s + stringify(exp) + " and found "s + stringify(got.kind) + ": " + got.text, location);
 }

@@ -279,6 +279,10 @@ struct Visitor {
         }
 
         // error("operator() applied on not-a-function");
+        // applied on a value. Just return the value for now
+        // maybe I should make it so that x(1) == { t = x; x = 1; t; }; ...?
+
+        if (call->args.size() != 0) error("Can't pass arguments to values!");
         return var;
     }
 

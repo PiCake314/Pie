@@ -36,11 +36,11 @@
 
 int main(int argc, char *argv[]) {
     using std::operator""sv;
-    if (argc < 2) error("Wrong number of arguments!");
+    if (argc < 2) error("Please pass a file name!");
 
 
-    bool print_tokens = false;
-    bool print_parsed = false;
+    bool print_tokens{};
+    bool print_parsed{};
 
     // this would leave file name at argv[1]
     for(; argc > 2; --argc, ++argv) {

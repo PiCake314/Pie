@@ -62,6 +62,8 @@ bool validNameChar(const char c) noexcept {
         case '$':
         case '%':
         case '^':
+        case '&':
+        case '|':
         case '*':
         case '+':
         case '~':
@@ -69,6 +71,8 @@ bool validNameChar(const char c) noexcept {
         case '_':
         case '<':
         case '>':
+        case '[':
+        case ']':
         case '=': // function would only be used when checking chars that are not the first in the name
             return true;
     }
@@ -122,6 +126,8 @@ TokenLines lex(const std::string& src) {
             case '$':
             case '%':
             case '^':
+            case '&':
+            case '|':
             case '*':
             case '+':
             case '~':
@@ -129,6 +135,8 @@ TokenLines lex(const std::string& src) {
             case '_':
             case '<':
             case '>':
+            case '[':
+            case ']':
             // ! remove pragmas
             #pragma GCC diagnostic push
             #pragma GCC diagnostic ignored "-Wpedantic"
@@ -216,7 +224,7 @@ TokenLines lex(const std::string& src) {
                 lines.back().push_back({STRING, src.substr(old + 1, index - old -1)});
             } break;
 
-            case '&':
+            // case '&':
             //     if (src[index + 1] == '&') {
             //         lines.back().push_back({NAME, src.substr(index++, 2)}); // plusplused here
             //         // ++index;
@@ -224,7 +232,7 @@ TokenLines lex(const std::string& src) {
             //     }
             // [[fallthrough]];
 
-            case '|':
+            // case '|':
             //     if (src[index + 1] == '|') {
             //         lines.back().push_back({NAME, {src[index], src[++index]}});
             //         break;

@@ -1,12 +1,22 @@
+print = __builtin_print;
+
+comment: infix(SUM) + = (a, b) => __builtin_add(a, b);
 
 
-comment: Everything is an expression
-comment: bare-bones (if it doesn't need to be keyword, then it isn't)
-comment: no operators defiend for you (you define your own)
-comment: still quirky (different even if the difference is not good)
-comment: still feels familar
+Human = class {
+    name = "";
+    age = 0;
+};
 
 
 
+func = (h: Human) => ...;
 
+
+Human = 5;
+
+h = Human();
+
+print(Human);
+print(h);
 
