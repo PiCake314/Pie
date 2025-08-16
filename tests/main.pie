@@ -1,13 +1,12 @@
 
 
-
-fact = (n, f) => {
-    __builtin_conditional(__builtin_lt(n, 2), 1, __builtin_mul(n, f(__builtin_sub(n, 1), f)));
-};
-
-
-suffix(POSTFIX) ! = (n) => fact(n, fact);
+comment: Everything is an expression
+comment: bare-bones (if it doesn't need to be keyword, then it isn't)
+comment: no operators defiend for you (you define your own)
+comment: still quirky (different even if the difference is not good)
+comment: still feels familar
 
 
-comment: __builtin_print(5 !);
+
+
 
