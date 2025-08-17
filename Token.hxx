@@ -43,6 +43,7 @@ enum class TokenKind {
     PR_HIGH,
 
     SEMI,
+    COLON,
 
     END,
 };
@@ -64,11 +65,12 @@ const char* stringify(const TokenKind token) noexcept {
         case COMMA:         return "COMMA";
         case DOT:           return "DOT";
         case SEMI:          return "SEMI";
+        case COLON:         return "COLON";
         case FAT_ARROW:     return "FAT_ARROW";
         case PREFIX:        return "PREFIX";
         case INFIX:         return "INFIX";
         case SUFFIX:        return "SUFFIX";
-        case CLASS:          return "CLASS";
+        case CLASS:         return "CLASS";
 
         // should probs prefix the strings with PR_ but maybe it's fine for now
         case PR_LOW:        return "LOW"; 

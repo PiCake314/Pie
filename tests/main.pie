@@ -1,22 +1,5 @@
-print = __builtin_print;
-
-comment: infix(SUM) + = (a, b) => __builtin_add(a, b);
 
 
-Human = class {
-    name = "";
-    age = 0;
-};
+func: ((int): Any, ((Any): int): int): (): int = (f: int, g) =>  1;
 
-
-
-func = (h: Human) => ...;
-
-
-Human = 5;
-
-h = Human();
-
-print(Human);
-print(h);
 

@@ -108,7 +108,53 @@ public:
                 // if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
                 //     return std::make_unique<UnaryOp>(token, parseExpr(precedence::PREFIX));
                 // else
+                {
+                std::string type;
+
+                if (match(COLON)) {
+                    if (check(NAME)) type = consume().text;
+                    else if (check(L_PAREN)) {
+                        do {
+                            // !!!!
+                            type = [parser = this](this auto&& l) -> std::string {
+                                if (parser->check(NAME)) return parser->consume().text;
+
+                                if (parser->match(L_PAREN)) {
+                                    std::string type;
+
+                                    if (not parser->check(R_PAREN))
+                                        do type += l() + ", "; while(parser->match(COMMA));
+
+                                    parser->consume(R_PAREN);
+
+                                    if (not type.empty()) {
+                                        type.pop_back(); type.pop_back(); // remove the ", "
+                                    }
+
+                                    parser->consume(COLON);
+
+                                    return '(' + type + "): " + l(); // maybe??
+                                }
+
+                                // if (parser->match(R_PAREN)) {
+                                //     parser->consume(COLON);
+
+                                //     return "(): " + l();
+                                // }
+
+                                parser->log();
+                                error("Invalid type!");
+                            }();
+                            // !!!!
+
+                        } while(check(COMMA));
+                    }
+                    else error("Invalid type!");
+                }
+                else type = "Any";
+
                 return std::make_unique<Name>(token.text);
+                }
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
             case CLASS:{
@@ -126,13 +172,12 @@ public:
                     fields.push_back(*ass);
                 }
 
-
                 return std::make_unique<Class>(std::move(fields));
-
             }
 
-            case PREFIX: 
-            case INFIX : 
+
+            case PREFIX:
+            case INFIX :
             case SUFFIX: {
                 consume(L_PAREN);
                 Token low = consume();
@@ -194,6 +239,7 @@ public:
             }
             break;
 
+
             case L_BRACE: {
                 std::vector<ExprPtr> lines;
                 do {
@@ -205,34 +251,45 @@ public:
                 return std::make_unique<Block>(std::move(lines));
             }
 
+
             case L_PAREN: {
                 if (match(R_PAREN)) { // nullary closure
+
+                    Type type = match(COLON) ? consume(NAME).text : "Any";
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(std::vector<std::string>{}, std::move(body));
+                    return std::make_unique<Closure>(std::vector<std::pair<std::string, std::string>>{}, std::move(type), std::move(body));
                 }
 
                 // could still be closure or groupings
                 // Token t = consume(); // NAME or NUM
 
-                const bool is_closure = check(NAME) and (check(COMMA, 1) or (check(R_PAREN, 1) and check(FAT_ARROW, 2)));
+                const bool is_closure = check(NAME) and (check(COMMA, 1) or check(COLON, 1) or (check(R_PAREN, 1) and check(FAT_ARROW, 2)));
                 // bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
 
                 if (is_closure) {
-                    Token t = consume(NAME);
-                    std::vector<std::string> params = {t.text};
+
+                    Token name = consume(NAME);
+                    Type type = match(COLON) ? consume(NAME).text : "Any";
+
+                    std::vector<std::pair<std::string, Type>> params = {{std::move(name).text, std::move(type)}};
 
                     while(match(COMMA)) {
-                        t = consume(NAME);
-                        params.push_back(t.text);
+                        name = consume(NAME);
+                        type = match(COLON) ? consume(NAME).text : "Any";
+
+                        params.push_back({std::move(name).text, std::move(type)});
                     }
 
                     consume(R_PAREN);
+
+                    type = match(COLON) ? consume(NAME).text : "Any"; // return type
+
                     consume(FAT_ARROW);
 
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(std::move(params), std::move(body));
+                    return std::make_unique<Closure>(std::move(params), std::move(type), std::move(body));
                 }
                 else { // tt's just grouping,
                     // log(); 
@@ -286,16 +343,9 @@ public:
                 return std::make_unique<Access>(left, std::move(accessee_ptr->name));
             }
 
-            case ASSIGN:
+            case ASSIGN: 
                 return std::make_unique<Assignment>(left, parseExpr(precedence::ASSIGNMENT));
 
-                // if (const auto name = dynamic_cast<const Name*>(left.get()))
-                //     return std::make_unique<Assignment>(name, parseExpr(precedence::ASSIGNMENT));
-                // if (const auto call = dynamic_cast<const Call*>(left.get()))
-                //     return std::make_unique<Assignment>(call->func, parseExpr(precedence::ASSIGNMENT));
-
-
-                // expected(NAME, token.kind);
 
             case L_PAREN: {
                 std::vector<ExprPtr> args;
