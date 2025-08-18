@@ -1,5 +1,19 @@
+print = __builtin_print;
 
 
-func: ((int): Any, ((Any): int): int): (): int = (f: int, g) =>  1;
+func = (x: Any): Int => 1;
 
+f1: (Int): Any = func;
+f2: (Any): Any = func;
+
+
+55 = class {
+    a = 1;
+    b = 2;
+};
+
+x: 55 = 55();
+x = 1;
+
+print(55);
 

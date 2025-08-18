@@ -11,11 +11,12 @@
 
 #include "Token.hxx"
 #include "Declarations.hxx"
+#include "Type.hxx"
+#include "utils.hxx"
 
 
 struct Expr;
 using ExprPtr = std::shared_ptr<Expr>;
-using Type = std::string;
 
 
 struct Num;
@@ -88,10 +89,10 @@ struct String : Expr {
 
 struct Name : Expr {
     std::string name;
-    Type type;
+    type::TypePtr type;
 
 
-    Name(std::string n, Type t = "Any") noexcept : name{std::move(n)}, type{std::move(t)} {}
+    Name(std::string n, type::TypePtr t = type::builtins::Any()) noexcept : name{std::move(n)}, type{std::move(t)} {}
 
     std::string stringify(const size_t) const override { return name; }
 
@@ -237,17 +238,24 @@ struct Call : Expr {
 
 
 using Value = std::variant<int, double, bool, std::string, Closure, ClassValue, std::shared_ptr<Dict>>;
-using Environment = std::unordered_map<std::string, std::pair<Value, Type>>;
+using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 struct Closure : Expr {
-    std::vector<std::pair<std::string, Type>> params;
-    Type return_type;
+    std::vector<std::string> params;
+
+    // type::TypePtr return_type;
+    type::FuncType type;
     ExprPtr body;
 
     mutable Environment env{};
 
-    Closure(std::vector<std::pair<std::string, Type>> ps, Type ret, ExprPtr b)
-    : params{std::move(ps)}, return_type{std::move(ret)}, body{std::move(b)} {};
+    Closure(std::vector<std::string> ps, type::FuncType t, ExprPtr b)
+    : params{std::move(ps)}, type{std::move(t)}, body{std::move(b)} {
+        if(ps.size() != t.params.size()) {
+            puts("ERROR!! This should never happen..,");
+            exit(1);
+        }
+    }
 
 
     void capture(const Environment& e) const { // const as in doesn't change params or body.
@@ -258,11 +266,11 @@ struct Closure : Expr {
     std::string stringify(const size_t indent) const override {
         std::string s = "(";
 
-        if (not params.empty()) s += params[0].first + ": " + params[0].second;
+        if (not params.empty()) s += params[0] + ": " + type.params[0]->text();
         for(size_t i{1}; i < params.size(); ++i)
-            s += ", " + params[i].first + ": " + params[i].second;
+            s += ", " + params[i] + ": " + type.params[i]->text();
 
-        return s + "): " + return_type + " => " + body->stringify(indent);
+        return s + "): " + type.ret->text() + " => " + body->stringify(indent);
     }
 
     Node variant() const override { return this; }
