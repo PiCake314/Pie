@@ -106,16 +106,17 @@ struct Visitor {
             if (auto&& var = getVar(name->name); var) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
                 type = var->second;
-                std::clog << name->type->text() << std::endl;
+                // std::clog << "Already exists: " << name->type->text() << std::endl;
             }
             else { // New var
+                // std::clog << "Adding: " << name->name << '\n';
                 if(not isValidType(name->type)) error("Invalid Type: " + name->type->text());
 
                 type = name->type;
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
-
+                    // type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
+                    type = std::make_shared<type::VarType>(std::make_shared<Name>(stringify(c->first)));
             }
 
 
@@ -136,6 +137,7 @@ struct Visitor {
             }
 
 
+            // std::clog << "Here: " << name->stringify(0) << '\n';
             return addVar(name->stringify(0), value, type);
         }
 
@@ -325,7 +327,8 @@ struct Visitor {
 
             auto return_type = func.type.ret;
             if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                return_type = std::make_shared<type::VarType>(stringify(c->first));
+                // return_type = std::make_shared<type::VarType>(stringify(c->first));
+                return_type = std::make_shared<type::VarType>(std::make_shared<Name>(stringify(c->first)));
 
             if (not (*return_type >= *type_of_return_value))
                 error("Type mis-match! Expected: " + return_type->text() + ", got: " + type_of_return_value->text());
@@ -879,7 +882,8 @@ struct Visitor {
             return type::builtins::Type();
         }
         if (std::holds_alternative<Object>(value)) {
-            return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
+            // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
+            return std::make_shared<type::VarType>(std::make_shared<Name>("class" + stringify(value).substr(6)));
         }
 
 

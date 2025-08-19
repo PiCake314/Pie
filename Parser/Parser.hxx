@@ -111,6 +111,8 @@ public:
                 // else
                 {
                 type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                // if (type->text() != "Any")
+                //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
                 return std::make_unique<Name>(token.text, std::move(type));
                 }
@@ -239,7 +241,7 @@ public:
 
                     while(match(COMMA)) {
                         name = consume(NAME);
-                        type = match(COLON) ? std::make_shared<type::VarType>(consume(NAME).text) : type::builtins::Any();
+                        type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<Name>(consume(NAME).text)) : type::builtins::Any();
 
                         params.push_back(std::move(name).text);
                         params_types.push_back(std::move(type));
@@ -247,7 +249,7 @@ public:
 
                     consume(R_PAREN);
 
-                    type = std::make_shared<type::VarType>(match(COLON) ? consume(NAME).text : "Any"); // return type
+                    type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<Name>(consume(NAME).text)) : type::builtins::Any(); // return type
 
                     consume(FAT_ARROW);
 
@@ -305,11 +307,11 @@ public:
                 auto accessee_ptr = dynamic_cast<Name*>(accessee.get());
                 if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
 
-                return std::make_unique<Access>(left, std::move(accessee_ptr->name));
+                return std::make_unique<Access>(std::move(left), std::move(accessee_ptr->name));
             }
 
             case ASSIGN: 
-                return std::make_unique<Assignment>(left, parseExpr(precedence::ASSIGNMENT));
+                return std::make_unique<Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1));
 
 
             case L_PAREN: {
@@ -336,18 +338,14 @@ public:
     type::TypePtr parseType() {
         using enum TokenKind;
 
-        if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
-
+        // either a function type
         if (match(L_PAREN)) {
             // type::TypePtr type = std::make_shared<type::FuncType>();
             type::FuncType type;
 
-            if (not check(R_PAREN))
-                do {
-                    // type += parseType() + ", "; 
-                    type.params.push_back(parseType());
-                }
-                while(match(COMMA));
+            if (not check(R_PAREN)) do
+                type.params.push_back(parseType());
+            while(match(COMMA));
 
             consume(R_PAREN);
 
@@ -358,6 +356,18 @@ public:
             type.ret = parseType();
             return std::make_shared<type::FuncType>(std::move(type));
         }
+        else if (check(NAME)) { // checking for builtin types..this is a quick hack I think
+            const auto& t = consume().text;
+            if (t == "Int"   ) return type::builtins::Int();
+            if (t == "Double") return type::builtins::Double();
+            if (t == "Bool"  ) return type::builtins::Bool();
+            if (t == "String") return type::builtins::String();
+            if (t == "Any"   ) return type::builtins::Any();
+            if (t == "Type"  ) return type::builtins::Type();
+        }
+        // or an expression
+        return std::make_shared<type::VarType>(parseExpr(precedence::ASSIGNMENT));
+        // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
 
         log();
         error("Invalid type!");

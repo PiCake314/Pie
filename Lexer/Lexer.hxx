@@ -73,7 +73,7 @@ bool validNameChar(const char c) noexcept {
         case '>':
         case '[':
         case ']':
-        case '=': // function would only be used when checking chars that are not the first in the name
+        // case '=': // function would only be used when checking chars that are not the first in the name
             return true;
     }
 

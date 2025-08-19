@@ -1,19 +1,21 @@
 print = __builtin_print;
 
 
+infix(INFIX) + = (a, b) => __builtin_add(1, 2);
+
 func = (x: Any): Int => 1;
 
 f1: (Int): Any = func;
 f2: (Any): Any = func;
 
 
-55 = class {
+1 + 2 = class {
     a = 1;
     b = 2;
 };
 
-x: 55 = 55();
-x = 1;
+x: 1 + 2 = (1 + 2)();
 
-print(55);
+print(1 + 2);
+print(x);
 

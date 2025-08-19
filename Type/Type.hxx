@@ -5,6 +5,7 @@
 #include <ranges>
 #include <memory>
 
+#include "../Declarations.hxx"
 
 #ifdef  TYPE_STRING
 
@@ -18,19 +19,24 @@ namespace type {
 
         virtual bool operator==(const Type_t& other) const { return text() == other.text(); }
         virtual bool operator> (const Type_t& other) const = 0;
-        virtual bool operator>=(const Type_t& other) const { return *this == other or *this > other; }
+        virtual bool operator>=(const Type_t& other) const = 0;
 
         virtual ~Type_t() = default;
     };
 
     using TypePtr = std::shared_ptr<Type_t>;
 
-    struct VarType final : Type_t {
-        std::string t;
+    struct VarType : Type_t {
+        // std::string t;
+        ExprPtr t;
 
-        VarType(std::string s) noexcept : t{std::move(s)} {}
+        VarType(ExprPtr s) noexcept : t{std::move(s)} {}
 
-        std::string text() const override { return t.empty() ? "Any" : t; }
+        std::string text() const override {
+            // return t.empty() ? "Any" : t;
+            const auto& type = t->stringify(0);
+            return type.empty() ? "Any" : type;
+        }
 
 
         bool operator>(const Type_t& other) const override {
@@ -88,18 +94,23 @@ namespace type {
 
             return *ret >= *that.ret;
         }
+    };
 
+    struct BuiltinType final : VarType {
+        std::string t;
+
+        BuiltinType(std::string s) noexcept : VarType{nullptr}, t{std::move(s)} {}
+        std::string text() const override { return t; }
     };
 
 
-
     namespace builtins{
-        TypePtr Int()    { return std::make_shared<VarType>("Int"   ); }
-        TypePtr Double() { return std::make_shared<VarType>("Double"); };
-        TypePtr Bool()   { return std::make_shared<VarType>("Bool"  ); };
-        TypePtr String() { return std::make_shared<VarType>("String"); };
-        TypePtr Any()    { return std::make_shared<VarType>("Any"   ); };
-        TypePtr Type()   { return std::make_shared<VarType>("Type"  ); };
+        TypePtr Int    () { return std::make_shared<BuiltinType>("Int"   ); }
+        TypePtr Double () { return std::make_shared<BuiltinType>("Double"); };
+        TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
+        TypePtr String () { return std::make_shared<BuiltinType>("String"); };
+        TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
+        TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
     }
 }
 
