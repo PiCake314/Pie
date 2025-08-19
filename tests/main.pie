@@ -19,10 +19,13 @@ comment: print(1 + 2);
 comment: print(x);
 
 
-Human = class {
+Human: Type = class {
     name = "";
     age = 0;
 };
 
-h: class { name = ""; age = 0; } = Human();
+makeHuman: (): Human = (): Human => Human();
+h: class { name = ""; age = 0; } = makeHuman();
+
+
 print(h);

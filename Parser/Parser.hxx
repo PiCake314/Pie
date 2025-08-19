@@ -311,7 +311,7 @@ public:
             }
 
             case ASSIGN: 
-                return std::make_unique<Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1));
+                return std::make_unique<Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1)); // right associative
 
 
             case L_PAREN: {
@@ -357,13 +357,12 @@ public:
             return std::make_shared<type::FuncType>(std::move(type));
         }
         else if (check(NAME)) { // checking for builtin types..this is a quick hack I think
-            const auto& t = consume().text;
-            if (t == "Int"   ) return type::builtins::Int();
-            if (t == "Double") return type::builtins::Double();
-            if (t == "Bool"  ) return type::builtins::Bool();
-            if (t == "String") return type::builtins::String();
-            if (t == "Any"   ) return type::builtins::Any();
-            if (t == "Type"  ) return type::builtins::Type();
+            if (match("Int"   )) return type::builtins::Int();
+            if (match("Double")) return type::builtins::Double();
+            if (match("Bool"  )) return type::builtins::Bool();
+            if (match("String")) return type::builtins::String();
+            if (match("Any"   )) return type::builtins::Any();
+            if (match("Type"  )) return type::builtins::Type();
         }
         // or an expression
         return std::make_shared<type::VarType>(parseExpr(precedence::ASSIGNMENT));

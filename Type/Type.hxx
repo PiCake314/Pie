@@ -60,8 +60,8 @@ namespace type {
         explicit FuncType(std::vector<TypePtr> ps, TypePtr r) noexcept : params{std::move(ps)}, ret{std::move(r)} {}
 
         std::string text() const override {
-            std::string t = params.empty() ? "Any" : params[0]->text();
-
+            
+            std::string t = params.empty() ? "" : params[0]->text();
             for (size_t i = 1uz; i < params.size(); ++i)
                 t += ", " + params[i]->text();
 
