@@ -1,7 +1,7 @@
 print = __builtin_print;
 
-
 infix(INFIX) + = (a, b) => __builtin_add(1, 2);
+
 
 func = (x: Any): Int => 1;
 
@@ -9,13 +9,20 @@ f1: (Int): Any = func;
 f2: (Any): Any = func;
 
 
-1 + 2 = class {
-    a = 1;
-    b = 2;
+comment: 1 + "hi" = class {
+comment:     a = 1;
+comment:     b = 2;
+comment: };
+
+comment: x: 1 + "hi" = (1 + "hi")();
+comment: print(1 + 2);
+comment: print(x);
+
+
+Human = class {
+    name = "";
+    age = 0;
 };
 
-x: 1 + 2 = (1 + 2)();
-
-print(1 + 2);
-print(x);
-
+h: class { name = ""; age = 0; } = Human();
+print(h);

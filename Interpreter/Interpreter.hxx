@@ -70,10 +70,10 @@ struct Visitor {
         // how about a special value?
         if (isBuiltIn(n->name)) return n->name;
 
-        if (auto&& var = getVar(n->name); var) return var->first;
+        if (auto&& var = getVar(n->stringify(0)); var) return var->first;
 
 
-        error("Name \"" + n->name + "\" is not defined");
+        error("Name \"" + n->stringify(0) + "\" is not defined");
     }
 
 
@@ -825,7 +825,7 @@ struct Visitor {
         return s;
     }
 
-    bool isValidType(const type::TypePtr& type) const noexcept {
+    bool isValidType(const type::TypePtr& type) noexcept {
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
             if (
                 var_type->text() == "Any" or
@@ -839,8 +839,10 @@ struct Visitor {
 
 
             if (
-                auto&& type_value = getVar(var_type->text());
-                type_value and std::holds_alternative<ClassValue>(type_value->first)
+                // auto&& type_value = getVar(var_type->text());
+                // type_value and std::holds_alternative<ClassValue>(type_value->first)
+                auto&& value = std::visit(*this, var_type->t->variant());
+                std::holds_alternative<ClassValue>(value)
             )
             return true;
 
