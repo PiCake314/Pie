@@ -1,31 +1,16 @@
 print = __builtin_print;
 
-infix(INFIX) + = (a, b) => __builtin_add(1, 2);
+infix(SUM) + = (a, b) => __builtin_add(a, b);
 
+func = (a, b) => 4;
 
-func = (x: Any): Int => 1;
-
-f1: (Int): Any = func;
-f2: (Any): Any = func;
-
-
-comment: 1 + "hi" = class {
-comment:     a = 1;
-comment:     b = 2;
-comment: };
-
-comment: x: 1 + "hi" = (1 + "hi")();
-comment: print(1 + 2);
-comment: print(x);
-
-
-Human: Type = class {
+Human = class {
     name = "";
     age = 0;
 };
 
-makeHuman: (): Human = (): Human => Human();
-h: class { name = ""; age = 0; } = makeHuman();
+1 + 2 = 5;
 
 
-print(h);
+print(1 + 2);
+

@@ -1,5 +1,6 @@
 
-CC = llvm-g++
+# CC = llvm-g++
+CC = g++
 VER = -std=c++23
 ARGS = -Wall -Wextra -Wimplicit-fallthrough -Wpedantic -Wno-gnu-case-range -Wno-missing-braces # for stdx
 

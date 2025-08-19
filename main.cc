@@ -8,7 +8,7 @@
 
 #include "Lexer/Lexer.hxx"
 #include "Parser/Parser.hxx"
-#include "Interpreter/Interpreter.hxx"
+#include "Interp/Interpreter.hxx"
 
 
 [[nodiscard]] std::string readFile(const std::string& fname) {
