@@ -17,7 +17,7 @@ namespace type {
         virtual std::string text() const = 0;
 
         virtual bool operator==(const Type_t& other) const { return text() == other.text(); }
-        virtual bool operator>(const Type_t& other) const = 0;
+        virtual bool operator> (const Type_t& other) const = 0;
         virtual bool operator>=(const Type_t& other) const { return *this == other or *this > other; }
 
         virtual ~Type_t() = default;
