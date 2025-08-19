@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Token.hxx"
-#include "Precedence.hxx"
+#include "../Token/Token.hxx"
+#include "../Parser/Precedence.hxx"
 
 #include <cctype>
 #include <string>

@@ -9,10 +9,10 @@
 #include <memory>
 #include <variant>
 
-#include "Token.hxx"
-#include "Declarations.hxx"
-#include "Type.hxx"
-#include "utils.hxx"
+#include "../Token/Token.hxx"
+#include "../Declarations.hxx"
+#include "../Type/Type.hxx"
+#include "../Utils/utils.hxx"
 
 
 struct Expr;

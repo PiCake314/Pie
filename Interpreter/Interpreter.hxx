@@ -10,15 +10,13 @@
 #include <utility>
 #include <stdexcept>
 #include <cassert>
-
-
-#include "utils.hxx"
-#include "Expr.hxx"
-#include "Parser.hxx"
-#include "Declarations.hxx"
-
-
 #include <stdx/tuple.hpp>
+
+
+#include "../Utils/utils.hxx"
+#include "../Expr/Expr.hxx"
+#include "../Parser/Parser.hxx"
+#include "../Declarations.hxx"
 
 
 

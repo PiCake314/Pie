@@ -1,11 +1,5 @@
 #pragma once
 
-#include "Lexer.hxx"
-#include "Token.hxx"
-#include "Expr.hxx"
-#include "Precedence.hxx"
-#include "utils.hxx"
-
 #include <print>
 #include <variant>
 #include <memory>
@@ -17,6 +11,13 @@
 #include <algorithm>
 #include <ranges>
 #include <cassert>
+
+
+#include "../Lexer/Lexer.hxx"
+#include "../Token/Token.hxx"
+#include "../Expr/Expr.hxx"
+#include "../Parser/Precedence.hxx"
+#include "../Utils/utils.hxx"
 
 
 // [[noreturn]] void error(const std::string& msg) noexcept {
