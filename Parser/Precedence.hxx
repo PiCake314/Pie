@@ -5,7 +5,7 @@
 
 #include <numeric>
 
-using Operators = std::unordered_map<std::string, Fix*>;
+using Operators = std::unordered_map<std::string, expr::Fix*>;
 
 
 namespace precedence {

@@ -5,7 +5,7 @@
 struct Dict;
 struct ClassValue { std::shared_ptr<Dict> blueprint; };
 
-
+namespace expr {
 
 struct Num;
 struct String;
@@ -54,4 +54,10 @@ struct Expr {
 };
 
 using ExprPtr = std::shared_ptr<Expr>;
+
+
+} // namespace expr
+
+
+
 

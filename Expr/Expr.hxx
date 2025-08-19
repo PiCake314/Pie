@@ -60,6 +60,10 @@
 // >;
 
 
+using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, std::shared_ptr<Dict>>;
+using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
+
+namespace expr {
 
 struct Num : Expr {
     std::string num;
@@ -233,9 +237,6 @@ struct Call : Expr {
 // using Value = std::variant<int, double, bool, std::string, Closure>;
 
 
-using Value = std::variant<int, double, bool, std::string, Closure, ClassValue, std::shared_ptr<Dict>>;
-using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
-
 struct Closure : Expr {
     std::vector<std::string> params;
 
@@ -381,3 +382,5 @@ struct Suffix : Fix {
     TokenKind type() const override { return TokenKind::SUFFIX; }
     Node variant() const override { return this; }
 };
+
+} // namespace expr

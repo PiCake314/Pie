@@ -50,8 +50,8 @@ public:
     // [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
 
 
-    std::pair<std::vector<ExprPtr>, Operators> parse() {
-        std::vector<ExprPtr> expressions;
+    std::pair<std::vector<expr::ExprPtr>, Operators> parse() {
+        std::vector<expr::ExprPtr> expressions;
 
         while (not atEnd()) {
             expressions.push_back(parseExpr());
@@ -66,10 +66,10 @@ public:
         // return expressions;
     }
 
-    ExprPtr parseExpr(const size_t precedence = 0) {
+    expr::ExprPtr parseExpr(const size_t precedence = 0) {
         Token token = consume();
 
-        ExprPtr left = prefix(token);
+        expr::ExprPtr left = prefix(token);
 
         // infix
         while (precedence < getPrecedence()) {
@@ -81,21 +81,21 @@ public:
         return left;
     }
 
-    ExprPtr prefix(const Token& token) {
+    expr::ExprPtr prefix(const Token& token) {
         switch (token.kind) {
             using enum TokenKind;
 
             case INT:
-            case FLOAT: return std::make_unique<Num>(token.text);
+            case FLOAT: return std::make_unique<expr::Num>(token.text);
 
-            case STRING: return std::make_unique<String>(token.text);
+            case STRING: return std::make_unique<expr::String>(token.text);
 
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
                         case TokenKind::PREFIX:{
                             const auto prec = precedence::calculate(op->high, op->low, ops);
-                            return std::make_unique<UnaryOp>(token.text, parseExpr(prec));
+                            return std::make_unique<expr::UnaryOp>(token.text, parseExpr(prec));
                         }
                             // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
                         // case TokenKind::INFIX :
@@ -114,26 +114,26 @@ public:
                 // if (type->text() != "Any")
                 //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
-                return std::make_unique<Name>(token.text, std::move(type));
+                return std::make_unique<expr::Name>(token.text, std::move(type));
                 }
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
             case CLASS:{
                 consume(L_BRACE);
 
-                std::vector<Assignment> fields;
+                std::vector<expr::Assignment> fields;
 
                 while (not match(R_BRACE)) {
                     auto expr = parseExpr();
                     consume(SEMI);
 
-                    auto ass = dynamic_cast<const Assignment*>(expr.get());
+                    auto ass = dynamic_cast<const expr::Assignment*>(expr.get());
                     if (not ass) error("Can only have assignments in class definition!");
 
                     fields.push_back(*ass);
                 }
 
-                return std::make_unique<Class>(std::move(fields));
+                return std::make_unique<expr::Class>(std::move(fields));
             }
 
 
@@ -173,27 +173,27 @@ public:
 
                 consume(ASSIGN);
 
-                ExprPtr func = parseExpr();
-                Closure *c = dynamic_cast<Closure*>(func.get());
+                expr::ExprPtr func = parseExpr();
+                expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
                 if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
 
 
                 // gotta dry out this part
                 // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
                 if (token.kind == PREFIX){
-                    auto p = std::make_unique<Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+                    auto p = std::make_unique<expr::Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
                     ops[name.text] = p.get();
                     return p;
                 }
                 else if (token.kind == INFIX) {
-                    auto p = std::make_unique<Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+                    auto p = std::make_unique<expr::Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
                     ops[name.text] = p.get();
                     return p;
 
                 }
                 // if (token.kind == SUFFIX)
                 else {
-                    auto p = std::make_unique<Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+                    auto p = std::make_unique<expr::Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
                     ops[name.text] = p.get();
                     return p;
                 }
@@ -202,14 +202,14 @@ public:
 
 
             case L_BRACE: {
-                std::vector<ExprPtr> lines;
+                std::vector<expr::ExprPtr> lines;
                 do {
                     lines.emplace_back(parseExpr());
                     consume(SEMI);
                 }
                 while(not match(R_BRACE));
 
-                return std::make_unique<Block>(std::move(lines));
+                return std::make_unique<expr::Block>(std::move(lines));
             }
 
 
@@ -221,7 +221,7 @@ public:
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
+                    return std::make_unique<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
                 }
 
                 // could still be closure or groupings
@@ -241,7 +241,7 @@ public:
 
                     while(match(COMMA)) {
                         name = consume(NAME);
-                        type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<Name>(consume(NAME).text)) : type::builtins::Any();
+                        type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any();
 
                         params.push_back(std::move(name).text);
                         params_types.push_back(std::move(type));
@@ -249,12 +249,12 @@ public:
 
                     consume(R_PAREN);
 
-                    type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<Name>(consume(NAME).text)) : type::builtins::Any(); // return type
+                    type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any(); // return type
 
                     consume(FAT_ARROW);
 
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(
+                    return std::make_unique<expr::Closure>(
                         std::move(params), type::FuncType{std::move(params_types), std::move(type)}, std::move(body)
                     );
                 }
@@ -280,7 +280,7 @@ public:
     }
 
 
-    ExprPtr infix(const Token& token, ExprPtr left) {
+    expr::ExprPtr infix(const Token& token, expr::ExprPtr left) {
         switch (token.kind) {
             using enum TokenKind;
 
@@ -291,38 +291,38 @@ public:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :{
                             const auto prec = precedence::calculate(op->high, op->low, ops);
-                            return std::make_unique<BinOp>(std::move(left), token.text, parseExpr(prec));
+                            return std::make_unique<expr::BinOp>(std::move(left), token.text, parseExpr(prec));
                         }
                         case TokenKind::SUFFIX:
-                            return std::make_unique<PostOp>(token.text, std::move(left));
+                            return std::make_unique<expr::PostOp>(token.text, std::move(left));
 
                         default: error("prefix operator used as [inf/suf]fix");
                     }
                 }
 
-                return std::make_unique<Name>(token.text);
+                return std::make_unique<expr::Name>(token.text);
 
             case DOT:{
                 const auto& accessee = parseExpr(precedence::HIGH);
-                auto accessee_ptr = dynamic_cast<Name*>(accessee.get());
+                auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
                 if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
 
-                return std::make_unique<Access>(std::move(left), std::move(accessee_ptr->name));
+                return std::make_unique<expr::Access>(std::move(left), std::move(accessee_ptr->name));
             }
 
             case ASSIGN: 
-                return std::make_unique<Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1)); // right associative
+                return std::make_unique<expr::Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1)); // right associative
 
 
             case L_PAREN: {
-                std::vector<ExprPtr> args;
+                std::vector<expr::ExprPtr> args;
                 if (not match(R_PAREN)) { // while not closing the paren for the call
                     do args.emplace_back(parseExpr()); while(match(COMMA));
 
                     consume(R_PAREN);
                 }
 
-                return std::make_unique<Call>(std::move(left), std::move(args));
+                return std::make_unique<expr::Call>(std::move(left), std::move(args));
             }
 
 

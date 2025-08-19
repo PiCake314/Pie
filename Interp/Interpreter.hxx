@@ -27,7 +27,7 @@ struct Dict;
 
 using Object = std::shared_ptr<Dict>; 
 
-using Value = std::variant<int, double, bool, std::string, Closure, ClassValue, Object>;
+using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object>;
 
 struct Dict { std::vector<std::pair<std::string, Value>> members; };
 
@@ -48,7 +48,7 @@ struct Visitor {
     Visitor(Operators ops) noexcept : env(1), ops{std::move(ops)} { }
 
 
-    Value operator()(const Num *n) {
+    Value operator()(const expr::Num *n) {
         if (auto&& var = getVar(n->stringify(0)); var) return var->first;
 
 
@@ -57,13 +57,13 @@ struct Visitor {
         else return std::stoi(n->num);
     }
 
-    Value operator()(const String *s) {
+    Value operator()(const expr::String *s) {
         if (auto&& var = getVar(s->stringify(0)); var) return var->first;
 
         return s->str; 
     }
 
-    Value operator()(const Name *n) {
+    Value operator()(const expr::Name *n) {
         // what should builtins evaluate to?
         // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :)))))
         // interesting!
@@ -77,13 +77,13 @@ struct Visitor {
     }
 
 
-    Value operator()(const Assignment *ass) {
+    Value operator()(const expr::Assignment *ass) {
 
 
         auto value = std::visit(*this, ass->rhs->variant());
 
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
-        if (const auto acc = dynamic_cast<Access*>(ass->lhs.get())) {
+        if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) {
             const auto& left = std::visit(*this, acc->var->variant());
 
             if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
@@ -99,7 +99,7 @@ struct Visitor {
             return value;
         }
 
-        if (const auto name = dynamic_cast<Name*>(ass->lhs.get())){
+        if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
             type::TypePtr type = type::builtins::Any();
 
             // variable already exists. Check that type matches the rhs type
@@ -116,7 +116,7 @@ struct Visitor {
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     // type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
-                    type = std::make_shared<type::VarType>(std::make_shared<Name>(stringify(c->first)));
+                    type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
             }
 
 
@@ -126,8 +126,8 @@ struct Visitor {
                 error("Assignment type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
             }
 
-            if (std::holds_alternative<Closure>(value)) {
-                auto& closure = get<Closure>(value);
+            if (std::holds_alternative<expr::Closure>(value)) {
+                auto& closure = get<expr::Closure>(value);
                 // we verified types are compatoible so this is fine..should be...I hope
                 if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
                     closure.type = *t;
@@ -151,7 +151,7 @@ struct Visitor {
     }
 
 
-    Value operator()(const Class *cls) {
+    Value operator()(const expr::Class *cls) {
         if (auto&& var = getVar(cls->stringify(0)); var) return var->first;
 
 
@@ -178,7 +178,7 @@ struct Visitor {
     }
 
 
-    Value operator()(const Access *acc) {
+    Value operator()(const expr::Access *acc) {
 
         const auto& left = std::visit(*this, acc->var->variant());
 
@@ -190,8 +190,8 @@ struct Visitor {
         if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
 
-        if (std::holds_alternative<Closure>(found->second)) {
-            const auto& closure = get<Closure>(found->second);
+        if (std::holds_alternative<expr::Closure>(found->second)) {
+            const auto& closure = get<expr::Closure>(found->second);
 
             Environment capture_list;
             for (const auto& [name, value] : obj->members)
@@ -205,15 +205,15 @@ struct Visitor {
         return found->second;
     }
 
-    Value operator()(const UnaryOp *up) {
+    Value operator()(const expr::UnaryOp *up) {
         if (auto&& var = getVar(up->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this}; // RAII is so cool
         // scope();
 
-        const Fix* op = ops.at(up->text);
-        Closure* func = dynamic_cast<Closure*>(op->func.get());
+        const expr::Fix* op = ops.at(up->text);
+        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
         if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
 
@@ -226,14 +226,14 @@ struct Visitor {
         // unscope();
     }
 
-    Value operator()(const BinOp *bp) {
+    Value operator()(const expr::BinOp *bp) {
         if (auto&& var = getVar(bp->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this};
 
-        const Fix* op = ops.at(bp->text);
-        Closure* func = dynamic_cast<Closure*>(op->func.get());
+        const expr::Fix* op = ops.at(bp->text);
+        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
         if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
 
@@ -246,14 +246,14 @@ struct Visitor {
         return std::visit(*this, func->body.get()->variant());
     }
 
-    Value operator()(const PostOp *pp) {
+    Value operator()(const expr::PostOp *pp) {
         if (auto&& var = getVar(pp->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this};
 
-        const Fix* op = ops.at(pp->text);
-        Closure* func = dynamic_cast<Closure*>(op->func.get());
+        const expr::Fix* op = ops.at(pp->text);
+        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
         if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
 
@@ -264,7 +264,7 @@ struct Visitor {
         return std::visit(*this, func->body.get()->variant());
     }
 
-    Value operator()(const Call* call) {
+    Value operator()(const expr::Call* call) {
         if (auto&& var = getVar(call->stringify(0)); var) return var->first;
 
 
@@ -280,14 +280,14 @@ struct Visitor {
         }
 
 
-        if (std::holds_alternative<Closure>(var)) {
-            const auto& func = std::get<Closure>(var);
+        if (std::holds_alternative<expr::Closure>(var)) {
+            const auto& func = std::get<expr::Closure>(var);
 
             // assert(call->args.size() == func.params.size());
             if (call->args.size() > func.params.size()) error("Wrong arity call!");
 
             if (const auto args_size = call->args.size(); args_size < func.params.size()) {
-                Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.type, func.body};
+                expr::Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.type, func.body};
 
                 Environment argument_capture_list = func.env;
                 for(const auto& [name, type, expr] : std::views::zip(func.params, func.type.params, call->args)) {
@@ -328,7 +328,7 @@ struct Visitor {
             auto return_type = func.type.ret;
             if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
                 // return_type = std::make_shared<type::VarType>(stringify(c->first));
-                return_type = std::make_shared<type::VarType>(std::make_shared<Name>(stringify(c->first)));
+                return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
 
             if (not (*return_type >= *type_of_return_value))
                 error("Type mis-match! Expected: " + return_type->text() + ", got: " + type_of_return_value->text());
@@ -352,7 +352,7 @@ struct Visitor {
         return var;
     }
 
-    Value operator()(const Closure *c) {
+    Value operator()(const expr::Closure *c) {
         if (auto&& var = getVar(c->stringify(0)); var) return var->first;
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
@@ -361,7 +361,7 @@ struct Visitor {
     }
 
 
-    Value operator()(const Block *block) {
+    Value operator()(const expr::Block *block) {
         if (auto&& var = getVar(block->stringify(0)); var) return var->first;
 
 
@@ -374,7 +374,7 @@ struct Visitor {
         return ret;
     }
 
-    Value operator()(const Fix *fix) {
+    Value operator()(const expr::Fix *fix) {
         if (auto&& var = getVar(fix->stringify(0)); var) return var->first;
 
         return std::visit(*this, fix->func->variant());
@@ -403,7 +403,7 @@ struct Visitor {
 
 
     // the gate into the META operators!
-    Value evaluateBuiltin(const Call* call, std::string name) {
+    Value evaluateBuiltin(const expr::Call* call, std::string name) {
 
         //* ============================ FUNCTIONS ============================
         const auto functions = stdx::make_indexed_tuple<KeyFor>(
@@ -767,8 +767,8 @@ struct Visitor {
             s = std::get<std::string>(value);
         }
 
-        else if (std::holds_alternative<Closure>(value)) {
-            const auto& v = std::get<Closure>(value);
+        else if (std::holds_alternative<expr::Closure>(value)) {
+            const auto& v = std::get<expr::Closure>(value);
 
             s = v.stringify(indent);
         }
@@ -866,8 +866,8 @@ struct Visitor {
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
         if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
         if (std::holds_alternative<std::string>(value))  return type::builtins::String();
-        if (std::holds_alternative<Closure>(value)) {
-            const auto& func = get<Closure>(value);
+        if (std::holds_alternative<expr::Closure>(value)) {
+            const auto& func = get<expr::Closure>(value);
 
             type::FuncType type;
             for (const auto& t : func.type.params)
@@ -885,7 +885,7 @@ struct Visitor {
         }
         if (std::holds_alternative<Object>(value)) {
             // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
-            return std::make_shared<type::VarType>(std::make_shared<Name>("class" + stringify(value).substr(6)));
+            return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
         }
 
 

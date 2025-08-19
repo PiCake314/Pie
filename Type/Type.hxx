@@ -28,9 +28,9 @@ namespace type {
 
     struct VarType : Type_t {
         // std::string t;
-        ExprPtr t;
+        expr::ExprPtr t;
 
-        VarType(ExprPtr s) noexcept : t{std::move(s)} {}
+        VarType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
 
         std::string text() const override {
             // return t.empty() ? "Any" : t;
