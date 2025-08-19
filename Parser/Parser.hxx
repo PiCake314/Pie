@@ -1,11 +1,5 @@
 #pragma once
 
-#include "Lexer.hxx"
-#include "Token.hxx"
-#include "Expr.hxx"
-#include "Precedence.hxx"
-#include "utils.hxx"
-
 #include <print>
 #include <variant>
 #include <memory>
@@ -17,6 +11,13 @@
 #include <algorithm>
 #include <ranges>
 #include <cassert>
+
+
+#include "../Lexer/Lexer.hxx"
+#include "../Token/Token.hxx"
+#include "../Expr/Expr.hxx"
+#include "../Parser/Precedence.hxx"
+#include "../Utils/utils.hxx"
 
 
 // [[noreturn]] void error(const std::string& msg) noexcept {
@@ -108,7 +109,13 @@ public:
                 // if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
                 //     return std::make_unique<UnaryOp>(token, parseExpr(precedence::PREFIX));
                 // else
-                return std::make_unique<Name>(token.text);
+                {
+                type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                // if (type->text() != "Any")
+                //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
+
+                return std::make_unique<Name>(token.text, std::move(type));
+                }
             // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
 
             case CLASS:{
@@ -126,13 +133,12 @@ public:
                     fields.push_back(*ass);
                 }
 
-
                 return std::make_unique<Class>(std::move(fields));
-
             }
 
-            case PREFIX: 
-            case INFIX : 
+
+            case PREFIX:
+            case INFIX :
             case SUFFIX: {
                 consume(L_PAREN);
                 Token low = consume();
@@ -194,6 +200,7 @@ public:
             }
             break;
 
+
             case L_BRACE: {
                 std::vector<ExprPtr> lines;
                 do {
@@ -205,34 +212,51 @@ public:
                 return std::make_unique<Block>(std::move(lines));
             }
 
+
             case L_PAREN: {
                 if (match(R_PAREN)) { // nullary closure
+
+                    type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
+
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(std::vector<std::string>{}, std::move(body));
+                    return std::make_unique<Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
                 }
 
                 // could still be closure or groupings
                 // Token t = consume(); // NAME or NUM
 
-                const bool is_closure = check(NAME) and (check(COMMA, 1) or (check(R_PAREN, 1) and check(FAT_ARROW, 2)));
+                const bool is_closure = check(NAME) and (check(COMMA, 1) or check(COLON, 1) or (check(R_PAREN, 1) and check(FAT_ARROW, 2)));
                 // bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
 
                 if (is_closure) {
-                    Token t = consume(NAME);
-                    std::vector<std::string> params = {t.text};
+
+                    Token name = consume(NAME);
+                    // type::TypePtr type = std::make_shared<type::VarType>(match(COLON) ? consume(NAME).text : "Any");
+                    type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+
+                    std::vector<std::string> params = {std::move(name).text};
+                    std::vector<type::TypePtr> params_types = {std::move(type)};
 
                     while(match(COMMA)) {
-                        t = consume(NAME);
-                        params.push_back(t.text);
+                        name = consume(NAME);
+                        type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<Name>(consume(NAME).text)) : type::builtins::Any();
+
+                        params.push_back(std::move(name).text);
+                        params_types.push_back(std::move(type));
                     }
 
                     consume(R_PAREN);
+
+                    type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<Name>(consume(NAME).text)) : type::builtins::Any(); // return type
+
                     consume(FAT_ARROW);
 
                     auto body = parseExpr();
-                    return std::make_unique<Closure>(std::move(params), std::move(body));
+                    return std::make_unique<Closure>(
+                        std::move(params), type::FuncType{std::move(params_types), std::move(type)}, std::move(body)
+                    );
                 }
                 else { // tt's just grouping,
                     // log(); 
@@ -283,19 +307,12 @@ public:
                 auto accessee_ptr = dynamic_cast<Name*>(accessee.get());
                 if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
 
-                return std::make_unique<Access>(left, std::move(accessee_ptr->name));
+                return std::make_unique<Access>(std::move(left), std::move(accessee_ptr->name));
             }
 
-            case ASSIGN:
-                return std::make_unique<Assignment>(left, parseExpr(precedence::ASSIGNMENT));
+            case ASSIGN: 
+                return std::make_unique<Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1)); // right associative
 
-                // if (const auto name = dynamic_cast<const Name*>(left.get()))
-                //     return std::make_unique<Assignment>(name, parseExpr(precedence::ASSIGNMENT));
-                // if (const auto call = dynamic_cast<const Call*>(left.get()))
-                //     return std::make_unique<Assignment>(call->func, parseExpr(precedence::ASSIGNMENT));
-
-
-                // expected(NAME, token.kind);
 
             case L_PAREN: {
                 std::vector<ExprPtr> args;
@@ -315,6 +332,44 @@ public:
 
             default: error("Couldn't parse \"" + token.text + "\"!!");
         }
+    }
+
+
+    type::TypePtr parseType() {
+        using enum TokenKind;
+
+        // either a function type
+        if (match(L_PAREN)) {
+            // type::TypePtr type = std::make_shared<type::FuncType>();
+            type::FuncType type;
+
+            if (not check(R_PAREN)) do
+                type.params.push_back(parseType());
+            while(match(COMMA));
+
+            consume(R_PAREN);
+
+            consume(COLON);
+
+            // return '(' + type + "): " + parseType(); // maybe??
+
+            type.ret = parseType();
+            return std::make_shared<type::FuncType>(std::move(type));
+        }
+        else if (check(NAME)) { // checking for builtin types..this is a quick hack I think
+            if (match("Int"   )) return type::builtins::Int();
+            if (match("Double")) return type::builtins::Double();
+            if (match("Bool"  )) return type::builtins::Bool();
+            if (match("String")) return type::builtins::String();
+            if (match("Any"   )) return type::builtins::Any();
+            if (match("Type"  )) return type::builtins::Type();
+        }
+        // or an expression
+        return std::make_shared<type::VarType>(parseExpr(precedence::ASSIGNMENT));
+        // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
+
+        log();
+        error("Invalid type!");
     }
 
     Token consume() {

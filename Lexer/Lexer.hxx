@@ -1,7 +1,7 @@
 #pragma once
 
-#include "Token.hxx"
-#include "Precedence.hxx"
+#include "../Token/Token.hxx"
+#include "../Parser/Precedence.hxx"
 
 #include <cctype>
 #include <string>
@@ -43,7 +43,7 @@ TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "ASSIGNMENT") return PR_ASSIGNMENT;
     else if (word == "SUM"       ) return PR_SUM;
     else if (word == "PROD"      ) return PR_PROD;
-    else if (word == "OP_CALL"   ) return PR_INFIX;
+    else if (word == "INFIX"     ) return PR_INFIX;
     else if (word == "PREFIX"    ) return PR_PREFIX;
     else if (word == "POSTFIX"   ) return PR_POSTFIX;
     else if (word == "CALL"      ) return PR_CALL;
@@ -73,7 +73,7 @@ bool validNameChar(const char c) noexcept {
         case '>':
         case '[':
         case ']':
-        case '=': // function would only be used when checking chars that are not the first in the name
+        // case '=': // function would only be used when checking chars that are not the first in the name
             return true;
     }
 
@@ -196,6 +196,7 @@ TokenLines lex(const std::string& src) {
 
             case ',': lines.back().push_back({COMMA, {src[index]}}); break;
             case '.': lines.back().push_back({DOT, {src[index]}}); break;
+            case ':': lines.back().push_back({COLON, {src[index]}}); break;
 
             case ';':
                 lines.back().push_back({SEMI, {src[index]}});

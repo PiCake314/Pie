@@ -6,9 +6,9 @@
 #include <fstream>
 #include <utility>
 
-#include "Lexer.hxx"
-#include "Parser.hxx"
-#include "Interpreter.hxx"
+#include "Lexer/Lexer.hxx"
+#include "Parser/Parser.hxx"
+#include "Interp/Interpreter.hxx"
 
 
 [[nodiscard]] std::string readFile(const std::string& fname) {

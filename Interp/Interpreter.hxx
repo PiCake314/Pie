@@ -10,15 +10,13 @@
 #include <utility>
 #include <stdexcept>
 #include <cassert>
-
-
-#include "utils.hxx"
-#include "Expr.hxx"
-#include "Parser.hxx"
-#include "Declarations.hxx"
-
-
 #include <stdx/tuple.hpp>
+
+
+#include "../Utils/utils.hxx"
+#include "../Expr/Expr.hxx"
+#include "../Parser/Parser.hxx"
+#include "../Declarations.hxx"
 
 
 
@@ -28,11 +26,13 @@ struct Dict;
 // carrys objects' values. could be changed
 
 using Object = std::shared_ptr<Dict>; 
+
 using Value = std::variant<int, double, bool, std::string, Closure, ClassValue, Object>;
 
 struct Dict { std::vector<std::pair<std::string, Value>> members; };
 
-using Environment = std::unordered_map<std::string, Value>;
+using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
+
 
 
 struct Visitor {
@@ -49,7 +49,7 @@ struct Visitor {
 
 
     Value operator()(const Num *n) {
-        if (auto&& var = getVar(n->stringify(0)); var) return *var;
+        if (auto&& var = getVar(n->stringify(0)); var) return var->first;
 
 
         // have to do an if rather than ternary so the return value isn't always coerced into doubles
@@ -58,7 +58,7 @@ struct Visitor {
     }
 
     Value operator()(const String *s) {
-        if (auto&& var = getVar(s->stringify(0)); var) return *var;
+        if (auto&& var = getVar(s->stringify(0)); var) return var->first;
 
         return s->str; 
     }
@@ -70,14 +70,19 @@ struct Visitor {
         // how about a special value?
         if (isBuiltIn(n->name)) return n->name;
 
-        if (auto&& opt = getVar(n->name); opt) return *opt;
+        if (auto&& var = getVar(n->stringify(0)); var) return var->first;
 
-        error("Name \"" + n->name + "\" is not defined");
+
+        error("Name \"" + n->stringify(0) + "\" is not defined");
     }
 
-    Value operator()(const Assignment *ass) {
-        const auto& value = std::visit(*this, ass->rhs->variant());
 
+    Value operator()(const Assignment *ass) {
+
+
+        auto value = std::visit(*this, ass->rhs->variant());
+
+        // assigning to x.y should never create a variable "x.y" bu access x and change y;
         if (const auto acc = dynamic_cast<Access*>(ass->lhs.get())) {
             const auto& left = std::visit(*this, acc->var->variant());
 
@@ -91,18 +96,51 @@ struct Visitor {
 
             found->second = value;
 
-            // for (auto&& [name, member_value] : obj->members) {
-            //     if (name == acc->name) {
-            //         member_value = value;
-            //         break; // found the field. no need to keep iterating
-            //     }
-
-            //     // obj->members[acc->name] = std::visit(*this, ass->rhs->variant());
-            // }
-
             return value;
-            // return obj->members[acc->name];
         }
+
+        if (const auto name = dynamic_cast<Name*>(ass->lhs.get())){
+            type::TypePtr type = type::builtins::Any();
+
+            // variable already exists. Check that type matches the rhs type
+            if (auto&& var = getVar(name->name); var) {
+                // no need to check if it's a valid type since that already was checked when it was creeated
+                type = var->second;
+                // std::clog << "Already exists: " << name->type->text() << std::endl;
+            }
+            else { // New var
+                // std::clog << "Adding: " << name->name << '\n';
+                if(not isValidType(name->type)) error("Invalid Type: " + name->type->text());
+
+                type = name->type;
+
+                if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                    // type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
+                    type = std::make_shared<type::VarType>(std::make_shared<Name>(stringify(c->first)));
+            }
+
+
+            // if (type->text() != "Any") // only enforce type checking when
+            if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
+                std::cerr << "In assignment: " << ass->stringify(0) << '\n';
+                error("Assignment type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+            }
+
+            if (std::holds_alternative<Closure>(value)) {
+                auto& closure = get<Closure>(value);
+                // we verified types are compatoible so this is fine..should be...I hope
+                if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
+                    closure.type = *t;
+                else if (const auto* t = dynamic_cast<type::VarType*>(type.get()); t and t->text() != "Any")
+                    error("Incompatible types. This should never happen. File a bug report!");
+                // else 
+            }
+
+
+            // std::clog << "Here: " << name->stringify(0) << '\n';
+            return addVar(name->stringify(0), value, type);
+        }
+
 
         return addVar(ass->lhs->stringify(0), value);
 
@@ -114,7 +152,7 @@ struct Visitor {
 
 
     Value operator()(const Class *cls) {
-        if (auto&& var = getVar(cls->stringify(0)); var) return *var;
+        if (auto&& var = getVar(cls->stringify(0)); var) return var->first;
 
 
         std::vector<std::pair<std::string, Value>> members;
@@ -155,9 +193,9 @@ struct Visitor {
         if (std::holds_alternative<Closure>(found->second)) {
             const auto& closure = get<Closure>(found->second);
 
-            std::unordered_map<std::string, Value> capture_list;
+            Environment capture_list;
             for (const auto& [name, value] : obj->members)
-                capture_list[name] = value;
+                capture_list[name] = {value, typeOf(value)};
 
             closure.capture(capture_list);
 
@@ -168,7 +206,7 @@ struct Visitor {
     }
 
     Value operator()(const UnaryOp *up) {
-        if (auto&& var = getVar(up->stringify(0)); var) return *var;
+        if (auto&& var = getVar(up->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this}; // RAII is so cool
@@ -189,7 +227,7 @@ struct Visitor {
     }
 
     Value operator()(const BinOp *bp) {
-        if (auto&& var = getVar(bp->stringify(0)); var) return *var;
+        if (auto&& var = getVar(bp->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -209,7 +247,7 @@ struct Visitor {
     }
 
     Value operator()(const PostOp *pp) {
-        if (auto&& var = getVar(pp->stringify(0)); var) return *var;
+        if (auto&& var = getVar(pp->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -227,7 +265,7 @@ struct Visitor {
     }
 
     Value operator()(const Call* call) {
-        if (auto&& var = getVar(call->stringify(0)); var) return *var;
+        if (auto&& var = getVar(call->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -249,11 +287,17 @@ struct Visitor {
             if (call->args.size() > func.params.size()) error("Wrong arity call!");
 
             if (const auto args_size = call->args.size(); args_size < func.params.size()) {
-                Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.body};
+                Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.type, func.body};
 
                 Environment argument_capture_list = func.env;
-                for(const auto& [name, value] : std::views::zip(func.params, call->args))
-                    argument_capture_list[name] = std::visit(*this, value->variant());
+                for(const auto& [name, type, expr] : std::views::zip(func.params, func.type.params, call->args)) {
+
+                    const auto& value = std::visit(*this, expr->variant());
+                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) // if the param type not a super type of arg type
+                        error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+
+                    argument_capture_list[name] = {value, type};
+                }
 
                 closure.capture(argument_capture_list);
 
@@ -261,13 +305,35 @@ struct Visitor {
             }
 
 
-            for (const auto& [param, arg] : std::views::zip(func.params, call->args))
-                addVar(param, std::visit(*this, arg->variant()));
+            // full call. Don't curry!
+            for (const auto& [name, type, arg] : std::views::zip(func.params, func.type.params, call->args)){
+
+                const auto& value = std::visit(*this, arg->variant());
+                if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                    error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+
+                addVar(name, std::visit(*this, arg->variant()));
+            }
                 // env.back()[param] = std::visit(*this, arg->variant());
 
             ScopeGuard sg{this, func.env};
 
-            return std::visit(*this, func.body->variant());
+            const auto& ret = std::visit(*this, func.body->variant());
+
+            const auto& type_of_return_value = typeOf(ret);
+
+
+            if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
+
+            auto return_type = func.type.ret;
+            if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                // return_type = std::make_shared<type::VarType>(stringify(c->first));
+                return_type = std::make_shared<type::VarType>(std::make_shared<Name>(stringify(c->first)));
+
+            if (not (*return_type >= *type_of_return_value))
+                error("Type mis-match! Expected: " + return_type->text() + ", got: " + type_of_return_value->text());
+
+            return ret;
         }
 
         if (std::holds_alternative<ClassValue>(var)) {
@@ -287,7 +353,7 @@ struct Visitor {
     }
 
     Value operator()(const Closure *c) {
-        if (auto&& var = getVar(c->stringify(0)); var) return *var;
+        if (auto&& var = getVar(c->stringify(0)); var) return var->first;
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
         c->capture(envStackToEnvMap());
@@ -296,7 +362,7 @@ struct Visitor {
 
 
     Value operator()(const Block *block) {
-        if (auto&& var = getVar(block->stringify(0)); var) return *var;
+        if (auto&& var = getVar(block->stringify(0)); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -309,7 +375,7 @@ struct Visitor {
     }
 
     Value operator()(const Fix *fix) {
-        if (auto&& var = getVar(fix->stringify(0)); var) return *var;
+        if (auto&& var = getVar(fix->stringify(0)); var) return var->first;
 
         return std::visit(*this, fix->func->variant());
     }
@@ -673,92 +739,159 @@ struct Visitor {
 
 
 
-    void print(const Value& value, bool new_line = true, const size_t indent = {}) const noexcept {
-        if (std::holds_alternative<bool>(value)) {
-            const auto& v = std::get<bool>(value);
-
-            // if (const auto var = getVar(std::to_string(v)); var) print(*var); else
-            std::print("{}", v);
-        }
-
-        if (std::holds_alternative<int>(value)) {
-            const auto& v = std::get<int>(value);
-
-            // if (const auto var = getVar(std::to_string(v)); var) print(*var); else
-            std::print("{}", v);
-        }
-
-        if (std::holds_alternative<double>(value)) {
-            const auto& v = std::get<double>(value);
-
-            // if (const auto var = getVar(std::to_string(v)); var)  print(*var); else
-            std::print("{}", v);
-        }
-
-        if (std::holds_alternative<std::string>(value)) {
-            const auto& v = std::get<std::string>(value);
-
-            std::print("{}", v);
-        }
-
-        if (std::holds_alternative<Closure>(value)) {
-            const auto& v = std::get<Closure>(value);
-
-            // ! this is new
-            // if (const auto var = getVar(v.stringify(0)); var) print(*var); else
-            std::print("{}", v.stringify(indent));
-        }
-
-
-        if (std::holds_alternative<ClassValue>(value)) {
-            const auto& v = std::get<ClassValue>(value);
-
-            // std::println("{}", v.stringify(0));
-            puts("class {");
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.blueprint->members) {
-                std::print("{}{} = ", space, name);
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) std::print("\"");
-
-                print(value, false, indent + 4);
-
-                if (is_string) std::print("\"");
-
-                puts(";");
-            }
-
-            puts("}");
-        }
-
-
-        if (std::holds_alternative<Object>(value)) {
-            const auto& v = std::get<Object>(value);
-
-            puts("Object {");
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v->members) {
-                std::print("{}{} = ", space, name);
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) std::print("\"");
-
-                print(value, false, indent + 4);
-
-                if (is_string) std::print("\"");
-
-
-                puts(";");
-            }
-
-            std::print("{}}}", std::string(indent, ' '));
-        }
+    void print(const Value& value, bool new_line = true) const {
+        std::cout << stringify(value);
 
         if (new_line) puts("");
     }
+
+    static std::string stringify(const Value& value, size_t indent = {}) {
+        std::string s;
+
+        if (std::holds_alternative<bool>(value)) {
+            const auto& v = std::get<bool>(value);
+            s = std::to_string(v);
+        }
+
+        else if (std::holds_alternative<int>(value)) {
+            const auto& v = std::get<int>(value);
+            s = std::to_string(v);
+        }
+
+        else if (std::holds_alternative<double>(value)) {
+            const auto& v = std::get<double>(value);
+            s = std::to_string(v);
+        }
+
+        else if (std::holds_alternative<std::string>(value)) {
+            s = std::get<std::string>(value);
+        }
+
+        else if (std::holds_alternative<Closure>(value)) {
+            const auto& v = std::get<Closure>(value);
+
+            s = v.stringify(indent);
+        }
+
+
+        else if (std::holds_alternative<ClassValue>(value)) {
+            const auto& v = std::get<ClassValue>(value);
+
+            s = "class {\n";
+
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v.blueprint->members) {
+                s += space + name + " = ";
+
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) s += '\"';
+
+                s += stringify(value, indent + 4);
+
+                if (is_string) s += '\"';
+
+                s += ";\n";
+            }
+
+            s += '}';
+
+        }
+
+        else if (std::holds_alternative<Object>(value)) {
+            const auto& v = std::get<Object>(value);
+
+            s = "Object {\n";
+
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v->members) {
+                s += space + name + " = ";
+
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) s += '\"';
+
+                s += stringify(value, indent + 4);
+
+                if (is_string) s += '\"';
+
+
+                s += ";\n";
+            }
+
+            s += indent + '}';
+
+        }
+        else error("Type not found!");
+
+        return s;
+    }
+
+    bool isValidType(const type::TypePtr& type) noexcept {
+        if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
+            if (
+                var_type->text() == "Any" or
+                var_type->text() == "Int" or
+                var_type->text() == "Double" or
+                var_type->text() == "Bool" or
+                var_type->text() == "String" or
+                var_type->text() == "Type"
+            )
+            return true;
+
+
+            if (
+                // auto&& type_value = getVar(var_type->text());
+                // type_value and std::holds_alternative<ClassValue>(type_value->first)
+                auto&& value = std::visit(*this, var_type->t->variant());
+                std::holds_alternative<ClassValue>(value)
+            )
+            return true;
+
+        }
+        else { // has to be a function type
+            const auto func_type = dynamic_cast<type::FuncType*>(type.get());
+
+            for (const auto& t : func_type->params) if (not isValidType(t)) return false;
+
+
+            // all param types are valid. Only thing left to check is return type
+            return isValidType(func_type->ret);
+        }
+
+
+        error("'" + type->text() + "' does not name a type!");
+    }
+
+    type::TypePtr typeOf(const Value& value) noexcept {
+        if (std::holds_alternative<int>(value))          return type::builtins::Int();
+        if (std::holds_alternative<double>(value))       return type::builtins::Double();
+        if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
+        if (std::holds_alternative<std::string>(value))  return type::builtins::String();
+        if (std::holds_alternative<Closure>(value)) {
+            const auto& func = get<Closure>(value);
+
+            type::FuncType type;
+            for (const auto& t : func.type.params)
+                type.params.push_back(t);
+
+
+            // std::clog << type.text() << std::endl;
+            type.ret = func.type.ret;
+
+            return std::make_shared<type::FuncType>(std::move(type));
+        }
+        if (std::holds_alternative<ClassValue>(value)) {
+            // return Visitor::stringify(value);
+            return type::builtins::Type();
+        }
+        if (std::holds_alternative<Object>(value)) {
+            // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
+            return std::make_shared<type::VarType>(std::make_shared<Name>("class" + stringify(value).substr(6)));
+        }
+
+
+        error("Unknown Type: " + stringify(value));
+    }
+
 
 private:
 
@@ -768,8 +901,10 @@ private:
             v->scope();
 
             if (not e.empty())
-                for (const auto& [name, value] : e)
-                    v->addVar(name, value);
+                for (const auto& [name, var] : e) {
+                    const auto& [value, type] = var;
+                    v->addVar(name, value, type);
+                }
         }
 
         ~ScopeGuard() { v->unscope(); }
@@ -779,9 +914,13 @@ private:
     void scope() { env.emplace_back(); }
     void unscope() { env.pop_back(); }
 
-    const Value& addVar(const std::string& name, const Value& v) { env.back()[name] = v; return v; }
+    const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
 
-    std::optional<Value> getVar(const std::string& name) const {
+        env.back()[name] = {v, t}; // ! might cause issues
+        return v;
+    }
+
+    std::optional<std::pair<Value, type::TypePtr>> getVar(const std::string& name) const {
         for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
             if (rev_it->contains(name)) return rev_it->at(name);
 
@@ -803,6 +942,17 @@ private:
 
 
         return e;
+    }
+
+
+    void printEnv() const {
+        const auto& e = envStackToEnvMap();
+
+        for (const auto& [name, v] : e) {
+            const auto& [value, type] = v;
+
+            std::println("{}: {} = {}", name, type->text(), stringify(value));
+        }
     }
 
 };

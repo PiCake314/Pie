@@ -8,11 +8,11 @@
 #include <print>
 #include <type_traits>
 
-#include "Token.hxx"
-#include "Expr.hxx"
-
-
 #include <stdx/tuple.hpp>
+
+#include "../Token/Token.hxx"
+#include "../Expr/Expr.hxx"
+
 
 // not sure where to put it
 // keep it here for now...

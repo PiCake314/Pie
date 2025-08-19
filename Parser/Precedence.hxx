@@ -1,7 +1,7 @@
 #pragma once
 
-#include "utils.hxx"
-#include "Expr.hxx"
+#include "../Utils/utils.hxx"
+#include "../Expr/Expr.hxx"
 
 #include <numeric>
 
@@ -36,7 +36,7 @@ namespace precedence {
 
       // default: 
       default:
-        if (not ops.contains(token.text)) error("Token " + token.text + " does not name any precedende level!");
+        if (not ops.contains(token.text)) error(std::string{"Token {"} + stringify(token.kind) + ", " + token.text + "} does not name any precedende level!");
 
         const auto& op = ops.at(token.text);
         return std::midpoint(fromToken(op->high, ops), fromToken(op->low, ops));
