@@ -70,7 +70,7 @@ struct Num : Expr {
 
     explicit Num(std::string n) noexcept : num{std::move(n)} {}
 
-    std::string stringify(const size_t) const override { return num; }
+    std::string stringify(const size_t = 0) const override { return num; }
 
     Node variant() const override { return this; }
 };
@@ -81,7 +81,7 @@ struct String : Expr {
 
     explicit String(std::string s) noexcept : str{std::move(s)} {}
 
-    std::string stringify(const size_t) const override { return '"' + str + '"'; }
+    std::string stringify(const size_t = 0) const override { return '"' + str + '"'; }
 
     Node variant() const override { return this; }
 };
@@ -94,7 +94,10 @@ struct Name : Expr {
 
     Name(std::string n, type::TypePtr t = type::builtins::Any()) noexcept : name{std::move(n)}, type{std::move(t)} {}
 
-    std::string stringify(const size_t) const override { return name; }
+    std::string stringify(const size_t = 0) const override {
+        return name;
+        // return name + ": " + type->text();
+    }
 
     Node variant() const override { return this; }
 };
@@ -110,7 +113,7 @@ struct Assignment : Expr {
     : lhs{std::move(l)}, rhs{std::move(r)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         return lhs->stringify(indent) + " = " + rhs->stringify(indent);
     }
 
@@ -125,7 +128,7 @@ struct Class : Expr {
     : fields{std::move(f)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         std::string s = "class {\n";
 
         for (const auto& ass : fields) 
@@ -146,7 +149,7 @@ struct Access : Expr {
     : var{std::move(v)}, name{std::move(n)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         return var->stringify(indent) + '.' + name;
     }
 
@@ -163,7 +166,7 @@ struct UnaryOp : Expr {
     : text{std::move(t)}, expr{std::move(e)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         return '(' + text + ' ' + expr->stringify(indent) + ')';
     }
 
@@ -181,7 +184,7 @@ struct BinOp : Expr {
     : lhs{std::move(e1)}, text{std::move(txt)}, rhs{std::move(e2)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         return '(' + lhs->stringify(indent) + ' ' + text + ' ' + rhs->stringify(indent) + ')';
     }
 
@@ -198,7 +201,7 @@ struct PostOp : Expr {
     : text{std::move(t)}, expr{std::move(e)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         return '(' + expr->stringify(indent) + ' ' + text + ')';
     }
 
@@ -215,7 +218,7 @@ struct Call : Expr {
     : func{std::move(function)}, args{std::move(arguments)}
     {}
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         std::string s;
         s = func->stringify(indent) + '(';
 
@@ -260,7 +263,7 @@ struct Closure : Expr {
         env[key] = value;
     }
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         std::string s = "(";
 
         if (not params.empty()) s += params[0] + ": " + type.params[0]->text();
@@ -280,7 +283,7 @@ struct Block : Expr {
     explicit Block(std::vector<ExprPtr> l) noexcept : lines{std::move(l)} {};
 
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         std::string s = "{\n";
 
         // std::ranges::for_each(lines, &Expr::stringify);
@@ -325,7 +328,7 @@ struct Prefix : Fix {
     // : Fix{std::move(t), s, std::move(c)} {}
     using Fix::Fix;
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
@@ -346,7 +349,7 @@ struct Prefix : Fix {
 struct Infix : Fix {
     using Fix::Fix;
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
@@ -366,7 +369,7 @@ struct Infix : Fix {
 struct Suffix : Fix {
     using Fix::Fix;
 
-    std::string stringify(const size_t indent) const override {
+    std::string stringify(const size_t indent = 0) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};

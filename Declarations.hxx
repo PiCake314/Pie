@@ -48,7 +48,7 @@ using Node = std::variant<
 
 struct Expr {
     virtual ~Expr() = default;
-    virtual std::string stringify(const size_t indent) const = 0;
+    virtual std::string stringify(const size_t indent = 0) const = 0;
 
     virtual Node variant() const = 0;
 };

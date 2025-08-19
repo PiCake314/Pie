@@ -49,7 +49,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Num *n) {
-        if (auto&& var = getVar(n->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(n->stringify()); var) return var->first;
 
 
         // have to do an if rather than ternary so the return value isn't always coerced into doubles
@@ -58,7 +58,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::String *s) {
-        if (auto&& var = getVar(s->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(s->stringify()); var) return var->first;
 
         return s->str; 
     }
@@ -70,10 +70,10 @@ struct Visitor {
         // how about a special value?
         if (isBuiltIn(n->name)) return n->name;
 
-        if (auto&& var = getVar(n->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(n->stringify()); var) return var->first;
 
 
-        error("Name \"" + n->stringify(0) + "\" is not defined");
+        error("Name \"" + n->stringify() + "\" is not defined");
     }
 
 
@@ -122,7 +122,7 @@ struct Visitor {
 
             // if (type->text() != "Any") // only enforce type checking when
             if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
-                std::cerr << "In assignment: " << ass->stringify(0) << '\n';
+                std::cerr << "In assignment: " << ass->stringify() << '\n';
                 error("Assignment type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
             }
 
@@ -137,31 +137,35 @@ struct Visitor {
             }
 
 
-            // std::clog << "Here: " << name->stringify(0) << '\n';
-            return addVar(name->stringify(0), value, type);
+            // std::clog << "Here: " << name->stringify() << '\n';
+            return addVar(name->stringify(), value, type);
         }
 
 
-        return addVar(ass->lhs->stringify(0), value);
+        return addVar(ass->lhs->stringify(), value);
 
         // return std::visit(
-        //     [this, ass] (const auto& value) { return addVar(value->stringify(0), std::visit(*this, ass->rhs->variant())); },
+        //     [this, ass] (const auto& value) { return addVar(value->stringify(), std::visit(*this, ass->rhs->variant())); },
         //     ass->lhs->variant()
         // );
     }
 
 
     Value operator()(const expr::Class *cls) {
-        if (auto&& var = getVar(cls->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(cls->stringify()); var) return var->first;
 
 
         std::vector<std::pair<std::string, Value>> members;
 
+        ScopeGuard sg{this};
         for (const auto& field : cls->fields) {
             // const auto& name = std::visit(*this, field.lhs->variant());
 
-            // lots of a std::move 's lol
-            members.push_back({field.lhs->stringify(0),  std::visit(*this, field.rhs->variant())});
+            // this performs type checking...i think
+            // it doesn't add vars to the environment bc we added a scope guard
+            std::visit(*this, field.variant());
+
+            members.push_back({field.lhs->stringify(),  std::visit(*this, field.rhs->variant())});
         }
 
 
@@ -206,7 +210,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::UnaryOp *up) {
-        if (auto&& var = getVar(up->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(up->stringify()); var) return var->first;
 
 
         ScopeGuard sg{this}; // RAII is so cool
@@ -227,7 +231,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::BinOp *bp) {
-        if (auto&& var = getVar(bp->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(bp->stringify()); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -247,7 +251,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::PostOp *pp) {
-        if (auto&& var = getVar(pp->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(pp->stringify()); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -265,7 +269,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::Call* call) {
-        if (auto&& var = getVar(call->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(call->stringify()); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -337,9 +341,25 @@ struct Visitor {
         }
 
         if (std::holds_alternative<ClassValue>(var)) {
+            // if (not call->args.empty()) error("Can't pass arguments to classes!");
             const auto& cls = std::get<ClassValue>(var);
 
-            Object obj{ std::make_shared<Dict>(cls.blueprint->members) }; // copying defaults field values from class definition
+            if (call->args.size() > cls.blueprint->members.size())
+                error("Too many arguments passed to constructor of class: " + stringify(var));
+
+            // copying defaults field values from class definition
+            Object obj{ std::make_shared<Dict>(cls.blueprint->members) };
+
+            // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
+            // const auto& [arg, value] : std::views::zip(call->args, obj->members)
+            for (size_t i{}; i < call->args.size(); ++i) {
+                const auto& v = std::visit(*this, call->args[i]->variant());
+
+                if (typeOf(v)->text() != typeOf(obj->members[i].second)->text())
+                    error("Type mis-match between: " + typeOf(v)->text() + " & " + typeOf(obj->members[i].second)->text());
+
+                obj->members[i].second = v;
+            }
 
             return obj;
         }
@@ -353,7 +373,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::Closure *c) {
-        if (auto&& var = getVar(c->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(c->stringify()); var) return var->first;
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
         c->capture(envStackToEnvMap());
@@ -362,7 +382,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Block *block) {
-        if (auto&& var = getVar(block->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(block->stringify()); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -375,7 +395,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::Fix *fix) {
-        if (auto&& var = getVar(fix->stringify(0)); var) return var->first;
+        if (auto&& var = getVar(fix->stringify()); var) return var->first;
 
         return std::visit(*this, fix->func->variant());
     }
@@ -655,7 +675,7 @@ struct Visitor {
         // it gets its special treatment here..
         if (name == "reset") {
 
-            const std::string& s = call->args[0]->stringify(0);
+            const std::string& s = call->args[0]->stringify();
             if (const auto& v = getVar(s); not v) error("Reseting an unset value: " + s);
             else removeVar(s);
 

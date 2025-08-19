@@ -5,12 +5,12 @@ infix(SUM) + = (a, b) => __builtin_add(a, b);
 func = (a, b) => 4;
 
 Human = class {
-    name = "";
-    age = 0;
+    name: String = "";
+    age: Int = 0;
 };
 
-1 + 2 = 5;
 
+x: Human = Human("Ali", 22);
 
-print(1 + 2);
+print(Human);
 
