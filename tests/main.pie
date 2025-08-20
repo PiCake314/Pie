@@ -1,16 +1,14 @@
 print = __builtin_print;
 
-infix(SUM) + = (a, b) => __builtin_add(a, b);
 
-func = (a, b) => 4;
+comment: Human = class {
+comment:     name: String = "";
+comment:     age: Int = 0;
+comment: };
 
-Human = class {
-    name: String = "";
-    age: Int = 0;
-};
+comment: x: Human = Human("Hey!", 55);
 
+func = (n) => __builtin_conditional(__builtin_lt(n, 2), 1, __builtin_mul(n, func(__builtin_sub(n, 1))));
 
-x: Human = Human("Ali", 22);
-
-print(Human);
+print(func(5));
 

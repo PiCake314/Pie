@@ -29,7 +29,7 @@ using Object = std::shared_ptr<Dict>;
 
 using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object>;
 
-struct Dict { std::vector<std::pair<std::string, Value>> members; };
+struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
@@ -90,7 +90,7 @@ struct Visitor {
 
             const auto& obj = get<Object>(left);
 
-            const auto& found = std::ranges::find_if(obj->members, [name = acc->name](auto&& member) { return member.first == name; });
+            const auto& found = std::ranges::find_if(obj->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
 
             if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
@@ -106,7 +106,6 @@ struct Visitor {
             if (auto&& var = getVar(name->name); var) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
                 type = var->second;
-                // std::clog << "Already exists: " << name->type->text() << std::endl;
             }
             else { // New var
                 // std::clog << "Adding: " << name->name << '\n';
@@ -116,7 +115,7 @@ struct Visitor {
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     // type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
-                    type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
+                    type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(typeStringify(get<ClassValue>(c->first))));
             }
 
 
@@ -155,7 +154,7 @@ struct Visitor {
         if (auto&& var = getVar(cls->stringify()); var) return var->first;
 
 
-        std::vector<std::pair<std::string, Value>> members;
+        std::vector<std::pair<expr::Name, Value>> members;
 
         ScopeGuard sg{this};
         for (const auto& field : cls->fields) {
@@ -165,7 +164,10 @@ struct Visitor {
             // it doesn't add vars to the environment bc we added a scope guard
             std::visit(*this, field.variant());
 
-            members.push_back({field.lhs->stringify(),  std::visit(*this, field.rhs->variant())});
+            // I think we don't need to check the type against the name.type
+            // since the line above already did type checking
+            const auto& v = std::visit(*this, field.rhs->variant());
+            members.push_back({{field.lhs->stringify(), typeOf(v)}, v});
         }
 
 
@@ -190,7 +192,7 @@ struct Visitor {
 
         const auto& obj = std::get<Object>(left);
 
-        const auto& found = std::ranges::find_if(obj->members, [&name = acc->name] (auto&& member) { return member.first == name; });
+        const auto& found = std::ranges::find_if(obj->members, [&name = acc->name] (auto&& member) { return member.first.stringify() == name; });
         if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
 
@@ -199,7 +201,7 @@ struct Visitor {
 
             Environment capture_list;
             for (const auto& [name, value] : obj->members)
-                capture_list[name] = {value, typeOf(value)};
+                capture_list[name.stringify()] = {value, typeOf(value)}; //* maybe name.name?
 
             closure.capture(capture_list);
 
@@ -345,7 +347,7 @@ struct Visitor {
             const auto& cls = std::get<ClassValue>(var);
 
             if (call->args.size() > cls.blueprint->members.size())
-                error("Too many arguments passed to constructor of class: " + stringify(var));
+                error("Too many arguments passed to constructor of class: " + typeStringify(cls));
 
             // copying defaults field values from class definition
             Object obj{ std::make_shared<Dict>(cls.blueprint->members) };
@@ -356,7 +358,11 @@ struct Visitor {
                 const auto& v = std::visit(*this, call->args[i]->variant());
 
                 if (typeOf(v)->text() != typeOf(obj->members[i].second)->text())
-                    error("Type mis-match between: " + typeOf(v)->text() + " & " + typeOf(obj->members[i].second)->text());
+                    error(
+                        "Type mis-match in constructor of:\n" + typeStringify(cls) + "\nMember `" +
+                        obj->members[i].first.stringify() + "` expected: " + typeOf(obj->members[i].second)->text() +
+                        "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
+                    );
 
                 obj->members[i].second = v;
             }
@@ -801,7 +807,7 @@ struct Visitor {
 
             const std::string space(indent + 4, ' ');
             for (const auto& [name, value] : v.blueprint->members) {
-                s += space + name + " = ";
+                s += space + name.stringify() + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
                 if (is_string) s += '\"';
@@ -824,7 +830,7 @@ struct Visitor {
 
             const std::string space(indent + 4, ' ');
             for (const auto& [name, value] : v->members) {
-                s += space + name + " = ";
+                s += space + name.stringify() + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
                 if (is_string) s += '\"';
@@ -881,6 +887,30 @@ struct Visitor {
         error("'" + type->text() + "' does not name a type!");
     }
 
+
+    static std::string typeStringify(const Object& o) {
+        std::string s = "class {\n";
+
+        // should I use '\t' or "    "
+        for (const auto& [name, value] : o->members)
+            s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
+        s += "}\n";
+
+        return s;
+    }
+
+
+    static std::string typeStringify(const ClassValue& c) {
+        std::string s = "class {\n";
+
+        for (const auto& [name, value] : c.blueprint->members)
+            s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
+        s += "}\n";
+
+        return s;
+    }
+
+
     type::TypePtr typeOf(const Value& value) noexcept {
         if (std::holds_alternative<int>(value))          return type::builtins::Int();
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
@@ -905,7 +935,11 @@ struct Visitor {
         }
         if (std::holds_alternative<Object>(value)) {
             // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
-            return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
+
+            std::string s = typeStringify(get<Object>(value));
+
+            return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
+            // return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
         }
 
 
