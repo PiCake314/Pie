@@ -359,7 +359,7 @@ struct Visitor {
 
                 if (typeOf(v)->text() != typeOf(obj->members[i].second)->text())
                     error(
-                        "Type mis-match in constructor of:\n" + typeStringify(cls) + "\nMember `" +
+                        "Type mis-match in constructor of:\n" + typeStringify(cls) + "Member `" +
                         obj->members[i].first.stringify() + "` expected: " + typeOf(obj->members[i].second)->text() +
                         "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
                     );
@@ -583,10 +583,10 @@ struct Visitor {
                         // will be caught down
                         // if (std::holds_alternative<std::string>(a)  or std::holds_alternative<std::string>(b)) return false;
 
-                        if (std::holds_alternative<int>(a) and std::holds_alternative<int>(b)) return get<int>(a) == get<int>(b);
-                        if (std::holds_alternative<int>(a) and std::holds_alternative<double>(b)) return get<int>(a) == get<int>(b);
-                        if (std::holds_alternative<double>(a) and std::holds_alternative<int>(b)) return get<int>(a) == get<int>(b);
-                        if (std::holds_alternative<double>(a) and std::holds_alternative<double>(b)) return get<int>(a) == get<int>(b);
+                        if (std::holds_alternative<int>(a) and std::holds_alternative<int>(b))       return get<int>(a) == get<int>(b);
+                        if (std::holds_alternative<int>(a) and std::holds_alternative<double>(b))    return get<int>(a) == get<double>(b);
+                        if (std::holds_alternative<double>(a) and std::holds_alternative<int>(b))    return get<double>(a) == get<int>(b);
+                        if (std::holds_alternative<double>(a) and std::holds_alternative<double>(b)) return get<double>(a) == get<double>(b);
 
                         return false;
                     }),
