@@ -180,23 +180,16 @@ public:
 
                 // gotta dry out this part
                 // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
-                if (token.kind == PREFIX){
-                    auto p = std::make_unique<expr::Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-                    ops[name.text] = p.get();
-                    return p;
-                }
-                else if (token.kind == INFIX) {
-                    auto p = std::make_unique<expr::Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-                    ops[name.text] = p.get();
-                    return p;
+                std::unique_ptr<expr::Fix> p;
+                if (token.kind == PREFIX)
+                    p = std::make_unique<expr::Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+                else if (token.kind == INFIX)
+                    p = std::make_unique<expr::Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+                else // if (token.kind == SUFFIX)
+                    p = std::make_unique<expr::Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
 
-                }
-                // if (token.kind == SUFFIX)
-                else {
-                    auto p = std::make_unique<expr::Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-                    ops[name.text] = p.get();
-                    return p;
-                }
+                ops[name.text] = p.get();
+                return p;
             }
             break;
 
@@ -241,7 +234,8 @@ public:
 
                     while(match(COMMA)) {
                         name = consume(NAME);
-                        type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any();
+                        type = match(COLON) ? parseType() : type::builtins::Any();
+                        // type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any();
 
                         params.push_back(std::move(name).text);
                         params_types.push_back(std::move(type));

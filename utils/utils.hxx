@@ -157,13 +157,13 @@ Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that
 
 
         constexpr bool is_any1 = std::is_same_v<T1, Any>;
-        std::conditional_t<is_any1, Value, T1> v1;
+        typename std::conditional<is_any1, Value, T1>::type v1;
         if constexpr (is_any1) v1 = args[0];
         else v1 = std::get<T1>(args[0]);
 
 
         constexpr bool is_any2 = std::is_same_v<T2, Any>;
-        std::conditional_t<is_any2, Value, T2> v2;
+        typename std::conditional<is_any2, Value, T2>::type v2;
         if constexpr (is_any2) v2 = args[1];
         else v2 = std::get<T2>(args[1]);
 

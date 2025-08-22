@@ -78,8 +78,6 @@ struct Visitor {
 
 
     Value operator()(const expr::Assignment *ass) {
-
-
         auto value = std::visit(*this, ass->rhs->variant());
 
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
@@ -218,16 +216,27 @@ struct Visitor {
         ScopeGuard sg{this}; // RAII is so cool
         // scope();
 
-        const expr::Fix* op = ops.at(up->text);
+        const expr::Fix* op = ops.at(up->op);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
-        if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
+        // don't need to check this
+        // if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
+        // no need to assert I guess
+        // assert(func->params.size() == 1);
 
-        assert(func->params.size() == 1);
-        // env.back()[func->params.front()] = std::visit(*this, up->expr->variant());
-        addVar(func->params.front(), std::visit(*this, up->expr->variant()));
 
-        return std::visit(*this, func->body.get()->variant()); // RAII takes care of unscoping
+        const auto& arg = std::visit(*this, up->expr->variant());
+        if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+            error(
+                "Type mis-match! Prefix operator '" + up->op + 
+                "' expected: " + func->type.params[0]->text() +
+                ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                // ", got: " + type_of_arg->text()
+            );
+
+        addVar(func->params.front(), arg);
+
+        return std::visit(*this, func->body->variant()); // RAII takes care of unscoping
 
         // unscope();
     }
@@ -238,18 +247,37 @@ struct Visitor {
 
         ScopeGuard sg{this};
 
-        const expr::Fix* op = ops.at(bp->text);
+        const expr::Fix* op = ops.at(bp->op);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
-        if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
 
-        assert(func->params.size() == 2);
-        addVar(func->params[0], std::visit(*this, bp->lhs->variant()));
-        addVar(func->params[1], std::visit(*this, bp->rhs->variant()));
+        const auto& arg1 = std::visit(*this, bp->lhs->variant());
+        if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
+            error(
+                "Type mis-match! Infix operator '" + bp->op + 
+                "', parameter '" + func->params[0] +
+                "' expected: " + func->type.params[0]->text() +
+                ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
+                // ", got: " + type_of_arg->text()
+            );
+
+        const auto& arg2 = std::visit(*this, bp->rhs->variant());
+        if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
+            error(
+                "Type mis-match! Infix operator '" + bp->op + 
+                "', parameter '" + func->params[1] +
+                "' expected: " + func->type.params[1]->text() +
+                ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
+                // ", got: " + type_of_arg->text()
+            );
+
+
+        addVar(func->params[0], arg1);
+        addVar(func->params[1], arg2);
         // env.back()[func->params[0]] = std::visit(*this, bp->lhs->variant());
         // env.back()[func->params[1]] = std::visit(*this, bp->rhs->variant());
 
-        return std::visit(*this, func->body.get()->variant());
+        return std::visit(*this, func->body->variant());
     }
 
     Value operator()(const expr::PostOp *pp) {
@@ -258,16 +286,24 @@ struct Visitor {
 
         ScopeGuard sg{this};
 
-        const expr::Fix* op = ops.at(pp->text);
+        const expr::Fix* op = ops.at(pp->op);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
-        if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
 
-        assert(func->params.size() == 1);
+        const auto& arg = std::visit(*this, pp->expr->variant());
+        if (auto&& type_of_arg = typeOf(arg); not (*func->type.params.front() >= *type_of_arg))
+            error(
+                "Type mis-match! Suffix operator '" + pp->op + 
+                "', parameter '" + func->params[0] +
+                "' expected: " + func->type.params.front()->text() +
+                ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                // ", got: " + type_of_arg->text()
+            );
+
+
         addVar(func->params.front(), std::visit(*this, pp->expr->variant()));
-        // env.back()[func->params.front()] = std::visit(*this, pp->expr->variant());
 
-        return std::visit(*this, func->body.get()->variant());
+        return std::visit(*this, func->body->variant());
     }
 
     Value operator()(const expr::Call* call) {
@@ -337,7 +373,10 @@ struct Visitor {
                 return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
 
             if (not (*return_type >= *type_of_return_value))
-                error("Type mis-match! Expected: " + return_type->text() + ", got: " + type_of_return_value->text());
+                error(
+                    "Type mis-match! Function return type Expected: " +
+                    return_type->text() + ", got: " + type_of_return_value->text()
+                );
 
             return ret;
         }
@@ -400,17 +439,39 @@ struct Visitor {
         return ret;
     }
 
-    Value operator()(const expr::Fix *fix) {
+    // Value operator()(const expr::Fix *fix) {
+    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
+    //     return std::visit(*this, fix->func->variant());
+    // }
+
+    // split so I can param check at definition time instead of call time..
+    Value operator()(const expr::Prefix *fix) {
         if (auto&& var = getVar(fix->stringify()); var) return var->first;
+
+        // I know it's a function, otherwise parser woulda been mad
+        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
+            error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
 
         return std::visit(*this, fix->func->variant());
     }
 
-    // Value operator()(const Prefix *fix) { }
+    Value operator()(const expr::Infix *fix) {
+        if (auto&& var = getVar(fix->stringify()); var) return var->first;
 
-    // Value operator()(const Infix *fix) { }
+        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
+            error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
 
-    // Value operator()(const Suffix *fix) { }
+        return std::visit(*this, fix->func->variant());
+    }
+
+    Value operator()(const expr::Suffix *fix) {
+        if (auto&& var = getVar(fix->stringify()); var) return var->first;
+
+        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
+            error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+
+        return std::visit(*this, fix->func->variant());
+    }
 
 
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
@@ -749,8 +810,8 @@ struct Visitor {
 
             if (not std::holds_alternative<bool>(value1)) return std::visit(*this, otherwise);
 
-
             if(get<bool>(value1)) return std::visit(*this, then);
+
 
             return std::visit(*this, otherwise); // Oh ffs! [for cogs on discord!]
         }
@@ -767,6 +828,7 @@ struct Visitor {
 
     void print(const Value& value, bool new_line = true) const {
         std::cout << stringify(value);
+        // std::print("{}", stringify(value));
 
         if (new_line) puts("");
     }
@@ -776,7 +838,8 @@ struct Visitor {
 
         if (std::holds_alternative<bool>(value)) {
             const auto& v = std::get<bool>(value);
-            s = std::to_string(v);
+            // s = std::to_string(v); // reason I did this in the first place is to allow for copy-ellision to happen
+            return v ? "true" : "false";
         }
 
         else if (std::holds_alternative<int>(value)) {

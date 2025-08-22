@@ -19,10 +19,10 @@ struct PostOp;
 struct Call;
 struct Closure;
 struct Block;
-struct Fix;
-// struct Prefix;
-// struct Infix;
-// struct Suffix;
+// struct Fix;
+struct Prefix;
+struct Infix;
+struct Suffix;
 
 // has to be pointers kuz we're forward declareing
 // has to be forward declared bc we're using in in the class bellow
@@ -38,11 +38,11 @@ using Node = std::variant<
     const PostOp*,
     const Call*,
     const Closure*,
-    const Fix*,
-    const Block*
-    // const Prefix*,
-    // const Infix*,
-    // const Suffix*
+    const Block*,
+    // const Fix*,
+    const Prefix*,
+    const Infix*,
+    const Suffix*
 >;
 
 

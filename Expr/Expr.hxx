@@ -158,16 +158,16 @@ struct Access : Expr {
 
 struct UnaryOp : Expr {
     // Token token; // also always name??
-    std::string text;
+    std::string op;
     ExprPtr expr;
 
 
-    UnaryOp(std::string t, ExprPtr e) noexcept
-    : text{std::move(t)}, expr{std::move(e)}
+    UnaryOp(std::string o, ExprPtr e) noexcept
+    : op{std::move(o)}, expr{std::move(e)}
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        return '(' + text + ' ' + expr->stringify(indent) + ')';
+        return '(' + op + ' ' + expr->stringify(indent) + ')';
     }
 
     Node variant() const override { return this; }
@@ -176,16 +176,16 @@ struct UnaryOp : Expr {
 struct BinOp : Expr {
     ExprPtr lhs;
     // const TokenKind token; // always name..I think
-    std::string text;
+    std::string op;
     ExprPtr rhs;
 
 
-    BinOp(ExprPtr e1, std::string txt, ExprPtr e2) noexcept
-    : lhs{std::move(e1)}, text{std::move(txt)}, rhs{std::move(e2)}
+    BinOp(ExprPtr e1, std::string o, ExprPtr e2) noexcept
+    : lhs{std::move(e1)}, op{std::move(o)}, rhs{std::move(e2)}
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        return '(' + lhs->stringify(indent) + ' ' + text + ' ' + rhs->stringify(indent) + ')';
+        return '(' + lhs->stringify(indent) + ' ' + op + ' ' + rhs->stringify(indent) + ')';
     }
 
     Node variant() const override { return this; }
@@ -193,16 +193,16 @@ struct BinOp : Expr {
 
 struct PostOp : Expr {
     // Token token; // also always name??
-    std::string text;
+    std::string op;
     ExprPtr expr;
 
 
-    PostOp(std::string t, ExprPtr e) noexcept
-    : text{std::move(t)}, expr{std::move(e)}
+    PostOp(std::string o, ExprPtr e) noexcept
+    : op{std::move(o)}, expr{std::move(e)}
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        return '(' + expr->stringify(indent) + ' ' + text + ')';
+        return '(' + expr->stringify(indent) + ' ' + op + ')';
     }
 
     Node variant() const override { return this; }
