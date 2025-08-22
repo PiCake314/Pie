@@ -114,7 +114,8 @@ struct Visitor {
                 type = var->second;
             }
             else { // New var
-                if(not isValidType(name->type)) error("Invalid Type: " + name->type->text());
+                validateType(name->type);
+                // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
 
                 type = name->type;
 
@@ -248,6 +249,7 @@ struct Visitor {
             addVar(func->params.front(), up->expr->variant());
         }
         else {
+            validateType(func->type.params[0]);
 
             const auto& arg = std::visit(*this, up->expr->variant());
             if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -280,6 +282,8 @@ struct Visitor {
             addVar(func->params[0], bp->lhs->variant());
         }
         else {
+            validateType(func->type.params[0]);
+
             const auto& arg1 = std::visit(*this, bp->lhs->variant());
             if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
                 error(
@@ -297,6 +301,8 @@ struct Visitor {
             addVar(func->params[1], bp->rhs->variant());
         }
         else {
+            validateType(func->type.params[1]);
+
             const auto& arg2 = std::visit(*this, bp->rhs->variant());
             if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
                 error(
@@ -324,20 +330,22 @@ struct Visitor {
 
 
         if (func->type.params[0]->text() == "Syntax") {
-            addVar(func->params.front(), pp->expr->variant());
+            addVar(func->params[0], pp->expr->variant());
         }
         else {
+            validateType(func->type.params[0]);
+
             const auto& arg = std::visit(*this, pp->expr->variant());
-            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params.front() >= *type_of_arg))
+            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
                 error(
                     "Type mis-match! Suffix operator '" + pp->op + 
                     "', parameter '" + func->params[0] +
-                    "' expected: " + func->type.params.front()->text() +
+                    "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(arg) + " which is " + type_of_arg->text()
                     // ", got: " + type_of_arg->text()
                 );
 
-            addVar(func->params.front(), std::visit(*this, pp->expr->variant()));
+            addVar(func->params[0], std::visit(*this, pp->expr->variant()));
         }
 
         return std::visit(*this, func->body->variant());
@@ -392,8 +400,10 @@ struct Visitor {
 
             // full call. Don't curry!
             for (const auto& [name, type, arg] : std::views::zip(func.params, func.type.params, call->args)){
+                validateType(type);
+                // if (not isValidType(type)) error("Type '" + type->text() + "' is not a valid type!");
 
-                if (type->text() == "Lazy") {
+                if (type->text() == "Syntax") {
                     addVar(name, arg->variant());
                     continue;
                 }
@@ -410,12 +420,13 @@ struct Visitor {
             ScopeGuard sg{this, func.env};
 
 
-            if (func.type.ret->text() == "Lazy") return func.body->variant();
+            if (func.type.ret->text() == "Syntax") return func.body->variant();
 
             const auto& ret = std::visit(*this, func.body->variant());
 
             const auto& type_of_return_value = typeOf(ret);
-            if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
+            validateType(func.type.ret);
+            // if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
 
             auto return_type = func.type.ret;
             if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
@@ -984,7 +995,7 @@ struct Visitor {
         return s;
     }
 
-    bool isValidType(const type::TypePtr& type) noexcept {
+    void validateType(const type::TypePtr& type) noexcept {
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
             if (
                 const auto& t = var_type->text();
@@ -996,7 +1007,7 @@ struct Visitor {
                 t == "String" or
                 t == "Type"
             )
-            return true;
+            return;
 
 
             if (
@@ -1005,17 +1016,17 @@ struct Visitor {
                 auto&& value = std::visit(*this, var_type->t->variant());
                 std::holds_alternative<ClassValue>(value)
             )
-            return true;
+            return;
 
         }
         else { // has to be a function type
             const auto func_type = dynamic_cast<type::FuncType*>(type.get());
 
-            for (const auto& t : func_type->params) if (not isValidType(t)) return false;
+            for (const auto& t : func_type->params) validateType(t);
 
 
             // all param types are valid. Only thing left to check is return type
-            return isValidType(func_type->ret);
+            return validateType(func_type->ret);
         }
 
 
