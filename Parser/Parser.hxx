@@ -356,6 +356,7 @@ public:
             if (match("Bool"  )) return type::builtins::Bool();
             if (match("String")) return type::builtins::String();
             if (match("Any"   )) return type::builtins::Any();
+            if (match("Lazy"  )) return type::builtins::Lazy();
             if (match("Type"  )) return type::builtins::Type();
         }
         // or an expression

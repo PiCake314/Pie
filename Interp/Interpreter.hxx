@@ -27,7 +27,8 @@ struct Dict;
 
 using Object = std::shared_ptr<Dict>; 
 
-using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object>;
+// for lazy eval type
+using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 
@@ -78,10 +79,11 @@ struct Visitor {
 
 
     Value operator()(const expr::Assignment *ass) {
-        auto value = std::visit(*this, ass->rhs->variant());
+
 
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
         if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) {
+            const auto& value = std::visit(*this, ass->rhs->variant());
             const auto& left = std::visit(*this, acc->var->variant());
 
             if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
@@ -89,8 +91,14 @@ struct Visitor {
             const auto& obj = get<Object>(left);
 
             const auto& found = std::ranges::find_if(obj->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
-
             if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+
+
+            //TODO: Dry this out!
+            if (auto&& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
+                std::cerr << "In assignment: " << ass->stringify() << '\n';
+                error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
+            }
 
             found->second = value;
 
@@ -106,7 +114,6 @@ struct Visitor {
                 type = var->second;
             }
             else { // New var
-                // std::clog << "Adding: " << name->name << '\n';
                 if(not isValidType(name->type)) error("Invalid Type: " + name->type->text());
 
                 type = name->type;
@@ -117,15 +124,24 @@ struct Visitor {
             }
 
 
+
+            if (type->text() == "Lazy")
+                return addVar(name->stringify(), ass->rhs->variant(), type);
+
+
+
+            auto value = std::visit(*this, ass->rhs->variant());
             // if (type->text() != "Any") // only enforce type checking when
             if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
                 std::cerr << "In assignment: " << ass->stringify() << '\n';
-                error("Assignment type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
             }
 
+
+            // casting the function type in case assigning a function to our variable
             if (std::holds_alternative<expr::Closure>(value)) {
                 auto& closure = get<expr::Closure>(value);
-                // we verified types are compatoible so this is fine..should be...I hope
+                // we verified types are compatible so this is fine..should be...I hope
                 if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
                     closure.type = *t;
                 else if (const auto* t = dynamic_cast<type::VarType*>(type.get()); t and t->text() != "Any")
@@ -139,12 +155,8 @@ struct Visitor {
         }
 
 
-        return addVar(ass->lhs->stringify(), value);
-
-        // return std::visit(
-        //     [this, ass] (const auto& value) { return addVar(value->stringify(), std::visit(*this, ass->rhs->variant())); },
-        //     ass->lhs->variant()
-        // );
+        // assing to the serialization (stringification) of the AST node
+        return addVar(ass->lhs->stringify(), std::visit(*this, ass->rhs->variant()));
     }
 
 
@@ -317,8 +329,6 @@ struct Visitor {
         if (std::holds_alternative<std::string>(var)) { // that dumb lol. but now it works
             const auto& name = std::get<std::string>(var);
             if (isBuiltIn(name)) return evaluateBuiltin(call, name);
-
-            return var;
         }
 
 
@@ -334,10 +344,18 @@ struct Visitor {
                 Environment argument_capture_list = func.env;
                 for(const auto& [name, type, expr] : std::views::zip(func.params, func.type.params, call->args)) {
 
+                    if (type->text() == "Lazy") {
+                        argument_capture_list[name] = {expr->variant(), type};
+                        continue;
+                    }
+
+
                     const auto& value = std::visit(*this, expr->variant());
                     if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) // if the param type not a super type of arg type
                         error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
 
+
+                    // if (type == "Lazy") value = 
                     argument_capture_list[name] = {value, type};
                 }
 
@@ -349,6 +367,12 @@ struct Visitor {
 
             // full call. Don't curry!
             for (const auto& [name, type, arg] : std::views::zip(func.params, func.type.params, call->args)){
+
+                if (type->text() == "Lazy") {
+                    addVar(name, arg->variant());
+                    continue;
+                }
+
 
                 const auto& value = std::visit(*this, arg->variant());
                 if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
@@ -479,7 +503,7 @@ struct Visitor {
 
         for(const auto& builtin : {
             "true", "false",                                                            //* nullary
-            "print", "reset",                                                           //* unary
+            "print", "reset", "eval",                                                  //* unary
             "neg", "not", "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt", "and", "or",   //* binary
             "conditional"                                                               //* trinary
         })
@@ -541,6 +565,16 @@ struct Visitor {
                         return x;
                     }),
                     TypeList<Any>
+                >
+            >{},
+
+            MapEntry<
+                S<"eval">,
+                Func<
+                    decltype([](auto&& x, const auto& that) {
+                        return std::visit(*that, x);
+                    }),
+                    TypeList<expr::Node>
                 >
             >{},
 
@@ -752,10 +786,9 @@ struct Visitor {
 
 
         if (name == "print") return execute<1>(stdx::get<S<"print">>(functions).value, {value1}, this);
-
-        if (name == "neg") return execute<1>(stdx::get<S<"neg">>(functions).value, {value1}, this);
-
-        if (name == "not") return execute<1>(stdx::get<S<"not">>(functions).value, {value1}, this);
+        if (name == "eval" ) return execute<1>(stdx::get<S<"eval" >>(functions).value, {value1}, this);
+        if (name == "neg"  ) return execute<1>(stdx::get<S<"neg"  >>(functions).value, {value1}, this);
+        if (name == "not"  ) return execute<1>(stdx::get<S<"not"  >>(functions).value, {value1}, this);
 
 
         // all the rest of those funcs expect 2 arguments
@@ -909,6 +942,12 @@ struct Visitor {
             s += indent + '}';
 
         }
+        else if(std::holds_alternative<expr::Node>(value)) {
+            return std::visit(
+                [] (auto&& v)-> std::string { return v->stringify(); },
+                get<expr::Node>(value)
+            );
+        }
         else error("Type not found!");
 
         return s;
@@ -917,12 +956,14 @@ struct Visitor {
     bool isValidType(const type::TypePtr& type) noexcept {
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
             if (
-                var_type->text() == "Any" or
-                var_type->text() == "Int" or
-                var_type->text() == "Double" or
-                var_type->text() == "Bool" or
-                var_type->text() == "String" or
-                var_type->text() == "Type"
+                const auto& t = var_type->text();
+                t == "Any" or
+                t == "Lazy" or
+                t == "Int" or
+                t == "Double" or
+                t == "Bool" or
+                t == "String" or
+                t == "Type"
             )
             return true;
 
@@ -975,10 +1016,12 @@ struct Visitor {
 
 
     type::TypePtr typeOf(const Value& value) noexcept {
+        if (std::holds_alternative<expr::Node>(value))   return type::builtins::Lazy();
         if (std::holds_alternative<int>(value))          return type::builtins::Int();
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
         if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
         if (std::holds_alternative<std::string>(value))  return type::builtins::String();
+
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& func = get<expr::Closure>(value);
 

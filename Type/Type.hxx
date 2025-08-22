@@ -34,20 +34,20 @@ namespace type {
 
         std::string text() const override {
             // return t.empty() ? "Any" : t;
-            const auto& type = t->stringify(0);
+            const auto& type = t->stringify();
             return type.empty() ? "Any" : type;
         }
 
 
         bool operator>(const Type_t& other) const override {
             const auto& type = text();
-            return type == "Any" and other.text() != "Any";
+            return type == "Lazy" or (type == "Any" and other.text() != "Any");
         }
 
 
         bool operator>=(const Type_t& other) const override {
             const auto& type = text();
-            return type == "Any" or type == other.text();
+            return type == "Lazy" or type == "Any" or type == other.text();
         }
     };
 
@@ -96,6 +96,7 @@ namespace type {
         }
     };
 
+
     struct BuiltinType final : VarType {
         std::string t;
 
@@ -104,12 +105,14 @@ namespace type {
     };
 
 
+    //* these builtins could be their own types!
     namespace builtins{
         TypePtr Int    () { return std::make_shared<BuiltinType>("Int"   ); }
         TypePtr Double () { return std::make_shared<BuiltinType>("Double"); };
         TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
         TypePtr String () { return std::make_shared<BuiltinType>("String"); };
         TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
+        TypePtr Lazy   () { return std::make_shared<BuiltinType>("Lazy"  ); };
         TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
     }
 }

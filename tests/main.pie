@@ -1,25 +1,8 @@
 print = __builtin_print;
 
-
-infix(SUM  ) + = (a, b) => __builtin_add(a, b);
-infix(SUM  ) - = (a, b) => __builtin_sub(a, b);
-infix(PROD ) * = (a, b) => __builtin_mul(a, b);
-infix(LOW +) < = (a, b) => __builtin_lt (a, b);
+infix(SUM) + = (a, b) => __builtin_add(a, b);
 
 
-prefix(< -) ~ = (thunk) => thunk();
+x: Lazy = 1 + 2;
 
-prefix(CALL -) if   = (cond     ) => cond;
-infix (CALL -) then = (cond, th ) => __builtin_conditional(cond, th, "magic-false-value");
-infix (CALL -) else = (th  , els) => __builtin_conditional(__builtin_eq(th, "magic-false-value"), els, th);
-
-
-print( {  1; } );
-
-
-fact = (n) => ~ {
-    if n < 2 then { 1; } else { n * fact(n - 1); };
-};
-
-
-comment: print(fact(5));
+print(x);

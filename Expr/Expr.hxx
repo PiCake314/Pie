@@ -60,7 +60,9 @@
 // >;
 
 
-using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, std::shared_ptr<Dict>>;
+using ASTNode     = expr::ExprPtr;
+using Object      = std::shared_ptr<Dict>; 
+using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 namespace expr {
