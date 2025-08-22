@@ -13,6 +13,7 @@ struct Name;
 struct Assignment;
 struct Class;
 struct Access;
+struct Grouping;
 struct UnaryOp;
 struct BinOp;
 struct PostOp;
@@ -33,6 +34,7 @@ using Node = std::variant<
     const Assignment*,
     const Class*,
     const Access*,
+    const Grouping*,
     const UnaryOp*,
     const BinOp*,
     const PostOp*,

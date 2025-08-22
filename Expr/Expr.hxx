@@ -158,6 +158,18 @@ struct Access : Expr {
     Node variant() const override { return this; }
 };
 
+struct Grouping : Expr {
+    ExprPtr expr;
+    Grouping(ExprPtr e) noexcept : expr{std::move(e)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        return '(' + expr->stringify(indent) + ')';
+    }
+
+    Node variant() const override { return this; }
+};
+
+
 struct UnaryOp : Expr {
     // Token token; // also always name??
     std::string op;

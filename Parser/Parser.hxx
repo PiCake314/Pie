@@ -261,7 +261,7 @@ public:
                     auto expr = parseExpr();
                     consume(R_PAREN);
 
-                    return expr;
+                    return std::make_shared<expr::Grouping>(std::move(expr));
                 }
             }
 
@@ -356,7 +356,7 @@ public:
             if (match("Bool"  )) return type::builtins::Bool();
             if (match("String")) return type::builtins::String();
             if (match("Any"   )) return type::builtins::Any();
-            if (match("Lazy"  )) return type::builtins::Lazy();
+            if (match("Syntax")) return type::builtins::Syntax();
             if (match("Type"  )) return type::builtins::Type();
         }
         // or an expression

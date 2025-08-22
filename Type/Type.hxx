@@ -41,13 +41,13 @@ namespace type {
 
         bool operator>(const Type_t& other) const override {
             const auto& type = text();
-            return type == "Lazy" or (type == "Any" and other.text() != "Any");
+            return type == "Syntax" or (type == "Any" and other.text() != "Any");
         }
 
 
         bool operator>=(const Type_t& other) const override {
             const auto& type = text();
-            return type == "Lazy" or type == "Any" or type == other.text();
+            return type == "Syntax" or type == "Any" or type == other.text();
         }
     };
 
@@ -112,7 +112,7 @@ namespace type {
         TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
         TypePtr String () { return std::make_shared<BuiltinType>("String"); };
         TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
-        TypePtr Lazy   () { return std::make_shared<BuiltinType>("Lazy"  ); };
+        TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
         TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
     }
 }

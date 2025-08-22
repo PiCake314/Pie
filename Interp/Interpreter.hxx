@@ -125,7 +125,7 @@ struct Visitor {
 
 
 
-            if (type->text() == "Lazy")
+            if (type->text() == "Syntax")
                 return addVar(name->stringify(), ass->rhs->variant(), type);
 
 
@@ -221,6 +221,13 @@ struct Visitor {
         return found->second;
     }
 
+    // only added to differentiate between expressions such as: 1 + 2 and (1 + 2)
+    Value operator()(const expr::Grouping *g) {
+        if (auto&& var = getVar(g->stringify()); var) return var->first;
+
+        return std::visit(*this, g->expr->variant());
+    }
+
     Value operator()(const expr::UnaryOp *up) {
         if (auto&& var = getVar(up->stringify()); var) return var->first;
 
@@ -237,8 +244,13 @@ struct Visitor {
         // assert(func->params.size() == 1);
 
 
-        const auto& arg = std::visit(*this, up->expr->variant());
-        if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+        if (func->type.params[0]->text() == "Syntax") {
+            addVar(func->params.front(), up->expr->variant());
+        }
+        else {
+
+            const auto& arg = std::visit(*this, up->expr->variant());
+            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
             error(
                 "Type mis-match! Prefix operator '" + up->op + 
                 "' expected: " + func->type.params[0]->text() +
@@ -246,7 +258,8 @@ struct Visitor {
                 // ", got: " + type_of_arg->text()
             );
 
-        addVar(func->params.front(), arg);
+            addVar(func->params.front(), arg);
+        }
 
         return std::visit(*this, func->body->variant()); // RAII takes care of unscoping
 
@@ -262,32 +275,40 @@ struct Visitor {
         const expr::Fix* op = ops.at(bp->op);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
+        // LHS
+        if (func->type.params[0]->text() == "Syntax") {
+            addVar(func->params[0], bp->lhs->variant());
+        }
+        else {
+            const auto& arg1 = std::visit(*this, bp->lhs->variant());
+            if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
+                error(
+                    "Type mis-match! Infix operator '" + bp->op + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
+                    // ", got: " + type_of_arg->text()
+                );
+            addVar(func->params[0], arg1);
+        }
 
-        const auto& arg1 = std::visit(*this, bp->lhs->variant());
-        if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
-            error(
-                "Type mis-match! Infix operator '" + bp->op + 
-                "', parameter '" + func->params[0] +
-                "' expected: " + func->type.params[0]->text() +
-                ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
-                // ", got: " + type_of_arg->text()
-            );
+        // RHS
+        if (func->type.params[1]->text() == "Syntax") {
+            addVar(func->params[1], bp->rhs->variant());
+        }
+        else {
+            const auto& arg2 = std::visit(*this, bp->rhs->variant());
+            if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
+                error(
+                    "Type mis-match! Infix operator '" + bp->op + 
+                    "', parameter '" + func->params[1] +
+                    "' expected: " + func->type.params[1]->text() +
+                    ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
+                    // ", got: " + type_of_arg->text()
+                );
 
-        const auto& arg2 = std::visit(*this, bp->rhs->variant());
-        if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
-            error(
-                "Type mis-match! Infix operator '" + bp->op + 
-                "', parameter '" + func->params[1] +
-                "' expected: " + func->type.params[1]->text() +
-                ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
-                // ", got: " + type_of_arg->text()
-            );
-
-
-        addVar(func->params[0], arg1);
-        addVar(func->params[1], arg2);
-        // env.back()[func->params[0]] = std::visit(*this, bp->lhs->variant());
-        // env.back()[func->params[1]] = std::visit(*this, bp->rhs->variant());
+                addVar(func->params[1], arg2);
+        }
 
         return std::visit(*this, func->body->variant());
     }
@@ -302,18 +323,22 @@ struct Visitor {
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
 
-        const auto& arg = std::visit(*this, pp->expr->variant());
-        if (auto&& type_of_arg = typeOf(arg); not (*func->type.params.front() >= *type_of_arg))
-            error(
-                "Type mis-match! Suffix operator '" + pp->op + 
-                "', parameter '" + func->params[0] +
-                "' expected: " + func->type.params.front()->text() +
-                ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                // ", got: " + type_of_arg->text()
-            );
+        if (func->type.params[0]->text() == "Syntax") {
+            addVar(func->params.front(), pp->expr->variant());
+        }
+        else {
+            const auto& arg = std::visit(*this, pp->expr->variant());
+            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params.front() >= *type_of_arg))
+                error(
+                    "Type mis-match! Suffix operator '" + pp->op + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params.front()->text() +
+                    ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                    // ", got: " + type_of_arg->text()
+                );
 
-
-        addVar(func->params.front(), std::visit(*this, pp->expr->variant()));
+            addVar(func->params.front(), std::visit(*this, pp->expr->variant()));
+        }
 
         return std::visit(*this, func->body->variant());
     }
@@ -344,7 +369,7 @@ struct Visitor {
                 Environment argument_capture_list = func.env;
                 for(const auto& [name, type, expr] : std::views::zip(func.params, func.type.params, call->args)) {
 
-                    if (type->text() == "Lazy") {
+                    if (type->text() == "Syntax") {
                         argument_capture_list[name] = {expr->variant(), type};
                         continue;
                     }
@@ -384,11 +409,12 @@ struct Visitor {
 
             ScopeGuard sg{this, func.env};
 
+
+            if (func.type.ret->text() == "Lazy") return func.body->variant();
+
             const auto& ret = std::visit(*this, func.body->variant());
 
             const auto& type_of_return_value = typeOf(ret);
-
-
             if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
 
             auto return_type = func.type.ret;
@@ -672,7 +698,11 @@ struct Visitor {
             MapEntry<
                 S<"eq">,
                 Func<
-                    decltype([](auto&& a, auto&& b, const auto&) {
+                    decltype([](auto a, auto b, const auto& that) {
+                        if (std::holds_alternative<expr::Node>(a)) a = std::visit(*that, get<expr::Node>(a));
+
+                        if (std::holds_alternative<expr::Node>(b)) b = std::visit(*that, get<expr::Node>(b));
+
                         if (std::holds_alternative<std::string>(a) and std::holds_alternative<std::string>(b)) return get<std::string>(a) == get<std::string>(b); // ADL
 
                         // will be caught down
@@ -841,6 +871,7 @@ struct Visitor {
             const auto& then      = call->args[1]->variant();
             const auto& otherwise = call->args[2]->variant();
 
+
             if (not std::holds_alternative<bool>(value1)) return std::visit(*this, otherwise);
 
             if(get<bool>(value1)) return std::visit(*this, then);
@@ -943,7 +974,7 @@ struct Visitor {
 
         }
         else if(std::holds_alternative<expr::Node>(value)) {
-            return std::visit(
+            s = "ASTNODE: " + std::visit(
                 [] (auto&& v)-> std::string { return v->stringify(); },
                 get<expr::Node>(value)
             );
@@ -958,7 +989,7 @@ struct Visitor {
             if (
                 const auto& t = var_type->text();
                 t == "Any" or
-                t == "Lazy" or
+                t == "Syntax" or
                 t == "Int" or
                 t == "Double" or
                 t == "Bool" or
@@ -1016,7 +1047,7 @@ struct Visitor {
 
 
     type::TypePtr typeOf(const Value& value) noexcept {
-        if (std::holds_alternative<expr::Node>(value))   return type::builtins::Lazy();
+        if (std::holds_alternative<expr::Node>(value))   return type::builtins::Syntax();
         if (std::holds_alternative<int>(value))          return type::builtins::Int();
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
         if (std::holds_alternative<bool>(value))         return type::builtins::Bool();

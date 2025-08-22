@@ -1,8 +1,31 @@
 print = __builtin_print;
 
-infix(SUM) + = (a, b) => __builtin_add(a, b);
+
+infix(SUM  ) + = (a, b) => __builtin_add(a, b);
+infix(SUM  ) - = (a, b) => __builtin_sub(a, b);
+
+infix(PROD ) * = (a, b) => __builtin_mul(a, b);
+
+infix(LOW +) < = (a, b) => __builtin_lt(a, b);
 
 
-x: Lazy = 1 + 2;
+prefix(CALL -) if   = (x: Bool) => x;
+infix (CALL -) then = (cond: Bool, thn: Lazy) => __builtin_conditional(cond, __builtin_eval(thn), "magic=false=value");
+infix (CALL -) else = (thn: Lazy, els: Lazy) =>
+    __builtin_eval(__builtin_conditional(__builtin_eq(thn, "magic=false=value"), els, thn));
 
-print(x);
+
+fact = (n: Int): Int => {
+    if (n < 2) then {
+        1;
+    } else {
+        n * fact(n - 1);
+    };
+};
+
+a: Syntax = 120;
+print(__builtin_eval(a));
+120 = "Hello!";
+print(__builtin_eval(a));
+
+comment: print(fact(5));
