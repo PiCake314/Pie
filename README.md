@@ -2,13 +2,13 @@
 
 
 ## Philosophy
-This language aims to be unique, but it also should still feel familar. Here are some of it's "features":
+This language aims to be unique, but it also should still feel familiar. Here are some of it's "features":
 
 - Everything is an expression
 - bare-bones (if it doesn't need to be keyword, then it isn't)
-- no operators defiend for you (you define your own)
+- no operators defined for you (you define your own)
 - still quirky (different even if the difference is not good)
-- still feels familar
+- still feels familiar
 - No null/unit/none type (or any type indicating nothing).
 
 ## Introduction
@@ -23,7 +23,7 @@ This language aims to be unique, but it also should still feel familar. Here are
 
 
 ## Variables
-You define variables by assiging to them and optionally giving them a type:
+You define variables by assigning to them and optionally giving them a type:
 ```pie
 x = 5;
 y: Int = 5;
@@ -81,7 +81,7 @@ Here is how to define your own operator:
 ```pie
 prefix(LOW +) always_one = (x) => 1;
 ```
-`always_one` is now an prefix operator that when applied, always returns `1`!\
+`always_one` is now a prefix operator that when applied, always returns `1`!\
 In this example, `a` will come out as 1.
 ```
 a = always_one 5;
