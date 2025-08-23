@@ -552,20 +552,19 @@ struct Visitor {
 
     // the gate into the META operators!
     Value evaluateBuiltin(const expr::Call* call, std::string name) {
-
         //* ============================ FUNCTIONS ============================
         const auto functions = stdx::make_indexed_tuple<KeyFor>(
             //* NULLARY FUNCTIONS
             MapEntry<
                 S<"true">,
-                Func<
+                Func<"true",
                     decltype([](const auto&) { return true; }),
                     void
                 >
             >{},
             MapEntry<
                 S<"false">,
-                Func<
+                Func<"false",
                     decltype([](const auto&) { return false; }),
                     void
                 >
@@ -574,7 +573,7 @@ struct Visitor {
             //* UNARY FUNCTIONS
             MapEntry<
                 S<"neg">,
-                Func<
+                Func<"neg",
                     decltype([](auto&& x, const auto&) { return -x; }),
                     TypeList<int>,
                     TypeList<double>
@@ -583,7 +582,7 @@ struct Visitor {
 
             MapEntry<
                 S<"not">,
-                Func<
+                Func<"not",
                     decltype([](auto&& x, const auto&) { return not x; }),
                     TypeList<int>,
                     TypeList<double>,
@@ -591,23 +590,23 @@ struct Visitor {
                 >
             >{},
 
-            MapEntry<
-                S<"print">,
-                Func<
-                    decltype([](auto&& x, const auto& that) {
-                        std::visit(
-                            [&that](const auto& v) { that->print(v); },
-                            x
-                        );
-                        return x;
-                    }),
-                    TypeList<Any>
-                >
-            >{},
+            // MapEntry<
+            //     S<"print">,
+            //     Func<"print",
+            //         decltype([](auto&& x, const auto& that) {
+            //             std::visit(
+            //                 [&that](const auto& v) { that->print(v); },
+            //                 x
+            //             );
+            //             return x;
+            //         }),
+            //         TypeList<Any>
+            //     >
+            // >{},
 
             MapEntry<
                 S<"eval">,
-                Func<
+                Func<"eval",
                     decltype([](auto&& x, const auto& that) {
                         return std::visit(*that, x);
                     }),
@@ -642,7 +641,7 @@ struct Visitor {
             //* BINARY FUNCTIONS
             MapEntry<
                 S<"add">,
-                Func<
+                Func<"add",
                     decltype([](auto&& a, auto&& b, const auto&) { return a + b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -653,7 +652,7 @@ struct Visitor {
 
             MapEntry<
                 S<"sub">,
-                Func<
+                Func<"sub",
                     decltype([](auto&& a, auto&& b, const auto&) { return a - b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -664,7 +663,7 @@ struct Visitor {
 
             MapEntry<
                 S<"mul">,
-                Func<
+                Func<"mul",
                     decltype([](auto&& a, auto&& b, const auto&) { return a * b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -675,7 +674,7 @@ struct Visitor {
 
             MapEntry<
                 S<"div">,
-                Func<
+                Func<"div",
                     decltype([](auto&& a, auto&& b, const auto&) { return a / b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -686,7 +685,7 @@ struct Visitor {
 
             MapEntry<
                 S<"gt">,
-                Func<
+                Func<"gt",
                     decltype([](auto&& a, auto&& b, const auto&) { return a > b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -697,7 +696,7 @@ struct Visitor {
 
             MapEntry<
                 S<"geq">,
-                Func<
+                Func<"geq",
                     decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -708,7 +707,7 @@ struct Visitor {
 
             MapEntry<
                 S<"eq">,
-                Func<
+                Func<"eq",
                     decltype([](auto a, auto b, const auto& that) {
                         if (std::holds_alternative<expr::Node>(a)) a = std::visit(*that, get<expr::Node>(a));
 
@@ -737,7 +736,7 @@ struct Visitor {
 
             MapEntry<
                 S<"leq">,
-                Func<
+                Func<"leq",
                     decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -748,7 +747,7 @@ struct Visitor {
 
             MapEntry<
                 S<"lt">,
-                Func<
+                Func<"lt",
                     decltype([](auto&& a, auto&& b, const auto&) { return a < b; }),
                     TypeList<int, int>,
                     TypeList<int, double>,
@@ -804,9 +803,21 @@ struct Visitor {
         if (name == "true")  return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
         if (name == "false") return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
 
+        if (name == "print") {
+            if (call->args.empty()) error("'print' requires at least 1 argument passed!");
+
+            Value ret;
+            for(const auto& arg : call->args) {
+                constexpr bool no_newline = false;
+                ret = std::visit(*this, arg->variant());
+                print(ret, no_newline);
+            }
+            puts(""); // print the new line in the end.
+            return ret;
+        }
 
 
-        if (name == "print" or name == "neg" or name == "not" or name == "reset") arity_check(1); // just for now..
+        if (name == "neg" or name == "not" or name == "reset") arity_check(1); // just for now..
 
 
         // evaluating arguments from left to right as needed
@@ -816,7 +827,6 @@ struct Visitor {
         // Since this is a meta function that operates on AST nodes rather than values
         // it gets its special treatment here..
         if (name == "reset") {
-
             const std::string& s = call->args[0]->stringify();
             if (const auto& v = getVar(s); not v) error("Reseting an unset value: " + s);
             else removeVar(s);
@@ -826,7 +836,8 @@ struct Visitor {
         }
 
 
-        if (name == "print") return execute<1>(stdx::get<S<"print">>(functions).value, {value1}, this);
+        // if (name == "print") return execute<1>(stdx::get<S<"print">>(functions).value, {value1}, this);
+
         if (name == "eval" ) return execute<1>(stdx::get<S<"eval" >>(functions).value, {value1}, this);
         if (name == "neg"  ) return execute<1>(stdx::get<S<"neg"  >>(functions).value, {value1}, this);
         if (name == "not"  ) return execute<1>(stdx::get<S<"not"  >>(functions).value, {value1}, this);
@@ -882,6 +893,9 @@ struct Visitor {
             const auto& then      = call->args[1]->variant();
             const auto& otherwise = call->args[2]->variant();
 
+            // std::clog << call->args[1]->stringify() << std::endl;
+            // std::clog << call->args[2]->stringify() << std::endl;
+            // std::clog << stringify(std::visit(*this, otherwise)) << std::endl;
 
             if (not std::holds_alternative<bool>(value1)) return std::visit(*this, otherwise);
 
@@ -902,10 +916,7 @@ struct Visitor {
 
 
     void print(const Value& value, bool new_line = true) const {
-        std::cout << stringify(value);
-        // std::print("{}", stringify(value));
-
-        if (new_line) puts("");
+        std::print("{}{}", stringify(value), new_line? '\n' : '\0');
     }
 
     static std::string stringify(const Value& value, size_t indent = {}) {
