@@ -539,10 +539,10 @@ struct Visitor {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
         for(const auto& builtin : {
-            "true", "false",                                                            //* nullary
-            "print", "reset", "eval",                                                  //* unary
-            "neg", "not", "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt", "and", "or",   //* binary
-            "conditional"                                                               //* trinary
+            "true", "false",                                                          //* nullary
+            "print", "reset", "eval","neg", "not",                                    //* unary
+            "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
+            "conditional"                                                             //* trinary
         })
             if (func == make_builtin(builtin)) return true;
 
