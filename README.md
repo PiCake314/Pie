@@ -2,14 +2,13 @@
 
 
 ## Philosophy
-This language aims to be unique, but it also should still feel familiar. Here are some of it's "features":
-
+<!-- This language aims to be unique, but it also should still feel familiar. Here are some of it's "features": -->
+- Pie aims to be unique yet feel familiar
 - Everything is an expression
-- bare-bones (if it doesn't need to be keyword, then it isn't)
-- no operators defined for you (you define your own)
-- still quirky (different even if the difference is not good)
-- still feels familiar
-- No null/unit/none type (or any type indicating nothing).
+- Bare-bones (if it doesn't need to be keyword, then it isn't)
+- No operators defined for you
+- Still quirky (different even if the difference is not good)
+- No null/unit/none type or any type indicating nothing.
 
 ## Introduction
 - [Variables](#Variables)
@@ -22,8 +21,8 @@ This language aims to be unique, but it also should still feel familiar. Here ar
 - [Comments](#Comments)
 
 
-## Variables
-You define variables by assigning to them and optionally giving them a type:
+## Variables:
+Define variables using assignment with an optional type:
 ```pie
 x = 5;
 y: Int = 5;
@@ -31,8 +30,8 @@ y: Int = 5;
 
 
 ## Closures:
-Closures have a familiar syntax.
-Here is a nullary closure that returns `1` when called:
+Closures have a familiar syntax (JS syntax).\
+A nullary closure that returns `1` when called:
 ```pie
 () => 1;
 ```
@@ -46,20 +45,23 @@ func = (x) => "yay";
 ```
 
 ## Classes
-a class is a block (scope) preceded by the `class` keyword. The block must consist of **ONLY** assignments:
+A class is a block (scope) preceded by the `class` keyword. The block must consist of **ONLY** assignments:
 ```pie
 Human: Type = class {
     name: String = "";
     age: Int = 0;
+
+    prettyPrint = () => {
+        __builtin_print(name);
+        __builtin_print(age);
+    };
 };
 ```
-Construct an object by calling the constructor of the class with parenthesis. Optionally pass initial values to the data members:
+Construct an object by calling the constructor of the class. Optionally pass initial values to the data members:
 ```pie
 h: Human = Human("Pie", 1);
-```
-Use dot syntax to access members:
-```pie
 h.age = 10;
+h.prettyPrint();
 ```
 ## Scopes:
 Since everything is an expression, so are scopes! They take the value of the last expression in them.\
@@ -190,4 +192,4 @@ Casing doesn't matter.
 - [x] Add closures
 ---
 ### Long term:
-- None...
+- World domination
