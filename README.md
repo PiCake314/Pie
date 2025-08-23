@@ -53,7 +53,14 @@ Human: Type = class {
     age: Int = 0;
 };
 ```
-
+Construct an object by calling the constructor of the class with parenthesis. Optionally pass initial values to the data members:
+```pie
+h: Human = Human("Pie", 1);
+```
+Use dot syntax to access members:
+```pie
+h.age = 10;
+```
 ## Scopes:
 Since everything is an expression, so are scopes! They take the value of the last expression in them.\
 Here, `x` will be assigned to 3.
