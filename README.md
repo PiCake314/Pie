@@ -1,7 +1,7 @@
 # Welcome to Pie Lang!
 
 
-## Philosohpy
+## Philosophy
 This language aims to be unique, but it also should still feel familar. Here are some of it's "features":
 
 - Everything is an expression
