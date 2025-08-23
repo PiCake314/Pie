@@ -173,19 +173,21 @@ Casing doesn't matter.
 ##### in order of priority:
 - [ ] Add circumfix operators
 - [ ] Add ternary operators
+- [ ] Add an import system (modules)
 - [ ] Add collections
 - [ ] Add looping
 - [ ] Add iterators
 - [ ] Add variadic arguments
-- [ ] Add constructor to classes..somehow
 - [ ] Add method operators..?
-- [ ] Allow recursion..somhow
 ---
 ### Done:
+- [x] Add lazy evaluation
+- [x] Add constructor to classes..somehow
+- [x] Allow recursion..somhow
 - [x] Add classes
 - [x] Add assignment to any epxression
 - [x] Add booleans
 - [x] Add closures
 ---
 ### Long term:
-- [ ] Add an import system (modules)
+- None...
