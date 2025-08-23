@@ -63,9 +63,9 @@ x = { };
 Pie doesn't provide any operators. One has to define their own. For that reason, any operator symbol (+, -, *, /, etc...) can be used as a variable name.
 
 There are `3` types of operators that can be defined:
-- Prefix
-- Infix
-- Suffix
+- `prefix`
+- `infix`
+- `suffix`
 
 Here is how to define your own operator:
 ```pie
@@ -76,6 +76,7 @@ In this example, `a` will come out as 1.
 ```
 a = always_one 5;
 ```
+`infix` has to be assigned to a binary closure while `prefix` and `suffix` have to be assigned to a unary closure.
 
 What goes between the parenthesis after the keyword `prefix` is the precedence.\
 Here is the list of the precedence levels (from lowest to highest)
