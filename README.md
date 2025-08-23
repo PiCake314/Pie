@@ -1,5 +1,155 @@
-# Pie
+# Welcome to Pie Lang!
 
+
+## Philosohpy
+This language aims to be unique, but it also should still feel familar. Here are some of it's "features":
+
+- Everything is an expression
+- bare-bones (if it doesn't need to be keyword, then it isn't)
+- no operators defiend for you (you define your own)
+- still quirky (different even if the difference is not good)
+- still feels familar
+- No null/unit/none type (or any type indicating nothing).
+
+## Introduction
+- [Variables](#Variables)
+- [Closures](#Closures)
+- [Scopes](#Scopes)
+- [Operators](#Operators)
+- [Built-in Functions](#Builtins)
+- [Types](#Types)
+- [Comments](#Comments)
+
+
+## Variables
+You define variables by assiging to them and optionally giving them a type:
+```pie
+x = 5;
+y: Int = 5;
+```
+
+
+## Closures:
+Closures have a familiar syntax.
+Here is a nullary closure that returns `1` when called:
+```pie
+() => 1;
+```
+A closure that takes two arguments and returns the first:
+```pie
+(x, y) => x;
+```
+Closures can be assigned to variables:
+```pie
+func = (x) => "yay";
+```
+
+## Scopes:
+Since everything is an expression, so are scopes! They take the value of the last expression in them.\
+Here, `x` will be assigned to 3.
+```pie
+x = {
+    1;
+    2;
+    3;
+};
+```
+Since scopes take the value of their last expression, scopes cannot be empty!\
+The following line will error:
+```pie
+x = { };
+```
+## Operators
+Pie doesn't provide any operators. One has to define their own. For that reason, any operator symbol (+, -, *, /, etc...) can be used as a variable name.
+
+There are `3` types of operators that can be defined:
+- Prefix
+- Infix
+- Suffix
+
+Here is how to define your own operator:
+```pie
+prefix(LOW +) always_one = (x) => 1;
+```
+`always_one` is now an prefix operator that when applied, always returns `1`!\
+In this example, `a` will come out as 1.
+```
+a = always_one 5;
+```
+
+What goes between the parenthesis after the keyword `prefix` is the precedence.\
+Here is the list of the precedence levels (from lowest to highest)
+- ASSIGNMENT
+- INFIX
+- SUM
+- PROD
+- PREFIX
+- POSTFIX
+- CALL
+
+To create an operator that has a precedence higher than `SUM` but lower than `PROD`, then attach a `+` or `-` after the level. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
+i.e: `(PROD -) > (SUM +)`
+
+
+# Builtins
+Since Pie doesn't provide any operators, how does one achieve ANYTHING at all with Pie?\
+Pie reserves the names starting with `__builtin_`.
+
+#### Nullary Functions:
+- `__builtin_true`
+- `__builtin_false`
+
+#### Unary Functions:
+- `__builtin_print`
+- `__builtin_neg`
+- `__builtin_not`
+- `__builtin_reset`
+- `__builtin_eval`
+
+#### Binary Functions:
+- `__builtin_add`
+- `__builtin_sub`
+- `__builtin_mul`
+- `__builtin_div`
+- `__builtin_gt`
+- `__builtin_geq`
+- `__builtin_eq`
+- `__builtin_leq`
+- `__builtin_lt`
+- `__builtin_and`
+- `__builtin_or`
+
+#### Trinary Functions:
+- `__builtin_conditional`
+
+
+# Types:
+Pie has 7 types:
+- `Int`
+- `Double`
+- `Bool`
+- `String`
+- `Any`
+- `Type`
+- `Syntax`
+
+If something is left un-typed, the `Any` type will be given to it.
+
+Functions can also be typed: `(T1, T2): T3`
+```pie
+one: (Int): Int = (x: Int): Int => 1;
+```
+
+
+# Comments:
+Any thing following one of the these will be considered a comment until a newline character `'\n'` is encountered (or EOF):
+- `comment:`
+- `todo:`
+- `note:`
+- `btw:`
+- `ps:`
+
+Casing doesn't matter.
 
 ### Todo:
 ##### in order of priority:
