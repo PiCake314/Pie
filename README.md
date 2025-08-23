@@ -14,6 +14,7 @@ This language aims to be unique, but it also should still feel familar. Here are
 ## Introduction
 - [Variables](#Variables)
 - [Closures](#Closures)
+- [Classes](#Classes)
 - [Scopes](#Scopes)
 - [Operators](#Operators)
 - [Built-in Functions](#Builtins)
@@ -42,6 +43,15 @@ A closure that takes two arguments and returns the first:
 Closures can be assigned to variables:
 ```pie
 func = (x) => "yay";
+```
+
+## Classes
+a class is a block (scope) preceded by the `class` keyword. The block must consist of **ONLY** assignments:
+```pie
+Human: Type = class {
+    name: String = "";
+    age: Int = 0;
+};
 ```
 
 ## Scopes:
@@ -92,7 +102,7 @@ To create an operator that has a precedence higher than `SUM` but lower than `PR
 i.e: `(PROD -) > (SUM +)`
 
 
-# Builtins
+## Builtins
 Since Pie doesn't provide any operators, how does one achieve ANYTHING at all with Pie?\
 Pie reserves the names starting with `__builtin_`.
 
@@ -124,7 +134,7 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_conditional`
 
 
-# Types:
+## Types:
 Pie has 7 types:
 - `Int`
 - `Double`
@@ -142,7 +152,7 @@ one: (Int): Int = (x: Int): Int => 1;
 ```
 
 
-# Comments:
+## Comments:
 Any thing following one of the these will be considered a comment until a newline character `'\n'` is encountered (or EOF):
 - `comment:`
 - `todo:`

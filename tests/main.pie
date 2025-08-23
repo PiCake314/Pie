@@ -15,11 +15,7 @@ infix (CALL -) else = (thn: Lazy, els: Lazy) =>
     __builtin_eval(__builtin_conditional(__builtin_eq(thn, "magic=false=value"), els, thn));
 
 
-fact = (n: Int): Int => {
-    if (n < 2) then {
-        1;
-    } else {
-        n * fact(n - 1);
-    };
-};
+x: Syntax = x;
+
+print(__builtin_eval(__builtin_eval(x)));
 
