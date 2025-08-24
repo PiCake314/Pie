@@ -120,7 +120,6 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_false`
 
 #### Unary Functions:
-- `__builtin_print`
 - `__builtin_neg`
 - `__builtin_not`
 - `__builtin_mod`
@@ -144,6 +143,8 @@ Pie reserves the names starting with `__builtin_`.
 #### Trinary Functions:
 - `__builtin_conditional`
 
+#### Variadic Functions:
+- `__builtin_print` (returns the last argument)
 
 ## Types:
 Pie has 7 types:
