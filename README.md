@@ -123,6 +123,7 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_print`
 - `__builtin_neg`
 - `__builtin_not`
+- `__builtin_mod`
 - `__builtin_reset`
 - `__builtin_eval`
 
@@ -131,6 +132,7 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_sub`
 - `__builtin_mul`
 - `__builtin_div`
+- `__builtin_pow`
 - `__builtin_gt`
 - `__builtin_geq`
 - `__builtin_eq`
