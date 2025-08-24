@@ -233,7 +233,7 @@ struct Visitor {
         if (auto&& var = getVar(up->stringify()); var) return var->first;
 
 
-        ScopeGuard sg{this}; // RAII is so cool
+        // ScopeGuard sg{this}; // RAII is so cool
         // scope();
 
         const expr::Fix* op = ops.at(up->op);
@@ -244,9 +244,12 @@ struct Visitor {
         // no need to assert I guess
         // assert(func->params.size() == 1);
 
-
+        //* this could be dried out between all the OPs and function calls in general
+        Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
-            addVar(func->params.front(), up->expr->variant());
+            // addVar(func->params.front(), up->expr->variant());
+            //* maybe should use Syntax() instead of Any();
+            args_env[func->params[0]] = {up->expr->variant(), type::builtins::Any()};
         }
         else {
             validateType(func->type.params[0]);
@@ -260,8 +263,12 @@ struct Visitor {
                     // ", got: " + type_of_arg->text()
                 );
 
-            addVar(func->params.front(), arg);
+            // addVar(func->params.front(), arg);
+            //* maybe should use Syntax() instead of Any();
+            args_env[func->params[0]] = {arg, type::builtins::Any()};
         }
+
+        ScopeGuard sg{this, args_env};
 
         return std::visit(*this, func->body->variant()); // RAII takes care of unscoping
 
@@ -272,14 +279,17 @@ struct Visitor {
         if (auto&& var = getVar(bp->stringify()); var) return var->first;
 
 
-        ScopeGuard sg{this};
+        // ScopeGuard sg{this};
 
         const expr::Fix* op = ops.at(bp->op);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
+
+        Environment args_env;
         // LHS
         if (func->type.params[0]->text() == "Syntax") {
-            addVar(func->params[0], bp->lhs->variant());
+            // addVar(func->params[0], bp->lhs->variant());
+            args_env[func->params[0]] = {bp->lhs->variant(), type::builtins::Any()};
         }
         else {
             validateType(func->type.params[0]);
@@ -293,12 +303,15 @@ struct Visitor {
                     ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
                     // ", got: " + type_of_arg->text()
                 );
-            addVar(func->params[0], arg1);
+
+            // addVar(func->params[0], arg1);
+            args_env[func->params[0]] = {arg1, type::builtins::Any()};
         }
 
         // RHS
         if (func->type.params[1]->text() == "Syntax") {
-            addVar(func->params[1], bp->rhs->variant());
+            // addVar(func->params[1], bp->rhs->variant());
+            args_env[func->params[1]] = {bp->rhs->variant(), type::builtins::Any()};
         }
         else {
             validateType(func->type.params[1]);
@@ -313,8 +326,11 @@ struct Visitor {
                     // ", got: " + type_of_arg->text()
                 );
 
-            addVar(func->params[1], arg2);
+            // addVar(func->params[1], arg2);
+            args_env[func->params[1]] = {arg2, type::builtins::Any()};
         }
+
+        ScopeGuard sg{this, args_env};
 
         return std::visit(*this, func->body->variant());
     }
@@ -323,14 +339,16 @@ struct Visitor {
         if (auto&& var = getVar(pp->stringify()); var) return var->first;
 
 
-        ScopeGuard sg{this};
+        // ScopeGuard sg{this};
 
         const expr::Fix* op = ops.at(pp->op);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
 
+        Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
-            addVar(func->params[0], pp->expr->variant());
+            // addVar(func->params[0], pp->expr->variant());
+            args_env[func->params[0]] = {pp->expr->variant(), type::builtins::Any()};
         }
         else {
             validateType(func->type.params[0]);
@@ -345,42 +363,48 @@ struct Visitor {
                     // ", got: " + type_of_arg->text()
                 );
 
-            addVar(func->params[0], std::visit(*this, pp->expr->variant()));
+            // addVar(func->params[0], std::visit(*this, pp->expr->variant()));
+            args_env[func->params[0]] = {arg, type::builtins::Any()};
         }
 
+        ScopeGuard sg{this, args_env};
         return std::visit(*this, func->body->variant());
     }
 
 
 
-    Value operator()(const expr::CircumOp *co) {
-        if (auto&& var = getVar(co->stringify()); var) return var->first;
+    Value operator()(const expr::CircumOp *cp) {
+        if (auto&& var = getVar(cp->stringify()); var) return var->first;
 
-        ScopeGuard sg{this};
+        // ScopeGuard sg{this};
 
-        const expr::Fix* op = ops.at(co->op1);
+        const expr::Fix* op = ops.at(cp->op1);
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
 
+        Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
-            addVar(func->params[0], co->expr->variant());
+            // addVar(func->params[0], co->expr->variant());
+            args_env[func->params[0]] = {cp->expr->variant(), type::builtins::Any()};
         }
         else {
             validateType(func->type.params[0]);
 
-            const auto& arg = std::visit(*this, co->expr->variant());
+            const auto& arg = std::visit(*this, cp->expr->variant());
             if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
                 error(
-                    "Type mis-match! Suffix operator '" + co->op1 + 
+                    "Type mis-match! Suffix operator '" + cp->op1 + 
                     "', parameter '" + func->params[0] +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(arg) + " which is " + type_of_arg->text()
                     // ", got: " + type_of_arg->text()
                 );
 
-            addVar(func->params[0], std::visit(*this, co->expr->variant()));
+            // addVar(func->params[0], std::visit(*this, co->expr->variant()));
+            args_env[func->params[0]] = {arg, type::builtins::Any()};
         }
 
+        ScopeGuard sg{this, args_env};
         return std::visit(*this, func->body->variant());
     };
 

@@ -1,14 +1,14 @@
 print = __builtin_print;
 
 
-
-
-infix(SUM  ) + = (a, b) => __builtin_add(a, b);
-infix(SUM  ) - = (a, b) => __builtin_sub(a, b);
-infix(PROD ) * = (a, b) => __builtin_mul(a, b);
-infix(INFIX) < = (a, b) => __builtin_lt(a, b);
-infix(INFIX) > = (a, b) => __builtin_gt(a, b);
-infix(INFIX) eq = (a, b) => __builtin_eq(a, b);
+infix (SUM  ) + = (a, b) => {
+    __builtin_add(a, b);
+};
+infix (SUM  ) - = (a, b) => __builtin_sub(a, b);
+infix (PROD ) * = (a, b) => __builtin_mul(a, b);
+infix (INFIX) < = (a, b) => __builtin_lt(a, b);
+infix (INFIX) > = (a, b) => __builtin_gt(a, b);
+infix (INFIX) eq = (a, b) => __builtin_eq(a, b);
 
 
 prefix(LOW  +) if   = (cond) => cond;
@@ -18,44 +18,9 @@ infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_condition
 
 
 
-exfix if : then = (v: Bool): Bool => v;
-comment: bin_exfix
 
 
-if 10 < 15 then 13;
-expr op exp op;
+exfix [:] = (x) => print(x);
 
-arr [ ind ];
-
-
-
-
-
-comment: prefix(LOW +) ' = (synt: Syntax): Syntax => synt;
-comment: suffix(then +) end  = (ttt: Syntax) => (c: Bool) => __builtin_conditional(c, ttt, '"default");
-
-comment: gcd = (a: Int, b: Int): Int => if b eq 0 then a else gcd(b, __builtin_mod(a, b));
-
-
-
-comment: makePair = (first, s) => (c) => __builtin_conditional(c, first, s);
-comment: first  = (p) => p(__builtin_true());
-comment: second = (p) => p(__builtin_false());
-comment: NIL = "NIL";
-
-comment: comment: range = (n) => ((if (n < 1)) then (NIL else makePair(n, range(n - 1))));
-comment: index = (p, i) => if i < 1 then first(p) else index(second(p), i - 1);
-comment: range = (n) => __builtin_conditional(n < 1, NIL, makePair(n, range(n - 1)));
-
-
-
-
-comment: digits = range(9);
-comment: print(index(digits, 4));
-
-comment: comment: print(first(makePair("first", "third")));
-comment: comment: print(second(makePair("first", "third")));
-
-
-
+[ 1 + [ 2 ] ];
 
