@@ -253,12 +253,12 @@ struct Visitor {
 
             const auto& arg = std::visit(*this, up->expr->variant());
             if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-            error(
-                "Type mis-match! Prefix operator '" + up->op + 
-                "' expected: " + func->type.params[0]->text() +
-                ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                // ", got: " + type_of_arg->text()
-            );
+                error(
+                    "Type mis-match! Prefix operator '" + up->op + 
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                    // ", got: " + type_of_arg->text()
+                );
 
             addVar(func->params.front(), arg);
         }
@@ -398,13 +398,15 @@ struct Visitor {
             }
 
 
+            Environment args_env;
             // full call. Don't curry!
             for (const auto& [name, type, arg] : std::views::zip(func.params, func.type.params, call->args)){
                 validateType(type);
                 // if (not isValidType(type)) error("Type '" + type->text() + "' is not a valid type!");
 
                 if (type->text() == "Syntax") {
-                    addVar(name, arg->variant());
+                    // addVar(name, arg->variant());
+                    args_env[name] = {arg->variant(), type::builtins::Any()};
                     continue;
                 }
 
@@ -413,19 +415,22 @@ struct Visitor {
                 if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
                     error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
 
-                addVar(name, std::visit(*this, arg->variant()));
+                // addVar(name, std::visit(*this, arg->variant()));
+                args_env[name] = {std::visit(*this, arg->variant()), type::builtins::Any()};
             }
                 // env.back()[param] = std::visit(*this, arg->variant());
 
-            ScopeGuard sg{this, func.env};
 
-
+            //* should I capture the env and bundle it with the function before returning it?
             if (func.type.ret->text() == "Syntax") return func.body->variant();
+
+            ScopeGuard sg1{this, func.env}; // in case the lambda had captures
+            ScopeGuard sg2{this, args_env};
 
             const auto& ret = std::visit(*this, func.body->variant());
 
             const auto& type_of_return_value = typeOf(ret);
-            validateType(func.type.ret);
+            validateType(func.type.ret); //* maybe this should be moved up?
             // if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
 
             auto return_type = func.type.ret;
@@ -1128,8 +1133,7 @@ private:
     void unscope() { env.pop_back(); }
 
     const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
-
-        env.back()[name] = {v, t}; // ! might cause issues
+        env.back()[name] = {v, t}; //* might cause issues
         return v;
     }
 
