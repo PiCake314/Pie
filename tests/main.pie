@@ -11,42 +11,50 @@ infix(INFIX) > = (a, b) => __builtin_gt(a, b);
 infix(INFIX) eq = (a, b) => __builtin_eq(a, b);
 
 
-
-
-comment: prefix(LOW +) if   = (cond) => cond;
-comment: infix (LOW +) then = (cond: Bool, thn: Syntax) => (els) => __builtin_eval(__builtin_conditional(cond, thn, els));
-comment: infix (LOW +) else = (k, els: Syntax) => k(els);
-
-
-prefix(LOW + ) if   = (cond) => cond;
-infix (LOW + ) then = (c: Bool, pair) => __builtin_eval(pair(c));
+prefix(LOW  +) if   = (cond) => cond;
+infix (LOW  +) then = (c: Bool, pair) => __builtin_eval(pair(c));
 infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_conditional(c, t, f);
 
 
 
-comment: prefix(LOW +) ' = (synt: Syntax): Syntax => synt;
 
+exfix if : then = (v: Bool): Bool => v;
+comment: bin_exfix
+
+
+if 10 < 15 then 13;
+expr op exp op;
+
+arr [ ind ];
+
+
+
+
+
+comment: prefix(LOW +) ' = (synt: Syntax): Syntax => synt;
 comment: suffix(then +) end  = (ttt: Syntax) => (c: Bool) => __builtin_conditional(c, ttt, '"default");
 
-
-
-makePair = (first, s) => (c) => __builtin_conditional(c, first, s);
-first  = (p) => p(__builtin_true());
-second = (p) => p(__builtin_false());
-NIL = "NIL";
-
-comment: range = (n) => ((if (n < 1)) then (NIL else makePair(n, range(n - 1))));
-index = (p, i) => if i < 1 then first(p) else index(second(p), i - 1);
-range = (n) => __builtin_conditional(n < 1, NIL, makePair(n, range(n - 1)));
+comment: gcd = (a: Int, b: Int): Int => if b eq 0 then a else gcd(b, __builtin_mod(a, b));
 
 
 
+comment: makePair = (first, s) => (c) => __builtin_conditional(c, first, s);
+comment: first  = (p) => p(__builtin_true());
+comment: second = (p) => p(__builtin_false());
+comment: NIL = "NIL";
 
-digits = range(9);
-print(index(digits, 4));
+comment: comment: range = (n) => ((if (n < 1)) then (NIL else makePair(n, range(n - 1))));
+comment: index = (p, i) => if i < 1 then first(p) else index(second(p), i - 1);
+comment: range = (n) => __builtin_conditional(n < 1, NIL, makePair(n, range(n - 1)));
 
-comment: print(first(makePair("first", "third")));
-comment: print(second(makePair("first", "third")));
+
+
+
+comment: digits = range(9);
+comment: print(index(digits, 4));
+
+comment: comment: print(first(makePair("first", "third")));
+comment: comment: print(second(makePair("first", "third")));
 
 
 

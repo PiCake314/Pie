@@ -17,6 +17,7 @@ struct Grouping;
 struct UnaryOp;
 struct BinOp;
 struct PostOp;
+struct CircumOp;
 struct Call;
 struct Closure;
 struct Block;
@@ -24,6 +25,7 @@ struct Block;
 struct Prefix;
 struct Infix;
 struct Suffix;
+struct Exfix;
 
 // has to be pointers kuz we're forward declareing
 // has to be forward declared bc we're using in in the class bellow
@@ -38,13 +40,15 @@ using Node = std::variant<
     const UnaryOp*,
     const BinOp*,
     const PostOp*,
+    const CircumOp*,
     const Call*,
     const Closure*,
     const Block*,
     // const Fix*,
     const Prefix*,
     const Infix*,
-    const Suffix*
+    const Suffix*,
+    const Exfix*
 >;
 
 

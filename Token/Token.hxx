@@ -29,6 +29,7 @@ enum class TokenKind {
     PREFIX,
     INFIX,
     SUFFIX,
+    EXFIX,
     CLASS,
 
 // PRECEDENCE
@@ -39,6 +40,7 @@ enum class TokenKind {
     PR_INFIX,
     PR_PREFIX,
     PR_POSTFIX,
+    // PR_CIRCUMFIX,
     PR_CALL,
     PR_HIGH,
 
@@ -70,16 +72,18 @@ const char* stringify(const TokenKind token) noexcept {
         case PREFIX:        return "PREFIX";
         case INFIX:         return "INFIX";
         case SUFFIX:        return "SUFFIX";
+        case EXFIX:         return "EXFIX";
         case CLASS:         return "CLASS";
 
         // should probs prefix the strings with PR_ but maybe it's fine for now
         case PR_LOW:        return "LOW"; 
         case PR_ASSIGNMENT: return "ASSIGNMENT"; 
+        case PR_INFIX:      return "PR_INFIX"; 
         case PR_SUM:        return "SUM"; 
         case PR_PROD:       return "PROD"; 
-        case PR_INFIX:      return "PR_INFIX"; 
         case PR_PREFIX:     return "PREFIX"; 
         case PR_POSTFIX:    return "POSTFIX"; 
+        // case PR_CIRCUMFIX:  return "CIRCUMFIX"; 
         case PR_CALL:       return "CALL"; 
         case PR_HIGH:       return "HIGH"; 
     }

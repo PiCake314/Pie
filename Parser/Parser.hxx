@@ -67,17 +67,20 @@ public:
         // return expressions;
     }
 
-    expr::ExprPtr parseExpr(const size_t precedence = 0) {
+    expr::ExprPtr parseExpr(const size_t precedence = {}, std::optional<Token> until = {}) {
         Token token = consume();
 
         expr::ExprPtr left = prefix(token);
 
         // infix
-        while (precedence < getPrecedence()) {
+        while ((not (until and check(until->text))) and precedence < getPrecedence()) {
+
             token = consume();
 
             left = infix(token, std::move(left));
         }
+
+        if (until and check(until->text)) consume(until->kind);
 
         return left;
     }
@@ -98,13 +101,27 @@ public:
                             const auto prec = precedence::calculate(op->high, op->low, ops);
                             return std::make_unique<expr::UnaryOp>(token.text, parseExpr(prec));
                         }
+
+                        case TokenKind::EXFIX:{
+                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text]);
+                            if (not op) error("This should never happen!!");
+
+                            auto ret = std::make_unique<expr::CircumOp>(op->name, op->name2, parseExpr());
+
+                            if (not match(op->name2)) {
+                                log();
+                                error("Exfix operator not closed!");
+                            }
+
+                            return ret;
+                        }
                             // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
                         // case TokenKind::INFIX :
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
                         // case TokenKind::SUFFIX:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
 
-                        default: log(); error("[in/suf]fix operator used as prefix");
+                        default: log(); error("[in/suf]fix operator used as [pre/ex]fix");
                     }
                 }
                 // if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
@@ -244,6 +261,10 @@ public:
                         case TokenKind::SUFFIX:
                             return std::make_unique<expr::PostOp>(token.text, std::move(left));
 
+                        case TokenKind::EXFIX:
+                            // if (token.text )
+                            return left; // rhs of exfix. do nothing
+
                         default: error("prefix operator used as [inf/suf]fix");
                     }
                 }
@@ -368,7 +389,8 @@ public:
         return red[distance];
     }
 
-    [[nodiscard]] bool check(const TokenKind exp, const size_t i = {}) { return lookAhead(i).kind == exp; }
+    [[nodiscard]] bool check(const TokenKind exp, const size_t i = {})        { return lookAhead(i).kind == exp; }
+    [[nodiscard]] bool check(const std::string_view exp, const size_t i = {}) { return lookAhead(i).text == exp; }
 
     [[nodiscard]] size_t getPrecedence() {
         // assuming only for infix (duh, if it's a prefix, then no precedence is needed)
@@ -401,6 +423,9 @@ public:
                 }
 
                 const auto op = ops[token.text];
+                // if (op->type() == TokenKind::EXFIX) return -100;
+
+
                 return precedence::calculate(op->high, op->low, ops);
             }
 
@@ -414,6 +439,8 @@ public:
 
     expr::ExprPtr fixOperator(const Token& token) {
         using enum TokenKind;
+
+        if (token.kind == EXFIX) return exfixOperator();
 
         consume(L_PAREN);
         Token low = consume();
@@ -442,9 +469,6 @@ public:
 
         const Token name = consume(NAME);
 
-        std::optional<Token> name2;
-        if (match(COLON)) name2 = consume(NAME);
-        else if (token.kind == EXFIX) error("Exfix operator expects 'name':'name'!");
 
         // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
         if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW))
@@ -461,17 +485,40 @@ public:
         // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
         std::unique_ptr<expr::Fix> p;
         if (token.kind == PREFIX)
-            p = std::make_unique<expr::Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+            p = std::make_unique<expr::Prefix>(name.text, std::move(high), std::move(low), shift, std::move(func));
         else if (token.kind == INFIX)
-            p = std::make_unique<expr::Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-        else if (token.kind == SUFFIX)
-            p = std::make_unique<expr::Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-        else // if (token.kind == EXFIX)
-            p = std::make_unique<expr::Exfix>(std::move(name.text), std::move(name2->text), std::move(high), std::move(low), shift, std::move(func));
+            p = std::make_unique<expr::Infix> (name.text, std::move(high), std::move(low), shift, std::move(func));
+        else // if (token.kind == SUFFIX)
+            p = std::make_unique<expr::Suffix>(name.text, std::move(high), std::move(low), shift, std::move(func));
 
         ops[name.text] = p.get();
         return p;
     }
+
+    expr::ExprPtr exfixOperator() {
+        using enum TokenKind;
+
+        const Token name1 = consume(NAME);
+        consume(COLON);
+        const Token name2 = consume(NAME);
+
+        consume(ASSIGN);
+
+        expr::ExprPtr func = parseExpr();
+        expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
+        if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
+
+
+
+        const Token low_prec{PR_LOW, "LOW"};
+        std::unique_ptr<expr::Fix> p
+            = std::make_unique<expr::Exfix>(std::move(name1.text), std::move(name2.text), low_prec, low_prec, 0, std::move(func));
+
+        ops[name1.text] = p.get();
+        ops[name2.text] = p.get(); //* maybe?
+
+        return p;
+    };
 
 
     /**

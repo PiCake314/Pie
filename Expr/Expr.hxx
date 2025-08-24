@@ -222,6 +222,20 @@ struct PostOp : Expr {
     Node variant() const override { return this; }
 };
 
+struct CircumOp : Expr {
+    std::string op1;
+    std::string op2;
+    ExprPtr expr;
+
+    CircumOp(std::string o1, std::string o2, ExprPtr e) noexcept
+    : op1{std::move(o1)}, op2{std::move(o2)}, expr{std::move(e)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        return '(' + op1 + ' ' + expr->stringify(indent) + ' ' + op2 + ')';
+    }
+
+    Node variant() const override { return this; }
+};
 
 struct Call : Expr {
     ExprPtr func;
@@ -397,6 +411,28 @@ struct Suffix : Fix {
     }
 
     TokenKind type() const override { return TokenKind::SUFFIX; }
+    Node variant() const override { return this; }
+};
+
+struct Exfix : Fix {
+    std::string name2;
+    Exfix(std::string n1, std::string n2, Token up, Token down, const int s, ExprPtr c)
+    : Fix{std::move(n1), std::move(up), std::move(down), s, std::move(c)}, name2{std::move(n2)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        const auto [c, token] = [this] -> std::pair<char, Token> {
+            if (shift < 0) return {'-', high};
+            if (shift > 0) return {'+', low};
+            return {'\0', high}; // it doesn't matter. high == low
+        }();
+
+        const std::string shifts(size_t(std::abs(shift)), c);
+
+        //! FIX THIS
+        return "exfix(" + token.text + shifts + ") " + name + ':' + name2 + ' ' + func->stringify(indent);
+    }
+
+    TokenKind type() const override { return TokenKind::EXFIX; }
     Node variant() const override { return this; }
 };
 

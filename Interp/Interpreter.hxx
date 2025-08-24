@@ -313,7 +313,7 @@ struct Visitor {
                     // ", got: " + type_of_arg->text()
                 );
 
-                addVar(func->params[1], arg2);
+            addVar(func->params[1], arg2);
         }
 
         return std::visit(*this, func->body->variant());
@@ -351,7 +351,40 @@ struct Visitor {
         return std::visit(*this, func->body->variant());
     }
 
-    Value operator()(const expr::Call* call) {
+
+
+    Value operator()(const expr::CircumOp *co) {
+        if (auto&& var = getVar(co->stringify()); var) return var->first;
+
+        ScopeGuard sg{this};
+
+        const expr::Fix* op = ops.at(co->op1);
+        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+
+
+        if (func->type.params[0]->text() == "Syntax") {
+            addVar(func->params[0], co->expr->variant());
+        }
+        else {
+            validateType(func->type.params[0]);
+
+            const auto& arg = std::visit(*this, co->expr->variant());
+            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                error(
+                    "Type mis-match! Suffix operator '" + co->op1 + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                    // ", got: " + type_of_arg->text()
+                );
+
+            addVar(func->params[0], std::visit(*this, co->expr->variant()));
+        }
+
+        return std::visit(*this, func->body->variant());
+    };
+
+    Value operator()(const expr::Call *call) {
         if (auto&& var = getVar(call->stringify()); var) return var->first;
 
 
@@ -539,6 +572,15 @@ struct Visitor {
         return std::visit(*this, fix->func->variant());
     }
 
+    Value operator()(const expr::Exfix *fix) {
+        if (auto&& var = getVar(fix->stringify()); var) return var->first;
+
+        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
+            error("Exfix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+
+        return std::visit(*this, fix->func->variant());
+    }
+
 
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
@@ -546,7 +588,7 @@ struct Visitor {
         for(const auto& builtin : {
             "true", "false",                                                          //* nullary
             "print", "reset", "eval","neg", "not",                                    //* unary
-            "add", "sub", "mul", "div", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
+            "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
             "conditional"                                                             //* trinary
         })
             if (func == make_builtin(builtin)) return true;
@@ -681,6 +723,27 @@ struct Visitor {
                 S<"div">,
                 Func<"div",
                     decltype([](auto&& a, auto&& b, const auto&) { return a / b; }),
+                    TypeList<int, int>,
+                    TypeList<int, double>,
+                    TypeList<double, int>,
+                    TypeList<double, double>
+                >
+            >{},
+
+            MapEntry<
+                S<"mod">,
+                Func<"mod",
+                    decltype([](auto&& a, auto&& b, const auto&) { return a % b; }),
+                    TypeList<int, int>
+                >
+            >{},
+
+            MapEntry<
+                S<"pow">,
+                Func<"pow",
+                    decltype(
+                        [](auto&& a, auto&& b, const auto&) -> std::common_type_t<decltype(a), decltype(b)> { return std::pow(a, b); }
+                    ),
                     TypeList<int, int>,
                     TypeList<int, double>,
                     TypeList<double, int>,
@@ -852,7 +915,7 @@ struct Visitor {
 
         using std::operator""sv;
 
-        const auto eager = {"add"sv, "sub"sv, "mul"sv, "div"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
+        const auto eager = {"add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
         if (std::ranges::find(eager, name) != eager.end()) {
             arity_check(2);
             const auto& value2 = std::visit(*this, call->args[1]->variant());
@@ -862,6 +925,8 @@ struct Visitor {
             if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);
             if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
             if (name == "div") return execute<2>(stdx::get<S<"div">>(functions).value, {value1, value2}, this);
+            if (name == "mod") return execute<2>(stdx::get<S<"mod">>(functions).value, {value1, value2}, this);
+            if (name == "pow") return execute<2>(stdx::get<S<"pow">>(functions).value, {value1, value2}, this);
             if (name == "gt" ) return execute<2>(stdx::get<S<"gt" >>(functions).value, {value1, value2}, this);
             if (name == "geq") return execute<2>(stdx::get<S<"geq">>(functions).value, {value1, value2}, this);
             if (name == "eq" ) return execute<2>(stdx::get<S<"eq" >>(functions).value, {value1, value2}, this);

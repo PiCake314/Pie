@@ -1,5 +1,6 @@
 
 # CC = llvm-g++
+# CC = g++-14
 CC = g++
 VER = -std=c++23
 OPT = -O3
