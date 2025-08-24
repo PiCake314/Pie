@@ -3,12 +3,12 @@ print = __builtin_print;
 
 
 
-comment: infix(SUM  ) + = (a, b) => __builtin_add(a, b);
-comment: infix(SUM  ) - = (a, b) => __builtin_sub(a, b);
-comment: infix(PROD ) * = (a, b) => __builtin_mul(a, b);
-comment: infix(INFIX) < = (a, b) => __builtin_lt(a, b);
-comment: infix(INFIX) > = (a, b) => __builtin_gt(a, b);
-comment: infix(INFIX) eq = (a, b) => __builtin_eq(a, b);
+infix(SUM  ) + = (a, b) => __builtin_add(a, b);
+infix(SUM  ) - = (a, b) => __builtin_sub(a, b);
+infix(PROD ) * = (a, b) => __builtin_mul(a, b);
+infix(INFIX) < = (a, b) => __builtin_lt(a, b);
+infix(INFIX) > = (a, b) => __builtin_gt(a, b);
+infix(INFIX) eq = (a, b) => __builtin_eq(a, b);
 
 
 
@@ -18,9 +18,9 @@ comment: infix (LOW +) then = (cond: Bool, thn: Syntax) => (els) => __builtin_ev
 comment: infix (LOW +) else = (k, els: Syntax) => k(els);
 
 
-comment: prefix(LOW + ) if   = (cond) => cond;
-comment: infix (LOW + ) then = (c: Bool, pair) => __builtin_eval(pair(c));
-comment: infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_conditional(c, t, f);
+prefix(LOW + ) if   = (cond) => cond;
+infix (LOW + ) then = (c: Bool, pair) => __builtin_eval(pair(c));
+infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_conditional(c, t, f);
 
 
 
@@ -28,43 +28,25 @@ comment: prefix(LOW +) ' = (synt: Syntax): Syntax => synt;
 
 comment: suffix(then +) end  = (ttt: Syntax) => (c: Bool) => __builtin_conditional(c, ttt, '"default");
 
-comment: int fib(int n, int a = 0, int b = 1)
-comment: {
-comment:     if (n == 0)
-comment:         return a;
-comment:     if (n == 1)
-comment:         return b;
-comment:     return fib(n - 1, b, a + b);
-comment: }
 
 
-fib = (n: Int, a: Int, b: Int): Int => {
-    __builtin_conditional(
-        __builtin_eq(n, 0),
-        a,
-        fib(__builtin_sub(n, 1), b, __builtin_add(a, b))
-    );
-};
+makePair = (first, s) => (c) => __builtin_conditional(c, first, s);
+first  = (p) => p(__builtin_true());
+second = (p) => p(__builtin_false());
+NIL = "NIL";
 
-print(fib(46, 0, 1));
+comment: range = (n) => ((if (n < 1)) then (NIL else makePair(n, range(n - 1))));
+index = (p, i) => if i < 1 then first(p) else index(second(p), i - 1);
+range = (n) => __builtin_conditional(n < 1, NIL, makePair(n, range(n - 1)));
 
 
 
-comment: makePair = (first, s) => (c) => __builtin_conditional(c, first, s);
-comment: first  = (p) => p(__builtin_true());
-comment: second = (p) => p(__builtin_false());
-comment: NIL = "NIL";
 
-comment: comment: range = (n) => ((if (n < 1)) then (NIL else makePair(n, range(n - 1))));
-comment: range = (n) => __builtin_conditional(n < 1, NIL, makePair(n, range(n - 1)));
-comment: index = (p, i) => if i < 1 then first(p) else index(second(p), i - 1);
+digits = range(9);
+print(index(digits, 4));
 
-
-comment: digits = range(9);
-comment: print(index(digits, 4));
-
-comment: comment: print(first(makePair("first", "third")));
-comment: comment: print(second(makePair("first", "third")));
+comment: print(first(makePair("first", "third")));
+comment: print(second(makePair("first", "third")));
 
 
 
