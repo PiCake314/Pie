@@ -181,6 +181,7 @@ Casing doesn't matter.
 - [ ] Add iterators
 - [ ] Add variadic arguments
 - [ ] Add method operators..?
+- [ ] Add recursive operators
 ---
 ### Done:
 - [x] Add lazy evaluation

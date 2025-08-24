@@ -44,8 +44,8 @@ struct ConstexprString
   template<size_t InnerSz>
   constexpr ConstexprString(char const (&str)[InnerSz]) { std::ranges::copy(str, _str); }
 
-  constexpr auto begin() { return _str; }
-  constexpr auto end() { return _str + buffer_size; }
+  constexpr auto begin() const { return _str; }
+  constexpr auto end() const { return _str + buffer_size; }
 };
 
 template<size_t InnerSz>
@@ -91,8 +91,9 @@ auto getHelper2() {
 
 
 
-template <typename Lambda, typename First, typename... Ts>
+template <ConstexprString s, typename Lambda, typename First, typename... Ts>
 struct Func {
+    inline static constexpr ConstexprString name = s;
     Lambda func;
     inline static constexpr size_t count = sizeof...(Ts) + not std::is_same_v<First, void>; // + 1 for First
 
@@ -110,17 +111,17 @@ struct Func {
 struct Any {};
 
 
-template <size_t SIZE, size_t N = 0, typename... Ts>
+template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>
 requires (SIZE == 0)
-static Value execute(Func<Ts...> func, const std::vector<Value>&, const auto& that) {
+static Value execute(Func<NAME, Ts...> func, const std::vector<Value>&, const auto& that) {
     static_assert(SIZE == decltype(func)::count);
 
     return func.func(that);
 }
 
-template <size_t SIZE, size_t N = 0, typename... Ts>
+template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>
 requires (SIZE == 1)
-Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto& that) {
     if constexpr (N < decltype(func)::count) {
         using T = decltype(func.template get2<N, 0>());
 
@@ -137,12 +138,18 @@ Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that
 
         return func.func(v1, that);
     }
-    else error("Wrong type passed to function!");
+
+    std::clog << "Function: ";
+    for (const char c: NAME)
+        std::clog << c;
+    puts("\nArgs:");
+    that->print(args[0]);
+    error("Wrong type passed to function!");
 }
 
-template <size_t SIZE, size_t N = 0, typename... Ts>
+template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>
 requires (SIZE == 2)
-Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto& that) {
     if constexpr (N < decltype(func)::count) {
         using T1 = decltype(func.template get2<N, 0>());
         using T2 = decltype(func.template get2<N, 1>());
@@ -171,15 +178,18 @@ Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that
         return func.func(v1, v2, that);
     }
 
-    puts("Args:");
+    std::clog << "Function: ";
+    for (const char c: NAME)
+        std::clog << c;
+    puts("\nArgs:");
     that->print(args[0]);
     that->print(args[1]);
     error("Wrong type passed to function!");
 }
 
-template <size_t SIZE, size_t N = 0, typename... Ts>
+template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>
 requires (SIZE == 3)
-Value execute(Func<Ts...> func, const std::vector<Value>& args, const auto& that) {
+Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto& that) {
     if constexpr (N < decltype(func)::count) {
         using T1 = decltype(func.template get2<N, 0>());
         using T2 = decltype(func.template get2<N, 1>());

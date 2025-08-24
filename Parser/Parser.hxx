@@ -220,7 +220,7 @@ public:
                 // could still be closure or groupings
                 // Token t = consume(); // NAME or NUM
 
-                const bool is_closure = check(NAME) and (check(COMMA, 1) or check(COLON, 1) or (check(R_PAREN, 1) and check(FAT_ARROW, 2)));
+                const bool is_closure = check(NAME) and (check(COMMA, 1) or check(COLON, 1) or (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2))));
                 // bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
 
                 if (is_closure) {
@@ -243,7 +243,8 @@ public:
 
                     consume(R_PAREN);
 
-                    type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any(); // return type
+                    // type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any(); // return type
+                    type = match(COLON) ? parseType() : type::builtins::Any();
 
                     consume(FAT_ARROW);
 
@@ -261,7 +262,8 @@ public:
                     auto expr = parseExpr();
                     consume(R_PAREN);
 
-                    return std::make_shared<expr::Grouping>(std::move(expr));
+                    return expr;
+                    // return std::make_shared<expr::Grouping>(std::move(expr));
                 }
             }
 
@@ -463,7 +465,10 @@ public:
      */
     void log(bool begin = false) {
         puts("");
-        std::copy(begin ? tokens.begin() : (token_iterator - 5), tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
+        const ptrdiff_t dist = std::distance(tokens.begin(), token_iterator);
+        const ptrdiff_t diff = begin ? 0 : dist < 5 ? dist : 5;
+
+        std::copy(token_iterator - diff, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
         puts("");
     }
 

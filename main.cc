@@ -71,11 +71,13 @@ int main(int argc, char *argv[]) {
     //     std::println("OP: {} = {}", name, precedence::calculate(fix->high, fix->low, ops));
 
 
-    if (print_parsed)
+    if (print_parsed) {
         for(const auto& expr : exprs)
             std::println("{};", expr->stringify(0));
 
-    if (print_parsed) puts("Output:\n");
+        puts("Output:\n");
+    }
+
 
     Visitor visitor{ops};
     for (const auto& expr : exprs)

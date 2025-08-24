@@ -70,6 +70,7 @@ bool validNameChar(const char c) noexcept {
         case '-':
         case '_':
         case '\\':
+        case '\'':
         case '/':
         case '<':
         case '>':
@@ -136,6 +137,7 @@ TokenLines lex(const std::string& src) {
             case '-':
             case '_':
             case '\\':
+            case '\'':
             case '/':
             case '<':
             case '>':
