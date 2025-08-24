@@ -2,6 +2,7 @@
 
 #include <print>
 #include <variant>
+#include <optional>
 #include <memory>
 #include <utility>
 #include <span>
@@ -139,59 +140,10 @@ public:
 
             case PREFIX:
             case INFIX :
-            case SUFFIX: {
-                consume(L_PAREN);
-                Token low = consume();
+            case SUFFIX:
+            case EXFIX :
+                return fixOperator(token);
 
-                int shift{};
-                if (check(NAME)) {
-                    const Token& shift_token = consume();
-                    assert(shift_token.text.length() <= 1);
-
-                    if (shift_token.text.length() == 1){
-                        if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
-                            error("can only have '+' or '-' after precedene!");
-                        // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
-
-                        shift = shift_token.text[0] == '+' ? 1 : -1;
-                    }
-                }
-
-                const Token high = [shift, &low, this] {
-                    if (shift > 0) return precedence::higher(low, ops);
-                    if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
-                    return low;
-                }();
-
-                consume(R_PAREN);
-
-                const Token name = consume(NAME);
-
-                // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
-                if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW))
-                    error("Can't have set operator precedence to only LOW/HIGH: " + name.text);
-
-                consume(ASSIGN);
-
-                expr::ExprPtr func = parseExpr();
-                expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
-                if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
-
-
-                // gotta dry out this part
-                // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
-                std::unique_ptr<expr::Fix> p;
-                if (token.kind == PREFIX)
-                    p = std::make_unique<expr::Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-                else if (token.kind == INFIX)
-                    p = std::make_unique<expr::Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-                else // if (token.kind == SUFFIX)
-                    p = std::make_unique<expr::Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
-
-                ops[name.text] = p.get();
-                return p;
-            }
-            break;
 
 
             case L_BRACE: {
@@ -457,6 +409,68 @@ public:
 
             default: return 0;
         }
+    }
+
+
+    expr::ExprPtr fixOperator(const Token& token) {
+        using enum TokenKind;
+
+        consume(L_PAREN);
+        Token low = consume();
+
+        int shift{};
+        if (check(NAME)) {
+            const Token& shift_token = consume();
+            assert(shift_token.text.length() <= 1);
+
+            if (shift_token.text.length() == 1){
+                if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
+                    error("can only have '+' or '-' after precedene!");
+                // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
+
+                shift = shift_token.text[0] == '+' ? 1 : -1;
+            }
+        }
+
+        const Token high = [shift, &low, this] {
+            if (shift > 0) return precedence::higher(low, ops);
+            if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
+            return low;
+        }();
+
+        consume(R_PAREN);
+
+        const Token name = consume(NAME);
+
+        std::optional<Token> name2;
+        if (match(COLON)) name2 = consume(NAME);
+        else if (token.kind == EXFIX) error("Exfix operator expects 'name':'name'!");
+
+        // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
+        if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW))
+            error("Can't have set operator precedence to only LOW/HIGH: " + name.text);
+
+        consume(ASSIGN);
+
+        expr::ExprPtr func = parseExpr();
+        expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
+        if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
+
+
+        // gotta dry out this part
+        // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
+        std::unique_ptr<expr::Fix> p;
+        if (token.kind == PREFIX)
+            p = std::make_unique<expr::Prefix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+        else if (token.kind == INFIX)
+            p = std::make_unique<expr::Infix> (std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+        else if (token.kind == SUFFIX)
+            p = std::make_unique<expr::Suffix>(std::move(name.text), std::move(high), std::move(low), shift, std::move(func));
+        else // if (token.kind == EXFIX)
+            p = std::make_unique<expr::Exfix>(std::move(name.text), std::move(name2->text), std::move(high), std::move(low), shift, std::move(func));
+
+        ops[name.text] = p.get();
+        return p;
     }
 
 
