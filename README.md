@@ -173,7 +173,6 @@ Casing doesn't matter.
 
 ### Todo:
 ##### in order of priority:
-- [ ] Add circumfix operators
 - [ ] Add ternary operators
 - [ ] Add an import system (modules)
 - [ ] Add collections
@@ -184,6 +183,7 @@ Casing doesn't matter.
 - [ ] Add recursive operators
 ---
 ### Done:
+- [x] Add circumfix operators
 - [x] Add lazy evaluation
 - [x] Add constructor to classes..somehow
 - [x] Allow recursion..somhow
