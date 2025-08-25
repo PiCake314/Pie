@@ -10,6 +10,7 @@
 #include <unordered_map>
 #include <deque>
 #include <algorithm>
+#include <numeric>
 #include <ranges>
 #include <cassert>
 
@@ -155,6 +156,7 @@ public:
             }
 
 
+            case OPERATOR:
             case PREFIX:
             case INFIX :
             case SUFFIX:
@@ -440,26 +442,17 @@ public:
     expr::ExprPtr fixOperator(const Token& token) {
         using enum TokenKind;
 
-        if (token.kind == EXFIX) return exfixOperator();
+        if (token.kind == EXFIX)    return exfixOperator();
+        if (token.kind == OPERATOR) return arbitraryOperator();
+
 
         consume(L_PAREN);
         Token low = consume();
 
-        int shift{};
-        if (check(NAME)) {
-            const Token& shift_token = consume();
-            assert(shift_token.text.length() <= 1);
+        const int shift = parseOperatorShift();
 
-            if (shift_token.text.length() == 1){
-                if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
-                    error("can only have '+' or '-' after precedene!");
-                // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
-
-                shift = shift_token.text[0] == '+' ? 1 : -1;
-            }
-        }
-
-        const Token high = [shift, &low, this] {
+        // non-const so it's movable later
+        Token high = [shift, &low, this] {
             if (shift > 0) return precedence::higher(low, ops);
             if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
             return low;
@@ -467,12 +460,12 @@ public:
 
         consume(R_PAREN);
 
-        const Token name = consume(NAME);
+        const std::string& name = consume(NAME).text;
 
 
         // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
         if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW))
-            error("Can't have set operator precedence to only LOW/HIGH: " + name.text);
+            error("Can't have set operator precedence to only LOW/HIGH: " + name);
 
         consume(ASSIGN);
 
@@ -484,42 +477,141 @@ public:
         // gotta dry out this part
         // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
         std::unique_ptr<expr::Fix> p;
-        if (token.kind == PREFIX)
-            p = std::make_unique<expr::Prefix>(name.text, std::move(high), std::move(low), shift, std::move(func));
-        else if (token.kind == INFIX)
-            p = std::make_unique<expr::Infix> (name.text, std::move(high), std::move(low), shift, std::move(func));
-        else // if (token.kind == SUFFIX)
-            p = std::make_unique<expr::Suffix>(name.text, std::move(high), std::move(low), shift, std::move(func));
+        if (token.kind == PREFIX) {
+            if (c->params.size() != 1) error("Prefix operator must be assigned to a unary closure!");
+            p = std::make_unique<expr::Prefix>(name, std::move(high), std::move(low), shift, std::move(func));
+        }
+        else if (token.kind == INFIX) {
+            if (c->params.size() != 2) error("Infix operator must be assigned to a binary closure!");
+            p = std::make_unique<expr::Infix> (name, std::move(high), std::move(low), shift, std::move(func));
+        }
+        else /* if (token.kind == SUFFIX) */ {
+            if (c->params.size() != 1) error("Suffix operator must be assigned to a unary closure!");
+            p = std::make_unique<expr::Suffix>(name, std::move(high), std::move(low), shift, std::move(func));
+        }
 
-        ops[name.text] = p.get();
+        ops[name] = p.get();
         return p;
     }
 
     expr::ExprPtr exfixOperator() {
         using enum TokenKind;
 
-        const Token name1 = consume(NAME);
+        const std::string& name1 = consume(NAME).text;
         consume(COLON);
-        const Token name2 = consume(NAME);
+        const std::string& name2 = consume(NAME).text;
 
         consume(ASSIGN);
 
         expr::ExprPtr func = parseExpr();
         expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
-        if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
+        if (not c) error("Exfix operator has to be equal to a function!");
+        if (c->params.size() != 1) error("Exfix operator must be assigned to a unary closure!");
 
 
 
         const Token low_prec{PR_LOW, "LOW"};
-        std::unique_ptr<expr::Fix> p
-            = std::make_unique<expr::Exfix>(std::move(name1.text), std::move(name2.text), low_prec, low_prec, 0, std::move(func));
+        std::shared_ptr<expr::Fix> p
+            = std::make_shared<expr::Exfix>(name1, name2, low_prec, low_prec, 0, std::move(func));
 
-        ops[name1.text] = p.get();
-        ops[name2.text] = p.get(); //* maybe?
+
+
+        ops[name1] = p.get();
+        ops[name2] = p.get(); //* maybe? //* maybe not...? idk
 
         return p;
     };
 
+
+    expr::ExprPtr arbitraryOperator() {
+        using enum TokenKind;
+
+        consume(L_PAREN);
+        Token low = consume();
+
+        const int shift = parseOperatorShift();
+
+        // non-const so it's movable later
+        Token high = [shift, &low, this] {
+            if (shift > 0) return precedence::higher(low, ops);
+            if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
+            return low;
+        }();
+
+        consume(R_PAREN);
+
+        const bool begins_with_expr = match(COLON);
+        const std::string& first = consume(NAME).text;
+
+        std::vector<std::string> rest;
+
+        while(check(COLON) and check(NAME, 1)) {
+            consume(); // colon
+            rest.push_back(consume(NAME).text);
+        }
+        const bool ends_with_expr = match(COLON);
+        // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
+        if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW)) {
+            const std::string& op_name = (begins_with_expr ? ':' : '\0')
+                + first
+                + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
+                + (ends_with_expr ? ':' : '\0');
+
+            error("Can't have set operator precedence to only LOW/HIGH: " + op_name);
+        }
+
+
+        consume(ASSIGN);
+
+        expr::ExprPtr func = parseExpr();
+        expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
+        if (not c) error("Operators have to be equal to a function!");
+
+        if (const size_t param_count = rest.size() + (begins_with_expr and ends_with_expr);
+             c->params.size() != param_count)
+        {
+            const std::string& op_name = (begins_with_expr ? ':' : '\0')
+                + first
+                + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
+                + (ends_with_expr ? ':' : '\0');
+
+            const std::string& n = std::to_string(param_count);
+            error("Operator '" + op_name + "' must be assigned to a closure with " + n + " parameters!");
+        }
+
+        std::shared_ptr<expr::Fix> p =
+            std::make_shared<expr::Operator>(
+                first,
+                rest,
+                std::move(high), std::move(low),
+                shift, begins_with_expr, ends_with_expr,
+                std::move(func)
+            );
+
+
+        ops[first] = p.get();
+        for (const auto& name : rest) ops[name] = p.get(); //* double "maybe?"??
+
+        return p;
+    }
+
+
+    int parseOperatorShift() {
+        if (check(TokenKind::NAME)) {
+            const Token& shift_token = consume();
+            assert(shift_token.text.length() <= 1);
+
+            if (shift_token.text.length() == 1){
+                if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
+                    error("can only have '+' or '-' after precedene!");
+                // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
+
+                return shift_token.text[0] == '+' ? 1 : -1;
+            }
+        }
+
+        return 0; // no shift
+    }
 
     /**
      * @attention only call right before calling error/expected

@@ -1,26 +1,30 @@
-print = __builtin_print;
+comment: print = __builtin_print;
 
 
-infix (SUM  ) + = (a, b) => {
-    __builtin_add(a, b);
-};
-infix (SUM  ) - = (a, b) => __builtin_sub(a, b);
-infix (PROD ) * = (a, b) => __builtin_mul(a, b);
-infix (INFIX) < = (a, b) => __builtin_lt(a, b);
-infix (INFIX) > = (a, b) => __builtin_gt(a, b);
-infix (INFIX) eq = (a, b) => __builtin_eq(a, b);
+comment: infix (SUM  ) + = (a, b) => {
+comment:     __builtin_add(a, b);
+comment: };
+comment: infix (SUM  ) - = (a, b) => __builtin_sub(a, b);
+comment: infix (PROD ) * = (a, b) => __builtin_mul(a, b);
+comment: infix (INFIX) < = (a, b) => __builtin_lt(a, b);
+comment: infix (INFIX) > = (a, b) => __builtin_gt(a, b);
+comment: infix (INFIX) eq = (a, b) => __builtin_eq(a, b);
 
 
-prefix(LOW  +) if   = (cond) => cond;
-infix (LOW  +) then = (c: Bool, pair) => __builtin_eval(pair(c));
-infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_conditional(c, t, f);
+comment: prefix(LOW  +) if   = (cond) => cond;
+comment: infix (LOW  +) then = (c: Bool, pair) => __builtin_eval(pair(c));
+comment: infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_conditional(c, t, f);
 
 
+comment: exfix [:] = (x) => print(x);
+comment: [ 1 + [ 2 ] ]; comment: prints 2 then 3
 
 
+comment: operator(CALL) if:then:else: = (cnd: Bool, thn: Syntax, els: Syntax) =>  __builtin_eval(__builtin_conditional(cnd, thn, els));
+operator(CALL) op = () =>  __builtin_eval(__builtin_conditional(cnd, thn, els));
+
+comment: expr if expr then expr else do this expr
+comment: op;
 
 
-exfix [:] = (x) => print(x);
-
-[ 1 + [ 2 ] ];
 

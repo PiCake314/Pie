@@ -25,7 +25,7 @@ enum class TokenKind {
     R_PAREN,
 
 // Keywords
-
+    OPERATOR,
     PREFIX,
     INFIX,
     SUFFIX,
@@ -69,6 +69,9 @@ const char* stringify(const TokenKind token) noexcept {
         case SEMI:          return "SEMI";
         case COLON:         return "COLON";
         case FAT_ARROW:     return "FAT_ARROW";
+
+        // keywords
+        case OPERATOR:      return "OPERATOR";
         case PREFIX:        return "PREFIX";
         case INFIX:         return "INFIX";
         case SUFFIX:        return "SUFFIX";

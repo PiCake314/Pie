@@ -6,6 +6,7 @@
 #include <vector>
 #include <utility>
 #include <algorithm>
+#include <numeric>
 #include <memory>
 #include <variant>
 
@@ -237,6 +238,39 @@ struct CircumOp : Expr {
     Node variant() const override { return this; }
 };
 
+
+struct OpCall : Expr {
+    std::string first;
+    std::vector<std::string> rest;
+    std::vector<ExprPtr> exprs;
+    bool begin_expr;
+    bool end_expr;
+
+    OpCall(std::string f, std::vector<std::string> ops, std::vector<ExprPtr> es) noexcept
+    : first{std::move(f)}, rest{std::move(ops)}, exprs{std::move(es)} {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        std::string s = first;
+        if (begin_expr) s = exprs[0]->stringify(indent) + ' ' + s;
+
+
+        // if it begins with an expr, we already exhausted the first op
+        for (size_t i = not begin_expr; i < rest.size(); ++i) {
+            // s += ':' + ops[i];
+            s += exprs[i]->stringify(indent) + ' ' + rest[i];
+        }
+
+        if (end_expr) s += ' ' + exprs.back()->stringify(indent);
+
+        return '(' + s + ')';
+        // return '(' + op1 + ' ' + expr->stringify(indent) + ' ' + op2 + ')';
+    }
+
+    Node variant() const override { return this; }
+};
+
+
 struct Call : Expr {
     ExprPtr func;
     std::vector<ExprPtr> args;
@@ -330,7 +364,6 @@ struct Block : Expr {
     Node variant() const override { return this; }
 };
 
-
 // defintions of operators. Usage is BinOp or UnaryOp
 struct Fix : Expr {
     // these two are literally what a token is...
@@ -366,7 +399,7 @@ struct Prefix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
 
-        return "prefix(" + token.text + shifts + ") " + name + ' ' +func->stringify(indent);
+        return "prefix(" + token.text + shifts + ") " + name + " = " +func->stringify(indent);
     }
 
 
@@ -387,7 +420,7 @@ struct Infix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
 
-        return "infix(" + token.text + shifts + ") " + name + ' ' + func->stringify(indent);
+        return "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
     }
 
     TokenKind type() const override { return TokenKind::INFIX; }
@@ -407,7 +440,7 @@ struct Suffix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        return "suffix(" + token.text + shifts + ") " + name + ' ' + func->stringify(indent);
+        return "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
     }
 
     TokenKind type() const override { return TokenKind::SUFFIX; }
@@ -429,11 +462,58 @@ struct Exfix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        return "exfix(" + token.text + shifts + ") " + name + ':' + name2 + ' ' + func->stringify(indent);
+        return "exfix(" + token.text + shifts + ") " + name + ':' + name2 + " = " + func->stringify(indent);
     }
 
     TokenKind type() const override { return TokenKind::EXFIX; }
     Node variant() const override { return this; }
 };
+
+
+struct Operator : Fix {
+    std::vector<std::string> rest;
+    bool begin_expr;
+    bool end_expr;
+
+    Operator(
+        std::string first, std::vector<std::string> rest,
+        Token up, Token down,
+        const int s,
+        const bool begin, const bool end,
+        ExprPtr c
+    )
+    : Fix{
+        std::move(first),
+        std::move(up), std::move(down),
+        s,
+        std::move(c)
+    },
+    rest{std::move(rest)}, begin_expr{begin}, end_expr{end}
+    {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        const auto [c, token] = [this] -> std::pair<char, Token> {
+            if (shift < 0) return {'-', high};
+            if (shift > 0) return {'+', low};
+            return {'\0', high}; // it doesn't matter. high == low
+        }();
+
+        const std::string shifts(size_t(std::abs(shift)), c);
+
+        const std::string& op_name = (begin_expr ? ':' : '\0')
+            + name
+            + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
+            + (end_expr ? ':' : '\0');
+
+
+        return "exfix(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
+    }
+
+
+    TokenKind type() const override { return TokenKind::OPERATOR; }
+    Node variant() const override { return this; }
+};
+
 
 } // namespace expr

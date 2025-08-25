@@ -606,6 +606,9 @@ struct Visitor {
     }
 
 
+    Value operator()(const expr::Operator *) { return 1; }
+
+
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 

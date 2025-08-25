@@ -79,8 +79,8 @@ int main(int argc, char *argv[]) {
     }
 
 
-    Visitor visitor{ops};
-    for (const auto& expr : exprs)
-        std::visit(visitor, expr->variant());
+    // Visitor visitor{ops};
+    // for (const auto& expr : exprs)
+    //     std::visit(visitor, expr->variant());
 
 }

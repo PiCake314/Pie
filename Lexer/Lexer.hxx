@@ -13,26 +13,15 @@
 
 
 
-// enum class OperatorType {
-//     PREFIX,
-//     INFIX,
-//     POSTFIX,
-// };
-
-// struct Operator {
-//     const OperatorType type;
-//     const size_t precedence;
-// };
-
 using Tokens = std::vector<Token>;
 using TokenLines = std::vector<Tokens>;
-// using OPs = std::unordered_map<std::string, Operator>;
 
 
 
 TokenKind keyword(const std::string_view word) noexcept {
     using enum TokenKind;
-         if (word == "prefix"    ) return PREFIX;
+         if (word == "operator"    ) return OPERATOR;
+    else if (word == "prefix"    ) return PREFIX;
     else if (word == "infix"     ) return INFIX;
     else if (word == "suffix"    ) return SUFFIX;
     else if (word == "exfix"     ) return EXFIX;
