@@ -1,14 +1,12 @@
-comment: print = __builtin_print;
+print = __builtin_print;
 
 
-comment: infix (SUM  ) + = (a, b) => {
-comment:     __builtin_add(a, b);
-comment: };
-comment: infix (SUM  ) - = (a, b) => __builtin_sub(a, b);
-comment: infix (PROD ) * = (a, b) => __builtin_mul(a, b);
-comment: infix (INFIX) < = (a, b) => __builtin_lt(a, b);
-comment: infix (INFIX) > = (a, b) => __builtin_gt(a, b);
-comment: infix (INFIX) eq = (a, b) => __builtin_eq(a, b);
+infix (SUM  ) + = (a, b) => __builtin_add(a, b);
+infix (SUM  ) - = (a, b) => __builtin_sub(a, b);
+infix (PROD ) * = (a, b) => __builtin_mul(a, b);
+infix (INFIX) < = (a, b) => __builtin_lt(a, b);
+infix (INFIX) > = (a, b) => __builtin_gt(a, b);
+infix (INFIX) eq = (a, b) => __builtin_eq(a, b);
 
 
 comment: prefix(LOW  +) if   = (cond) => cond;
@@ -16,15 +14,33 @@ comment: infix (LOW  +) then = (c: Bool, pair) => __builtin_eval(pair(c));
 comment: infix (then +) else = (t: Syntax, f: Syntax) => (c: Bool) => __builtin_conditional(c, t, f);
 
 
-comment: exfix [:] = (x) => print(x);
-comment: [ 1 + [ 2 ] ]; comment: prints 2 then 3
+exfix [:] = (x) => __builtin_print(x);
 
 
 comment: operator(CALL) if:then:else: = (cnd: Bool, thn: Syntax, els: Syntax) =>  __builtin_eval(__builtin_conditional(cnd, thn, els));
-operator(CALL) op = () =>  __builtin_eval(__builtin_conditional(cnd, thn, els));
+operator(CALL) op1 = ()              =>  __builtin_print(1);
+operator(CALL) :op2 = (x)            =>  __builtin_print(2);
+operator(CALL) op3: = (x)            =>  __builtin_print(3);
+operator(CALL) :op4: = (x, y)        =>  __builtin_print(4);
+operator(CALL) :op5:op6 = (x, y)     =>  __builtin_print(5);
+operator(CALL) op7:op8: = (x, y)     =>  __builtin_print(6);
+operator(CALL) :op9:op10: = (x, y, z) =>  __builtin_print(7);
 
-comment: expr if expr then expr else do this expr
-comment: op;
+
+comment: op1;
+comment: 0 op2;
+comment: op3 0;
+comment: 0 op4 0;
+comment: 0 op5 0 op6;
+comment: op7 0 op8 0;
+comment: 0 op9 0 op10 0;
+
+
+operator(LOW +) if:then:else: = (cond: Bool, thn, els) => __builtin_eval(__builtin_conditional(cond, thn, els));
 
 
 
+fib = (n) => if n < 2 then 1 else fib(n - 1) + fib(n - 2);
+
+
+print(fib(10));

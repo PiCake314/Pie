@@ -99,33 +99,45 @@ public:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
                         case TokenKind::PREFIX:{
-                            const auto prec = precedence::calculate(op->high, op->low, ops);
+                            const int prec = precedence::calculate(op->high, op->low, ops);
                             return std::make_unique<expr::UnaryOp>(token.text, parseExpr(prec));
                         }
 
                         case TokenKind::EXFIX:{
                             const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text]);
-                            if (not op) error("This should never happen!!");
+                            // if (not op) error("This should never happen!!");
 
                             auto ret = std::make_unique<expr::CircumOp>(op->name, op->name2, parseExpr());
 
-                            if (not match(op->name2)) {
-                                log();
-                                error("Exfix operator not closed!");
-                            }
+                            if (not match(op->name2)) error("Exfix operator not closed!");
 
                             return ret;
                         }
-                            // return std::make_unique<Prefix>(token, op->shift, parseExpr(precFromToken(op->token.kind)));
-                        // case TokenKind::INFIX :
+
+                        case TokenKind::OPERATOR: {
+                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
+                            if (op->begin_expr) error("Operator '" + token.text + " ...' has to come after an expression!");
+
+
+                            const int prec = precedence::calculate(op->high, op->low, ops);
+
+                            std::vector<expr::ExprPtr> exprs;
+                            for (const auto& part : op->rest) {
+                                exprs.push_back(parseExpr(prec));
+                                if (not match(part)) error("Expected '" + part + "', got '" + lookAhead().text + "'!");
+                            }
+                            if (op->end_expr) exprs.push_back(parseExpr(prec));
+
+                            return std::make_shared<expr::OpCall>(
+                                op->name, op->rest, std::move(exprs), op->begin_expr, op->end_expr
+                            );
+                        }
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
-                        // case TokenKind::SUFFIX:
-                        //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
 
                         default: log(); error("[in/suf]fix operator used as [pre/ex]fix");
                     }
                 }
-                // if (lookAhead(0).kind == NAME || lookAhead(0).kind == NUM)
+                // if (lookAhead().kind == NAME || lookAhead().kind == NUM)
                 //     return std::make_unique<UnaryOp>(token, parseExpr(precedence::PREFIX));
                 // else
                 {
@@ -263,9 +275,52 @@ public:
                         case TokenKind::SUFFIX:
                             return std::make_unique<expr::PostOp>(token.text, std::move(left));
 
-                        case TokenKind::EXFIX:
-                            // if (token.text )
-                            return left; // rhs of exfix. do nothing
+
+                        //* I can fix this. Check if the name is the first or not and error accordingly!
+                        case TokenKind::EXFIX: {
+                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text]);
+                            if (token.text != op->name2) error("Open exfix operator found where closing one was expected!");
+
+                            return left;
+                        }
+
+
+                        // some other part of Operator. 
+                        case TokenKind::OPERATOR:
+                        {
+                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
+
+                            // error("Beginning operator '" + token.text  + "' found where it shouldn't be!");
+                            // in the middle of parsing a OpCall. Do nothing.
+                            if (token.text != op->name)  return left;
+
+
+                            // if (op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
+
+
+                            const int prec = precedence::calculate(op->high, op->low, ops);
+
+                            std::vector<expr::ExprPtr> exprs = {std::move(left)};
+                            for (const auto& part : op->rest) {
+                                exprs.push_back(parseExpr(prec));
+                                if (not match(part)) error("Expected '" + part + "', got '" + lookAhead().text + "'!");
+                            }
+                            if (op->end_expr) exprs.push_back(parseExpr(prec));
+
+
+                            return std::make_shared<expr::OpCall>(
+                                op->name, op->rest, std::move(exprs), op->begin_expr, op->end_expr
+                            );
+                        }
+
+                        // case TokenKind::OPERATOR: {
+                        //     // const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
+                        //     // not always the case tho. I need to test it
+                        //     // if (not op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
+
+                        //     return left;
+                        // }
+
 
                         default: error("prefix operator used as [inf/suf]fix");
                     }
@@ -345,7 +400,7 @@ public:
     }
 
     Token consume() {
-        lookAhead(0);
+        lookAhead();
 
         const auto token = red.front();
         red.pop_front();
@@ -355,7 +410,7 @@ public:
     Token consume(const TokenKind exp, const std::source_location& loc = std::source_location::current()) {
         using std::operator""s;
 
-		if (const Token token = lookAhead(0); token.kind != exp) [[unlikely]] {
+		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
             log();
             expected(exp, token, loc);
         }
@@ -364,7 +419,7 @@ public:
 	}
 
     [[nodiscard]] bool match(const TokenKind exp) {
-		const Token token = lookAhead(0);
+		const Token token = lookAhead();
 
 		if (token.kind != exp) return false;
 
@@ -373,7 +428,7 @@ public:
 	}
 
     [[nodiscard]] bool match(const std::string_view text) {
-		const Token token = lookAhead(0);
+		const Token token = lookAhead();
 
 		if (token.text != text) return false;
 
@@ -381,7 +436,7 @@ public:
 		return true;
     }
 
-    Token lookAhead(const size_t distance) {
+    Token lookAhead(const size_t distance = 0) {
         while (distance >= red.size()) {
             if (atEnd()) error("out of token!");
             red.push_back(*token_iterator++);
@@ -401,7 +456,7 @@ public:
         //     return 0; 
         // }
 
-        const Token& token = lookAhead(0);
+        const Token& token = lookAhead();
         switch (token.kind) {
             using enum TokenKind;
 
@@ -567,7 +622,7 @@ public:
         expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
         if (not c) error("Operators have to be equal to a function!");
 
-        if (const size_t param_count = rest.size() + (begins_with_expr and ends_with_expr);
+        if (const size_t param_count = rest.size() + begins_with_expr + ends_with_expr;
              c->params.size() != param_count)
         {
             const std::string& op_name = (begins_with_expr ? ':' : '\0')

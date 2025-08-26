@@ -174,9 +174,19 @@ Any thing following one of the these will be considered a comment until a newlin
 
 Casing doesn't matter.
 
+<!-- 
+## Install
+Make sure you have `make` and a C++ compiler that supports C++23. Then run this script:
+```
+git clone https://github.com/intel/cpp-std-extensions;
+```
+-->
+
+
 ### Todo:
 ##### in order of priority:
 - [ ] Add ternary operators
+- [ ] Remove depedency on stdx and boost
 - [ ] Add an import system (modules)
 - [ ] Add collections
 - [ ] Add looping

@@ -246,8 +246,13 @@ struct OpCall : Expr {
     bool begin_expr;
     bool end_expr;
 
-    OpCall(std::string f, std::vector<std::string> ops, std::vector<ExprPtr> es) noexcept
-    : first{std::move(f)}, rest{std::move(ops)}, exprs{std::move(es)} {}
+    OpCall(
+        std::string f, std::vector<std::string> ops, std::vector<ExprPtr> ex,
+        const bool begin, const bool end
+    ) noexcept
+    :
+    first{std::move(f)}, rest{std::move(ops)}, exprs{std::move(ex)}, begin_expr{begin}, end_expr{end}
+    {}
 
 
     std::string stringify(const size_t indent = 0) const override {
@@ -256,9 +261,9 @@ struct OpCall : Expr {
 
 
         // if it begins with an expr, we already exhausted the first op
-        for (size_t i = not begin_expr; i < rest.size(); ++i) {
+        for (size_t i = begin_expr; i < rest.size(); ++i) {
             // s += ':' + ops[i];
-            s += exprs[i]->stringify(indent) + ' ' + rest[i];
+            s += exprs[i]->stringify(indent) + ' ' + rest[i - begin_expr]; 
         }
 
         if (end_expr) s += ' ' + exprs.back()->stringify(indent);

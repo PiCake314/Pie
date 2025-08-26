@@ -408,6 +408,47 @@ struct Visitor {
         return std::visit(*this, func->body->variant());
     };
 
+    Value operator()(const expr::OpCall *oc) {
+        if (auto&& var = getVar(oc->stringify()); var) return var->first;
+
+
+        const expr::Fix* op = ops.at(oc->first);
+        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+
+        // this may be not needed
+        if (oc->exprs.size() != func->params.size()) error();
+
+        Environment args_env;
+
+        for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
+            if (param_type->text() == "Syntax") {
+                args_env[param] = {arg_expr->variant(), type::builtins::Any()}; //* Any type??
+            }
+            else {
+                validateType(param_type);
+
+                const auto& arg = std::visit(*this, arg_expr->variant());
+                if (auto&& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
+                    const auto& op_name = oc->first + 
+                        std::accumulate(oc->rest.cbegin(), oc->rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; });
+                    error(
+                        "Type mis-match! Operator '" + op_name + 
+                        "', parameter '" + param +
+                        "' expected: " + param_type->text() +
+                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                    );
+                }
+
+                // addVar(func->params[0], std::visit(*this, co->expr->variant()));
+                args_env[param] = {arg, type::builtins::Any()};
+            }
+        }
+
+
+        ScopeGuard sg{this, args_env};
+        return std::visit(*this, func->body->variant());
+    }
+
     Value operator()(const expr::Call *call) {
         if (auto&& var = getVar(call->stringify()); var) return var->first;
 
@@ -562,51 +603,60 @@ struct Visitor {
         return ret;
     }
 
-    // Value operator()(const expr::Fix *fix) {
+
+    Value operator()(const expr::Fix *fix) {
+        if (auto&& var = getVar(fix->stringify()); var) return var->first;
+        return std::visit(*this, fix->func->variant());
+    }
+
+    // // split so I can param check at definition time instead of call time..
+    // Value operator()(const expr::Prefix *fix) {
     //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
+
+    //     // // I know it's a function, otherwise parser woulda been mad
+    //     // Maybe I don't need to check if param count is valid since the parser already checks that?
+    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
+    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+
     //     return std::visit(*this, fix->func->variant());
     // }
 
-    // split so I can param check at definition time instead of call time..
-    Value operator()(const expr::Prefix *fix) {
-        if (auto&& var = getVar(fix->stringify()); var) return var->first;
+    // Value operator()(const expr::Infix *fix) {
+    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
 
-        // I know it's a function, otherwise parser woulda been mad
-        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-            error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
+    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
 
-        return std::visit(*this, fix->func->variant());
-    }
+    //     return std::visit(*this, fix->func->variant());
+    // }
 
-    Value operator()(const expr::Infix *fix) {
-        if (auto&& var = getVar(fix->stringify()); var) return var->first;
+    // Value operator()(const expr::Suffix *fix) {
+    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
 
-        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
-            error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
+    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
 
-        return std::visit(*this, fix->func->variant());
-    }
+    //     return std::visit(*this, fix->func->variant());
+    // }
 
-    Value operator()(const expr::Suffix *fix) {
-        if (auto&& var = getVar(fix->stringify()); var) return var->first;
+    // Value operator()(const expr::Exfix *fix) {
+    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
 
-        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-            error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
+    //     //     error("Exfix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
 
-        return std::visit(*this, fix->func->variant());
-    }
-
-    Value operator()(const expr::Exfix *fix) {
-        if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-        if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-            error("Exfix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-        return std::visit(*this, fix->func->variant());
-    }
+    //     return std::visit(*this, fix->func->variant());
+    // }
 
 
-    Value operator()(const expr::Operator *) { return 1; }
+    // Value operator()(const expr::Operator *fix) {
+    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
+
+    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
+    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
+
+    //     return std::visit(*this, fix->func->variant());
+    // }
 
 
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {

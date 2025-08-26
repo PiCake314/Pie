@@ -41,12 +41,13 @@ int main(int argc, char *argv[]) {
 
     bool print_tokens{};
     bool print_parsed{};
+    bool run = true;
 
     // this would leave file name at argv[1]
     for(; argc > 2; --argc, ++argv) {
         if (argv[1] == "-t"sv) print_tokens = true;
-
         if (argv[1] == "-p"sv) print_parsed = true;
+        if (argv[1] == "-n"sv) run          = false;
     }
 
 
@@ -75,12 +76,14 @@ int main(int argc, char *argv[]) {
         for(const auto& expr : exprs)
             std::println("{};", expr->stringify(0));
 
-        puts("Output:\n");
+        if(run) puts("Output:\n");
     }
 
 
-    // Visitor visitor{ops};
-    // for (const auto& expr : exprs)
-    //     std::visit(visitor, expr->variant());
+    if (run) {
+        Visitor visitor{ops};
+        for (const auto& expr : exprs)
+            std::visit(visitor, expr->variant());
+    }
 
 }
