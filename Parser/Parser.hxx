@@ -294,6 +294,8 @@ public:
                             // in the middle of parsing a OpCall. Do nothing.
                             if (token.text != op->name)  return left;
 
+                            if (not op->begin_expr) error("Operator '" + op->name + " ...' has to come before an expression!");
+
 
                             // if (op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
 

@@ -416,7 +416,7 @@ struct Visitor {
         expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
 
         // this may be not needed
-        if (oc->exprs.size() != func->params.size()) error();
+        // if (oc->exprs.size() != func->params.size()) error();
 
         Environment args_env;
 
