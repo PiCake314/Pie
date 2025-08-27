@@ -8,7 +8,7 @@
 - Bare-bones (if it doesn't need to be keyword, then it isn't)
 - No operators defined for you
 - Still quirky (different even if the difference is not good)
-- No null/unit/none type or any type indicating nothing.
+- No null/unit/none type or any type indicating nothing
 
 ## Introduction
 - [Variables](#Variables)
