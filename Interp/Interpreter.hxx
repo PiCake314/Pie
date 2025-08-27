@@ -1143,10 +1143,12 @@ struct Visitor {
 
         }
         else if(std::holds_alternative<expr::Node>(value)) {
-            s = "ASTNODE: " + std::visit(
+            const std::string space(indent + 4, ' ');
+
+            s = "ASTNode {\n" + space + std::visit(
                 [] (auto&& v)-> std::string { return v->stringify(); },
                 get<expr::Node>(value)
-            );
+            ) + "\n}";
         }
         else error("Type not found!");
 
@@ -1312,6 +1314,16 @@ private:
 
             std::println("{}: {} = {}", name, type->text(), stringify(value));
         }
+    }
+
+
+    friend std::ostream& operator<<(std::ostream& os, const Environment& env) {
+        for (const auto& [name, expr] : env){
+            const auto& [value, type] = expr;
+            os << name << ": " << type->text() << " = " << Visitor::stringify(value) << std::endl;
+        }
+
+        return os;
     }
 
 };
