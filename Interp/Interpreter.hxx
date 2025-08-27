@@ -6,6 +6,7 @@
 #include <map>
 #include <unordered_map>
 #include <ranges>
+#include <algorithm>
 #include <optional>
 #include <utility>
 #include <stdexcept>
@@ -663,10 +664,10 @@ struct Visitor {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
         for(const auto& builtin : {
-            "true", "false",                                                          //* nullary
-            "print", "reset", "eval","neg", "not",                                    //* unary
+            "true", "false", "input_str", "input_int", //* nullary
+            "print", "reset", "eval","neg", "not",     //* unary
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
-            "conditional"                                                             //* trinary
+            "conditional" //* trinary
         })
             if (func == make_builtin(builtin)) return true;
 
@@ -690,6 +691,30 @@ struct Visitor {
                 S<"false">,
                 Func<"false",
                     decltype([](const auto&) { return false; }),
+                    void
+                >
+            >{},
+            MapEntry<
+                S<"input_str">,
+                Func<"input_str",
+                    decltype([](const auto&) {
+                        std::string out;
+                        std::getline(std::cin, out);
+                        return out;
+                    }),
+                    void
+                >
+            >{},
+            MapEntry<
+                S<"input_int">,
+                Func<"input_int",
+                    decltype([](const auto&) {
+                        std::string out;
+                        std::getline(std::cin, out);
+                        if (not std::all_of(out.cbegin(), out.cend(), isnumber)) error("'__builtin_input_int' recieved a non-int \"" + out + "\"!");
+
+                        return std::stoi(out); 
+                    }),
                     void
                 >
             >{},
@@ -947,6 +972,8 @@ struct Visitor {
         if (name == "true" or name == "false") arity_check(0);
         if (name == "true")  return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
         if (name == "false") return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
+        if (name == "input_str") return execute<0>(stdx::get<S<"input_str">>(functions).value, {}, this);
+        if (name == "input_int") return execute<0>(stdx::get<S<"input_int">>(functions).value, {}, this);
 
         if (name == "print") {
             if (call->args.empty()) error("'print' requires at least 1 argument passed!");
