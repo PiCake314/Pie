@@ -174,13 +174,21 @@ Any thing following one of the these will be considered a comment until a newlin
 
 Casing doesn't matter.
 
-<!-- 
+
 ## Install
-Make sure you have `make` and a C++ compiler that supports C++23. Then run this script:
+Make sure you have `make` and a C++ compiler that supports C++23. Then paste the following script in the terminal:
 ```
-git clone https://github.com/intel/cpp-std-extensions;
+mkdir PieLang
+cd PieLang
+mkdir includes
+
+git clone https://github.com/intel/cpp-std-extensions includes
+git clone https://github.com/boostorg/mp11 includes
+git clone https://github.com/PiCake314/Pie
+
+g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o Pie
 ```
--->
+
 
 
 ### Todo:
@@ -196,6 +204,7 @@ git clone https://github.com/intel/cpp-std-extensions;
 - [ ] Add recursive operators
 ---
 ### Done:
+- [x] Add Arbitrary Operators!!!
 - [x] Add circumfix operators
 - [x] Add lazy evaluation
 - [x] Add constructor to classes..somehow
