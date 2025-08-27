@@ -187,7 +187,13 @@ git clone https://github.com/PiCake314/Pie
 
 g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
+## Update
+To update the language, paste this into the terminal:
+```
+git pull
 
+g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
+```
 
 
 ### Todo:
