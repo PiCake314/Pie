@@ -180,10 +180,9 @@ Make sure you have `make` and a C++ compiler that supports C++23. Then paste the
 ```
 mkdir PieLang
 cd PieLang
-mkdir includes
 
-git clone https://github.com/intel/cpp-std-extensions includes
-git clone https://github.com/boostorg/mp11 includes
+git clone https://github.com/intel/cpp-std-extensions includes/cpp-std-extensions
+git clone https://github.com/boostorg/mp11 includes/mp11
 git clone https://github.com/PiCake314/Pie
 
 g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o Pie
