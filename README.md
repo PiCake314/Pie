@@ -185,7 +185,7 @@ git clone https://github.com/intel/cpp-std-extensions includes/cpp-std-extension
 git clone https://github.com/boostorg/mp11 includes/mp11
 git clone https://github.com/PiCake314/Pie
 
-g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pie
+g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
 
 
