@@ -176,7 +176,7 @@ Casing doesn't matter.
 
 
 ## Install
-Make sure you have `git` C++ compiler that supports C++23. Then paste the following script in the terminal:
+Make sure you have `git`, and C++ compiler that supports C++23. Then paste the following script in the terminal:
 ```
 mkdir PieLang
 cd PieLang
