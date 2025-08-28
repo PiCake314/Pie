@@ -217,7 +217,9 @@ TokenLines lex(const std::string& src) {
 
             case '"':{
                 const size_t old = index;
-                while(src[++index] != '"');
+                while(src[++index] != '"') {
+                    // if (src[index] == '\\')
+                }
                 lines.back().push_back({STRING, src.substr(old + 1, index - old -1)});
             } break;
 
