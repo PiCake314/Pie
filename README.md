@@ -176,7 +176,7 @@ Casing doesn't matter.
 
 
 ## Install
-Make sure you have C++ compiler that supports C++23. Then paste the following script in the terminal:
+Make sure you have `git` C++ compiler that supports C++23. Then paste the following script in the terminal:
 ```
 mkdir PieLang
 cd PieLang
@@ -190,7 +190,9 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 ## Update
 To update the language, paste this into the terminal:
 ```
+cd Pie
 git pull
+cd ..
 
 g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
@@ -200,12 +202,15 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 ##### in order of priority:
 - [ ] Add ternary operators
 - [ ] Remove depedency on stdx and boost
+- [ ] Find a way to represent BigInt's without an extra library... :c
 - [ ] Add an import system (modules)
 - [ ] Add collections
 - [ ] Add looping
 - [ ] Add iterators
 - [ ] Add variadic arguments
+- [ ] Add named arguments
 - [ ] Add method operators..?
+- [ ] Change int to BigInt type in interpreter
 - [ ] Add recursive operators
 ---
 ### Done:
