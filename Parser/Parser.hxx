@@ -68,20 +68,17 @@ public:
         // return expressions;
     }
 
-    expr::ExprPtr parseExpr(const size_t precedence = {}, std::optional<Token> until = {}) {
+    expr::ExprPtr parseExpr(const size_t precedence = {}) {
         Token token = consume();
 
         expr::ExprPtr left = prefix(token);
 
         // infix
-        while ((not (until and check(until->text))) and precedence < getPrecedence()) {
-
+        while (precedence < getPrecedence()) {
             token = consume();
 
             left = infix(token, std::move(left));
         }
-
-        if (until and check(until->text)) consume(until->kind);
 
         return left;
     }
@@ -116,25 +113,32 @@ public:
 
                         case TokenKind::OPERATOR: {
                             const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
-                            if (op->begin_expr) error("Operator '" + token.text + " ...' has to come after an expression!");
+                            if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
 
 
                             const int prec = precedence::calculate(op->high, op->low, ops);
 
                             std::vector<expr::ExprPtr> exprs;
-                            for (const auto& part : op->rest) {
-                                exprs.push_back(parseExpr(prec));
-                                if (not match(part)) error("Expected '" + part + "', got '" + lookAhead().text + "'!");
+                            for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(2)) {
+                                // match will consume the op
+                                if (is_op) {
+                                    if (not match(op->rest[i]))
+                                        error("Expected '" + op->rest[i] + "', got '" + lookAhead().text + "'!");
+                                }
+                                else exprs.push_back(parseExpr(prec));
                             }
-                            if (op->end_expr) exprs.push_back(parseExpr(prec));
+
+                            if (not op->op_pos.back()) exprs.push_back(parseExpr(prec));
 
                             return std::make_shared<expr::OpCall>(
-                                op->name, op->rest, std::move(exprs), op->begin_expr, op->end_expr
+                                op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
                             );
                         }
                         //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
 
-                        default: log(); error("[in/suf]fix operator used as [pre/ex]fix");
+                        default:
+                            // log();
+                            error("[in/suf]fix operator used as [pre/ex]fix");
                     }
                 }
                 // if (lookAhead().kind == NAME || lookAhead().kind == NUM)
@@ -253,7 +257,7 @@ public:
             case R_BRACE: error("Can't have empty block!");
 
             default:
-                log();
+                // log();
                 error("Couldn't parse \"" + token.text + "\"!");
         }
     }
@@ -293,8 +297,7 @@ public:
                             // error("Beginning operator '" + token.text  + "' found where it shouldn't be!");
                             // in the middle of parsing a OpCall. Do nothing.
                             if (token.text != op->name)  return left;
-
-                            if (not op->begin_expr) error("Operator '" + op->name + " ...' has to come before an expression!");
+                            if (op->op_pos[0]) error("Operator '" + op->name + "' has to come before an expression!");
 
 
                             // if (op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
@@ -303,15 +306,26 @@ public:
                             const int prec = precedence::calculate(op->high, op->low, ops);
 
                             std::vector<expr::ExprPtr> exprs = {std::move(left)};
-                            for (const auto& part : op->rest) {
-                                exprs.push_back(parseExpr(prec));
-                                if (not match(part)) error("Expected '" + part + "', got '" + lookAhead().text + "'!");
+
+
+                            for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(2)) {
+                                // match will consume the op
+                                if (is_op) {
+                                    if (not match(op->rest[i]))
+                                        error("Expected '" + op->rest[i] + "', got '" + lookAhead().text + "'!");
+                                }
+                                else exprs.push_back(parseExpr(prec));
                             }
-                            if (op->end_expr) exprs.push_back(parseExpr(prec));
+
+                            // for (const auto& part : op->rest) {
+                            //     exprs.push_back(parseExpr(prec));
+                            //     if (not match(part)) error("Expected '" + part + "', got '" + lookAhead().text + "'!");
+                            // }
+                            // if (op->end_expr) exprs.push_back(parseExpr(prec));
 
 
                             return std::make_shared<expr::OpCall>(
-                                op->name, op->rest, std::move(exprs), op->begin_expr, op->end_expr
+                                op->name, op->rest, std::move(exprs), op->op_pos
                             );
                         }
 
@@ -397,7 +411,7 @@ public:
         return std::make_shared<type::VarType>(parseExpr(precedence::ASSIGNMENT));
         // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
 
-        log();
+        // log();
         error("Invalid type!");
     }
 
@@ -413,7 +427,7 @@ public:
         using std::operator""s;
 
 		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
-            log();
+            // log();
             expected(exp, token, loc);
         }
 
@@ -477,7 +491,7 @@ public:
             case NAME: {
                 // can't have a name as an infix if it's not an operator
                 if (not ops.contains(token.text)) {
-                    log();
+                    // log();
                     error("Operator " + token.text + " not found!");
                 }
 
@@ -597,25 +611,36 @@ public:
 
         consume(R_PAREN);
 
-        const bool begins_with_expr = match(COLON);
-        const std::string& first = consume(NAME).text;
+        // const bool begins_with_expr = match(COLON);
+
+        std::vector<bool> op_pos;
+        std::string first;
+        if (match(COLON)) {
+            op_pos.push_back(false);
+            first = consume(NAME).text;
+            op_pos.push_back(true);
+        }
+        else {
+            op_pos.push_back(true);
+            first = consume(NAME).text;
+        }
 
         std::vector<std::string> rest;
 
-        while(check(COLON) and check(NAME, 1)) {
-            consume(); // colon
-            rest.push_back(consume(NAME).text);
+        while (not check(ASSIGN)) {
+            op_pos.push_back(not match(COLON));
+            if (op_pos.back()) rest.push_back(consume(NAME).text);
         }
-        const bool ends_with_expr = match(COLON);
-        // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
-        if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW)) {
-            const std::string& op_name = (begins_with_expr ? ':' : '\0')
-                + first
-                + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
-                + (ends_with_expr ? ':' : '\0');
 
-            error("Can't have set operator precedence to only LOW/HIGH: " + op_name);
-        }
+        // // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
+        // if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW)) {
+        //     const std::string& op_name = (begins_with_expr ? ':' : '\0')
+        //         + first
+        //         + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
+        //         + (ends_with_expr ? ':' : '\0');
+
+        //     error("Can't have set operator precedence to only LOW/HIGH: " + op_name);
+        // }
 
 
         consume(ASSIGN);
@@ -624,13 +649,20 @@ public:
         expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
         if (not c) error("Operators have to be equal to a function!");
 
-        if (const size_t param_count = rest.size() + begins_with_expr + ends_with_expr;
-             c->params.size() != param_count)
+
+                                    // false == expression parameter
+        if (const size_t param_count = std::ranges::count(op_pos, false);
+            param_count != c->params.size()
+        )
         {
-            const std::string& op_name = (begins_with_expr ? ':' : '\0')
-                + first
-                + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
-                + (ends_with_expr ? ':' : '\0');
+            std::string op_name;
+            for (ssize_t i = -1; const auto& field : op_pos) {
+                if (field) {
+                    op_name += i == -1 ? first : rest[i];
+                    ++i;
+                }
+                else op_name += ':';
+            }
 
             const std::string& n = std::to_string(param_count);
             error("Operator '" + op_name + "' must be assigned to a closure with " + n + " parameters!");
@@ -638,15 +670,17 @@ public:
 
         std::shared_ptr<expr::Fix> p =
             std::make_shared<expr::Operator>(
-                first,
-                rest,
+                std::move(first),
+                rest, // how can I move it?
+                std::move(op_pos),
                 std::move(high), std::move(low),
-                shift, begins_with_expr, ends_with_expr,
+                shift,
+                // begins_with_expr, ends_with_expr,
                 std::move(func)
             );
 
 
-        ops[first] = p.get();
+        ops[p->name] = p.get();
         for (const auto& name : rest) ops[name] = p.get(); //* double "maybe?"??
 
         return p;

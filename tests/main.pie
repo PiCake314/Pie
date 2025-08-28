@@ -1,24 +1,51 @@
 print = __builtin_print;
 
 
-operator(LOW +) if : then : else : = (cond: Bool, thn: Syntax, els: Syntax) =>  (__builtin_conditional(cond, thn, els));
 
-infix(SUM  )  - = (a, b) => __builtin_sub(a, b);
-infix(PROD )  * = (a, b) => __builtin_mul(a, b);
-infix(INFIX) eq = (a, b) => __builtin_eq(a, b);
-infix(INFIX)  < = (a, b) => __builtin_lt(a, b);
 
-infix(SUM  )  + = (a, b) => {
-    x: Int =  a;
+
+loop = (c: Syntax, b: Syntax) => __builtin_conditional(__builtin_eval(c),
+    {
+        __builtin_eval(b);
+        loop(c, b);
+    },
+"done"
+);
+
+operator(LOW +) while:: = (cond: Syntax, body: Syntax) => loop(c, b);
+
+
+
+x = 0;
+loop (__builtin_not(__builtin_eq(x, 10)), {
     print(x);
-    __builtin_sub(a, b);
-};
+    x = __builtin_add(x, 1);
+});
 
 
-print("What's your name?");
-name: String = __builtin_input_str();
-print("How old are you??");
-age: Int = __builtin_input_int();
+comment: x = 0;
+comment: while (__builtin_not(__builtin_eq(x, 10))) {
+comment:     print(x);
+comment:     x = __builtin_add(x, 1);
+comment: };
 
 
-print("Hello ", name, " who is ", age, " years old!");
+
+comment: Human = class {
+comment:     name: String = "";
+comment:     age: Int = 0;
+comment: };
+
+comment: ThingWithAge = class {
+comment:     age: Int = 0;
+comment: };
+
+
+comment: func = (h: Human) => h.age;
+
+comment: x: Human = Human("Ali", 23);
+comment: t: ThingWithAge = ThingWithAge(25);
+
+comment: print(func(x));
+comment: comment: print(func(t));
+

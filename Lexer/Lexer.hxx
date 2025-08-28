@@ -275,8 +275,10 @@ TokenLines lex(const std::string& src) {
     if (not lines.empty() and not lines.back().empty() and lines.back().back().kind != TokenKind::SEMI) error("Last line doesn't end with a ';'!");
 
 
-    lines.pop_back();
-    lines.back().emplace_back(TokenKind::END, "EOF");
+    if (lines.size() > 1) {
+        lines.pop_back();
+        lines.back().emplace_back(TokenKind::END, "EOF");
+    }
 
     return lines;
 }

@@ -11,6 +11,7 @@
 #include <utility>
 #include <stdexcept>
 #include <cassert>
+#include <cctype>
 #include <stdx/tuple.hpp>
 
 
@@ -711,7 +712,7 @@ struct Visitor {
                     decltype([](const auto&) {
                         std::string out;
                         std::getline(std::cin, out);
-                        if (not std::ranges::all_of(out, isnumber)) error("'__builtin_input_int' recieved a non-int \"" + out + "\"!");
+                        if (not std::ranges::all_of(out, isdigit)) error("'__builtin_input_int' recieved a non-int \"" + out + "\"!");
 
                         return std::stoi(out); 
                     }),

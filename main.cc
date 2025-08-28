@@ -57,7 +57,11 @@ int main(int argc, char *argv[]) {
 
     // std::println("{}", src);
 
-    auto v = lex(src);
+    TokenLines v = lex(src);
+
+
+    if (v.empty()) return 0;
+
     // std::println("{}", v); // uncomment this, and everything break!!!
 
     const auto flattened_v = flattenLines(std::move(v));

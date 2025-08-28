@@ -243,30 +243,41 @@ struct OpCall : Expr {
     std::string first;
     std::vector<std::string> rest;
     std::vector<ExprPtr> exprs;
-    bool begin_expr;
-    bool end_expr;
+    std::vector<bool> op_pos;
+    // bool begin_expr;
+    // bool end_expr;
 
     OpCall(
         std::string f, std::vector<std::string> ops, std::vector<ExprPtr> ex,
-        const bool begin, const bool end
+        std::vector<bool> pos
+        // const bool begin, const bool end
     ) noexcept
     :
-    first{std::move(f)}, rest{std::move(ops)}, exprs{std::move(ex)}, begin_expr{begin}, end_expr{end}
+    first{std::move(f)}, rest{std::move(ops)}, exprs{std::move(ex)}, op_pos{std::move(pos)}
     {}
 
 
     std::string stringify(const size_t indent = 0) const override {
-        std::string s = first;
-        if (begin_expr) s = exprs[0]->stringify(indent) + ' ' + s;
+        // std::string s = op_pos[0] ? first : exprs[0]->stringify(indent) + ' ' + first;
 
 
-        // if it begins with an expr, we already exhausted the first op
-        for (size_t i = begin_expr; i < rest.size(); ++i) {
-            // s += ':' + ops[i];
-            s += exprs[i]->stringify(indent) + ' ' + rest[i - begin_expr]; 
+        std::string s;
+        for (ssize_t op = -1, i{}; const auto& field : op_pos) {
+            if (field) {
+                s += op == -1 ? first : rest[op];
+                ++op;
+            }
+            else s += ' ' + exprs[i++]->stringify(indent);
         }
 
-        if (end_expr) s += ' ' + exprs.back()->stringify(indent);
+
+        // // if it begins with an expr, we already exhausted the first op
+        // for (size_t i = not op_pos[0]; i < rest.size(); ++i) {
+        //     // s += ':' + ops[i];
+        //     s += exprs[i]->stringify(indent) + ' ' + rest[i - op_pos[0]];
+        // }
+
+        // if (not op_pos.back()) s += ' ' + exprs.back()->stringify(indent);
 
         return '(' + s + ')';
         // return '(' + op1 + ' ' + expr->stringify(indent) + ' ' + op2 + ')';
@@ -477,14 +488,15 @@ struct Exfix : Fix {
 
 struct Operator : Fix {
     std::vector<std::string> rest;
-    bool begin_expr;
-    bool end_expr;
+    std::vector<bool> op_pos;
+    // bool begin_expr;
+    // bool end_expr;
 
     Operator(
-        std::string first, std::vector<std::string> rest,
+        std::string first, std::vector<std::string> rst, std::vector<bool> pos,
         Token up, Token down,
         const int s,
-        const bool begin, const bool end,
+        // const bool begin, const bool end,
         ExprPtr c
     )
     : Fix{
@@ -493,8 +505,15 @@ struct Operator : Fix {
         s,
         std::move(c)
     },
-    rest{std::move(rest)}, begin_expr{begin}, end_expr{end}
-    {}
+    rest{std::move(rst)}, op_pos{std::move(pos)}
+    // begin_expr{begin}, end_expr{end}
+    {
+        if (size_t(std::ranges::count(op_pos, true)) != rest.size() + 1) { // + 1 for first
+            std::println("rest: {}", rest);
+            puts("ERROR!! This should never happen..,");
+            exit(1);
+        }
+    }
 
 
     std::string stringify(const size_t indent = 0) const override {
@@ -506,10 +525,22 @@ struct Operator : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        const std::string& op_name = (begin_expr ? ':' : '\0')
-            + name
-            + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
-            + (end_expr ? ':' : '\0');
+
+
+        // maybe I should cache that
+        std::string op_name;
+        for (ssize_t i = -1; const auto& field : op_pos) {
+            if (field) {
+                op_name += i == -1 ? name : rest[i];
+                ++i;
+            }
+            else op_name += ':';
+        }
+
+        // const std::string& op_name = (begin_expr ? ':' : '\0')
+        //     + name
+        //     + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
+        //     + (end_expr ? ':' : '\0');
 
 
         return "exfix(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
