@@ -180,7 +180,6 @@ struct Visitor {
 
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
         if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) {
-            const auto& value = std::visit(*this, ass->rhs->variant());
             const auto& left = std::visit(*this, acc->var->variant());
 
             if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
@@ -190,10 +189,11 @@ struct Visitor {
             const auto& found = std::ranges::find_if(obj.second->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
             if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
+            Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
             //TODO: Dry this out!
             if (auto&& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
-                std::cerr << "In assignment: " << ass->stringify() << '\n';
+                std::println(std::cerr, "In assignment: {}", ass->stringify());
                 error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
             }
 
@@ -217,8 +217,7 @@ struct Visitor {
 
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    // type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
-                    type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(c->first))));
+                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
             }
 
 
@@ -231,7 +230,7 @@ struct Visitor {
             auto value = std::visit(*this, ass->rhs->variant());
             // if (type->text() != "Any") // only enforce type checking when
             if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
-                std::cerr << "In assignment: " << ass->stringify() << '\n';
+                std::println(std::cerr, "In assignment: {}", ass->stringify());
                 error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
             }
 
@@ -266,19 +265,34 @@ struct Visitor {
 
         ScopeGuard sg{this};
         for (const auto& field : cls->fields) {
-            // const auto& name = std::visit(*this, field.lhs->variant());
+            type::TypePtr type = field.first.type;
+            Value v;
 
-            // this performs type checking...i think
-            // it doesn't add vars to the environment bc we added a scope guard
+            if (type->text() == "Syntax") {
+                // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
+                type = type::builtins::Syntax();
+                v = field.second->variant();
+            }
+            else {
+                validateType(type);
 
-            //! commented this for now
-            // // std::visit(*this, field.variant());
+                if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
 
-            // I think we don't need to check the type against the name.type
-            // since the line above already did type checking
-            const auto& v = std::visit(*this, field.second->variant());
-            members.push_back({{field.first.stringify(), typeOf(v)}, v});
+                v = std::visit(*this, field.second->variant());
+
+                if (auto&& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
+                    std::println(std::cerr, "In class member assignment: {}: {} = {}",
+                        field.first.stringify(),
+                        field.first.type->text(),
+                        field.second->stringify());
+                    error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                }
+            }
+
+
+            members.push_back({{field.first.stringify(), type}, v});
         }
 
 
@@ -312,7 +326,7 @@ struct Visitor {
 
             Environment capture_list;
             for (const auto& [name, value] : obj.second->members)
-                capture_list[name.stringify()] = {value, typeOf(value)}; //* maybe name.name?
+                capture_list[name.stringify()] = {value, typeOf(value)};
 
             closure.capture(capture_list);
 
@@ -636,8 +650,9 @@ struct Visitor {
 
             auto return_type = func.type.ret;
             if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                // return_type = std::make_shared<type::VarType>(stringify(c->first));
-                return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
+                return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+
+                // return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
 
             if (not (*return_type >= *type_of_return_value))
                 error(

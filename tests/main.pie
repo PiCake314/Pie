@@ -28,16 +28,27 @@ comment: };
 infix(SUM) + = (a, b) => __builtin_add(a, b);
 
 
-C = class {};
 
-B = class { c = C(); };
+Human = class {
+    name: Syntax = 1 + 2;
+    age: Int = 0;
+};
 
-A = class { b = B(); };
+h = Human();
+h.name = 1;
+comment: print(h);
+comment: print(h.name);
 
-a = A();
+comment: i: Int = h;
 
-print(A);
-comment: print(a);
+func = (h: Human) => {
+    1 = 5;
+    print(__builtin_eval(h.name));
+};
+
+func(h);
+
+print(__builtin_eval(h.name));
 
 
 comment: Human = class {
