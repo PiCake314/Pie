@@ -39,6 +39,96 @@ using Environment = std::unordered_map<std::string, std::pair<Value, type::TypeP
 
 
 
+inline std::string stringify(const Value& value, const size_t indent = {}) {
+    std::string s;
+
+    if (std::holds_alternative<bool>(value)) {
+        const auto& v = std::get<bool>(value);
+        // s = std::to_string(v); // reason I did this in the first place is to allow for copy-ellision to happen
+        return v ? "true" : "false";
+    }
+
+    else if (std::holds_alternative<int>(value)) {
+        const auto& v = std::get<int>(value);
+        s = std::to_string(v);
+    }
+
+    else if (std::holds_alternative<double>(value)) {
+        const auto& v = std::get<double>(value);
+        s = std::to_string(v);
+    }
+
+    else if (std::holds_alternative<std::string>(value)) {
+        s = std::get<std::string>(value);
+    }
+
+    else if (std::holds_alternative<expr::Closure>(value)) {
+        const auto& v = std::get<expr::Closure>(value);
+
+        s = v.stringify(indent);
+    }
+
+
+    else if (std::holds_alternative<ClassValue>(value)) {
+        const auto& v = std::get<ClassValue>(value);
+
+        s = "class {\n";
+
+        const std::string space(indent + 4, ' ');
+        for (const auto& [name, value] : v.blueprint->members) {
+            s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
+
+            const bool is_string = std::holds_alternative<std::string>(value);
+            if (is_string) s += '\"';
+
+            s += stringify(value, indent + 4);
+
+            if (is_string) s += '\"';
+
+            s += ";\n";
+        }
+
+        s += std::string(indent, ' ') + '}';
+
+    }
+
+    else if (std::holds_alternative<Object>(value)) {
+        const auto& v = std::get<Object>(value);
+
+        s = "Object {\n";
+
+        const std::string space(indent + 4, ' ');
+        for (const auto& [name, value] : v.second->members) {
+            s += space + name.stringify() + " = ";
+
+            const bool is_string = std::holds_alternative<std::string>(value);
+            if (is_string) s += '\"';
+
+            s += stringify(value, indent + 4);
+
+            if (is_string) s += '\"';
+
+
+            s += ";\n";
+        }
+
+        s += std::string(indent, ' ') + '}';
+
+    }
+    else if(std::holds_alternative<expr::Node>(value)) {
+        const std::string space(indent + 4, ' ');
+
+        s = "ASTNode {\n" + space + std::visit(
+            [] (auto&& v)-> std::string { return v->stringify(); },
+            get<expr::Node>(value)
+        ) + "\n}";
+    }
+    else error("Type not found!");
+
+    return s;
+}
+
+
 struct Visitor {
     // struct Builtin { std::string name; }; // for later
 
@@ -69,7 +159,7 @@ struct Visitor {
 
     Value operator()(const expr::Name *n) {
         // what should builtins evaluate to?
-        // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :)))))
+        // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :))))
         // interesting!
         // how about a special value?
         if (isBuiltIn(n->name)) return n->name;
@@ -603,19 +693,21 @@ struct Visitor {
         closure.capture(envStackToEnvMap());
 
 
-        // for (auto& type : closure.type.params) {
-        //     validateType(type);
-        //     // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
+        for (auto& type : closure.type.params) {
+            validateType(type);
+            // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
 
-        //     if (auto&& clos = getVar(type->text()); clos and std::holds_alternative<ClassValue>(clos->first))
-        //         type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(typeStringify(get<ClassValue>(clos->first))));
-        // }
+            if (auto&& cls = getVar(type->text()); cls and std::holds_alternative<ClassValue>(cls->first))
+                // type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(clos->first))));
+                type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(cls->first)));
+        }
 
-        // if (auto&& return_type = getVar(closure.type.ret->text());
-        //     return_type and std::holds_alternative<ClassValue>(return_type->first)
-        // )
-        // closure.type.ret =
-        //     std::make_shared<type::VarType>(std::make_shared<expr::Name>(typeStringify(get<ClassValue>(return_type->first))));
+        if (auto&& return_type = getVar(closure.type.ret->text());
+            return_type and std::holds_alternative<ClassValue>(return_type->first)
+        )
+        closure.type.ret =
+            // std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(return_type->first))));
+            std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(return_type->first)));
 
 
         return closure;
@@ -1124,94 +1216,6 @@ struct Visitor {
         std::print("{}{}", stringify(value), new_line? '\n' : '\0');
     }
 
-    static std::string stringify(const Value& value, const size_t indent = {}) {
-        std::string s;
-
-        if (std::holds_alternative<bool>(value)) {
-            const auto& v = std::get<bool>(value);
-            // s = std::to_string(v); // reason I did this in the first place is to allow for copy-ellision to happen
-            return v ? "true" : "false";
-        }
-
-        else if (std::holds_alternative<int>(value)) {
-            const auto& v = std::get<int>(value);
-            s = std::to_string(v);
-        }
-
-        else if (std::holds_alternative<double>(value)) {
-            const auto& v = std::get<double>(value);
-            s = std::to_string(v);
-        }
-
-        else if (std::holds_alternative<std::string>(value)) {
-            s = std::get<std::string>(value);
-        }
-
-        else if (std::holds_alternative<expr::Closure>(value)) {
-            const auto& v = std::get<expr::Closure>(value);
-
-            s = v.stringify(indent);
-        }
-
-
-        else if (std::holds_alternative<ClassValue>(value)) {
-            const auto& v = std::get<ClassValue>(value);
-
-            s = "a_class {\n";
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.blueprint->members) {
-                s += space + name.stringify() + ":: " + name.type->text() + " == ";
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
-
-                s += stringify(value, indent + 4);
-
-                if (is_string) s += '\"';
-
-                s += ";\n";
-            }
-
-            s += std::string(indent, ' ') + '}';
-
-        }
-
-        else if (std::holds_alternative<Object>(value)) {
-            const auto& v = std::get<Object>(value);
-
-            s = "Object {\n";
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.second->members) {
-                s += space + name.stringify() + " = ";
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
-
-                s += stringify(value, indent + 4);
-
-                if (is_string) s += '\"';
-
-
-                s += ";\n";
-            }
-
-            s += std::string(indent, ' ') + '}';
-
-        }
-        else if(std::holds_alternative<expr::Node>(value)) {
-            const std::string space(indent + 4, ' ');
-
-            s = "ASTNode {\n" + space + std::visit(
-                [] (auto&& v)-> std::string { return v->stringify(); },
-                get<expr::Node>(value)
-            ) + "\n}";
-        }
-        else error("Type not found!");
-
-        return s;
-    }
 
     void validateType(const type::TypePtr& type) noexcept {
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
@@ -1237,6 +1241,9 @@ struct Visitor {
             )
             return;
 
+        }
+        else if (const auto var_type = dynamic_cast<type::LiteralType*>(type.get())) {
+            return; // I guess I can just return 
         }
         else { // has to be a function type
             const auto func_type = dynamic_cast<type::FuncType*>(type.get());
@@ -1300,6 +1307,7 @@ struct Visitor {
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
         if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
         if (std::holds_alternative<std::string>(value))  return type::builtins::String();
+        if (std::holds_alternative<ClassValue>(value))   return type::builtins::Type();
 
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& func = get<expr::Closure>(value);
@@ -1314,16 +1322,14 @@ struct Visitor {
 
             return std::make_shared<type::FuncType>(std::move(type));
         }
-        if (std::holds_alternative<ClassValue>(value)) {
-            // return Visitor::stringify(value);
-            return type::builtins::Type();
-        }
+
         if (std::holds_alternative<Object>(value)) {
             // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
 
-            std::string s = stringify(get<Object>(value).first);
+            // std::string s = stringify(get<Object>(value).first);
 
-            return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
+            return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<Object>(value).first));
+            // return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
             // return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
         }
 
@@ -1397,7 +1403,7 @@ private:
     friend std::ostream& operator<<(std::ostream& os, const Environment& env) {
         for (const auto& [name, expr] : env){
             const auto& [value, type] = expr;
-            os << name << ": " << type->text() << " = " << Visitor::stringify(value) << std::endl;
+            os << name << ": " << type->text() << " = " << stringify(value) << std::endl;
         }
 
         return os;

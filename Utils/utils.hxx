@@ -35,7 +35,7 @@ using Operators = std::unordered_map<std::string, expr::Fix*>;
 #include <stdio.h>
 #include <stdlib.h>
 
-void trace() {
+inline void trace() {
     void *callstack[128]; // Array to store addresses
     int frames = backtrace(callstack, 128); // Get addresses
     char **symbols = backtrace_symbols(callstack, frames); // Get symbol names

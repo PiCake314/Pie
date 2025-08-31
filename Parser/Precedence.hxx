@@ -20,7 +20,7 @@ namespace precedence {
   inline constexpr auto HIGH        = 1'000;
 
 
-  int fromToken(const Token& token, const Operators& ops) noexcept {
+  inline int fromToken(const Token& token, const Operators& ops) noexcept {
     switch (token.kind) {
       case TokenKind::PR_LOW:        return LOW;
       case TokenKind::PR_ASSIGNMENT: return ASSIGNMENT;
@@ -41,12 +41,12 @@ namespace precedence {
         return std::midpoint(fromToken(op->high, ops), fromToken(op->low, ops));
     }
   }
-  
-  int calculate(const Token& high, const Token& low, const Operators& ops) noexcept {
+
+  inline int calculate(const Token& high, const Token& low, const Operators& ops) noexcept {
     return std::midpoint(fromToken(high, ops), fromToken(low, ops));
   }
 
-  Token higher(const Token& token, const Operators& ops) noexcept {
+  inline Token higher(const Token& token, const Operators& ops) noexcept {
     switch (token.kind) {
       case TokenKind::PR_LOW:        return {TokenKind::PR_ASSIGNMENT, stringify(TokenKind::PR_ASSIGNMENT)};
       case TokenKind::PR_ASSIGNMENT: return {TokenKind::PR_INFIX, stringify(TokenKind::PR_INFIX)};
@@ -71,7 +71,7 @@ namespace precedence {
     }
   }
 
-  Token lower(const Token& token, const Operators& ops) noexcept {
+  inline Token lower(const Token& token, const Operators& ops) noexcept {
     switch (token.kind) {
       case TokenKind::PR_LOW:        error("Can't go lower than LOW!");
       case TokenKind::PR_ASSIGNMENT: return {TokenKind::PR_LOW, stringify(TokenKind::PR_LOW)};

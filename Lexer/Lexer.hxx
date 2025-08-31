@@ -18,7 +18,7 @@ using TokenLines = std::vector<Tokens>;
 
 
 
-TokenKind keyword(const std::string_view word) noexcept {
+inline TokenKind keyword(const std::string_view word) noexcept {
     using enum TokenKind;
          if (word == "operator"    ) return OPERATOR;
     else if (word == "prefix"    ) return PREFIX;
@@ -44,7 +44,7 @@ TokenKind keyword(const std::string_view word) noexcept {
 }
 
 
-bool validNameChar(const char c) noexcept {
+inline bool validNameChar(const char c) noexcept {
     switch (c) {
         case '!':
         case '@':
@@ -73,7 +73,7 @@ bool validNameChar(const char c) noexcept {
     return isalnum(c);
 }
 
-TokenLines lex(const std::string& src) {
+inline TokenLines lex(const std::string& src) {
     TokenLines lines = {{}};
     Tokens line;
 

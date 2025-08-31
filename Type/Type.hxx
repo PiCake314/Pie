@@ -7,11 +7,9 @@
 
 #include "../Declarations.hxx"
 
-#ifdef  TYPE_STRING
 
-using Type = std::string;
 
-#else
+struct ClassValue;
 
 namespace type {
     struct Type_t {
@@ -35,9 +33,29 @@ namespace type {
         std::string text(const size_t indent = 0) const override {
             // return t.empty() ? "Any" : t;
             const auto& type = t->stringify(indent);
-            std::clog << "TRIGHTHERE: " << type << std::endl;
             return type.empty() ? "Any" : type;
         }
+
+
+        bool operator>(const Type_t& other) const override {
+            const auto& type = text();
+            return type == "Syntax" or (type == "Any" and other.text() != "Any");
+        }
+
+
+        bool operator>=(const Type_t& other) const override {
+            const auto& type = text();
+            return type == "Syntax" or type == "Any" or type == other.text();
+        }
+    };
+
+    struct LiteralType : Type_t {
+        std::shared_ptr<ClassValue> cls;
+        // std::string t;
+
+        LiteralType(std::shared_ptr<ClassValue> s) noexcept : cls{std::move(s)} {}
+
+        std::string text(const size_t indent = 0) const override;
 
 
         bool operator>(const Type_t& other) const override {
@@ -108,20 +126,20 @@ namespace type {
 
     //* these builtins could be their own types!
     namespace builtins{
-        TypePtr Int    () { return std::make_shared<BuiltinType>("Int"   ); }
-        TypePtr Double () { return std::make_shared<BuiltinType>("Double"); };
-        TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
-        TypePtr String () { return std::make_shared<BuiltinType>("String"); };
-        TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
-        TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
-        TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
+        inline TypePtr Int    () { return std::make_shared<BuiltinType>("Int"   ); }
+        inline TypePtr Double () { return std::make_shared<BuiltinType>("Double"); };
+        inline TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
+        inline TypePtr String () { return std::make_shared<BuiltinType>("String"); };
+        inline TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
+        inline TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
+        inline TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
     }
 
-    bool isFunction(const TypePtr& t) noexcept {
+    inline bool isFunction(const TypePtr& t) noexcept {
         return dynamic_cast<const FuncType*>(t.get());
     }
 
-    bool isBuiltin(const TypePtr& t) noexcept {
+    inline bool isBuiltin(const TypePtr& t) noexcept {
         return dynamic_cast<const BuiltinType*>(t.get());
 
         // const std::string& text = t->text();
@@ -136,4 +154,3 @@ namespace type {
     }
 }
 
-#endif

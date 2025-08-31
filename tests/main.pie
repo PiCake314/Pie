@@ -37,7 +37,7 @@ A = class { b = B(); };
 a = A();
 
 print(A);
-print(a);
+comment: print(a);
 
 
 comment: Human = class {
@@ -45,20 +45,13 @@ comment:     name: String = "";
 comment:     age: Int = 0;
 comment: };
 
-
-comment: func = (h: Human) => h.age;
-
-comment: x: class { name: String = ""; age: Int = 0; } = Human("Ali", 23);
-comment: comment: x: Human = Human("Ali", 23);
-comment: print(func(x));
-
-
-
-
-
 comment: ThingWithAge = class {
 comment:     age: Int = 0;
 comment: };
+
+comment: func = (h: Human) => h.age;
+
+
 comment: x: Human = Human("Ali", 23);
 comment: t: ThingWithAge = ThingWithAge(25);
 

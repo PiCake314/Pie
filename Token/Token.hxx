@@ -50,7 +50,7 @@ enum class TokenKind {
     END,
 };
 
-const char* stringify(const TokenKind token) noexcept {
+inline const char* stringify(const TokenKind token) noexcept {
     switch (token) {
         using enum TokenKind;
         case NAME:          return "NAME";
@@ -104,7 +104,7 @@ struct Token {
 };
 
 
-std::ostream& operator<<(std::ostream& os, const Token& token) {
+inline std::ostream& operator<<(std::ostream& os, const Token& token) {
     return os << "Token{" << stringify(token.kind) << ", '" << token.text << "'}";
 }
 

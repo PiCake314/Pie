@@ -136,9 +136,8 @@ struct Class : Expr {
     : fields{std::move(f)} {}
 
     std::string stringify(const size_t indent = 0) const override {
-        puts("Class : Expr");
 
-        std::string s = "b_class {\n";
+        std::string s = "class {\n";
 
         // for (const auto& ass : fields) 
         //     s += std::string(indent + 4, ' ') + ass.stringify(indent + 4) + ";\n";
@@ -147,7 +146,6 @@ struct Class : Expr {
         for (const auto& [name, value] : fields) 
             s += space + name.name + ": " + name.type->text(indent + 4) + " = " + value->stringify(indent + 4) + ";\n";
 
-        puts((s + std::string(indent, ' ') + "}").c_str());
 
         return s + std::string(indent, ' ') + "}";
     }
