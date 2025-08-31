@@ -1,9 +1,10 @@
 # Compiler configuration
 
+# CC = g++-14
 CC = g++
 VER = -std=c++23
-OPT = -O3
-ARGS = -Wall -Wextra -Wimplicit-fallthrough -Wpedantic -Wno-gnu-case-range -Wno-missing-braces
+# OPT = -O3
+ARGS = -Wall -Wextra -Wimplicit-fallthrough -Wpedantic -Wno-gnu-case-range -Wno-missing-braces -g
 SAN = -fsanitize=address -fsanitize=undefined
 
 # Library directories

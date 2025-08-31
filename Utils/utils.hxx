@@ -14,6 +14,9 @@
 #include "../Expr/Expr.hxx"
 
 
+using Operators = std::unordered_map<std::string, expr::Fix*>;
+
+
 // not sure where to put it
 // keep it here for now...
 
@@ -26,6 +29,28 @@
     std::println(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m {}", location.file_name(), location.line(), location.column(), msg);
 
     exit(1);
+}
+
+#include <execinfo.h>
+#include <stdio.h>
+#include <stdlib.h>
+
+void trace() {
+    void *callstack[128]; // Array to store addresses
+    int frames = backtrace(callstack, 128); // Get addresses
+    char **symbols = backtrace_symbols(callstack, frames); // Get symbol names
+
+    if (symbols == NULL) {
+        perror("backtrace_symbols");
+        return;
+    }
+
+    fprintf(stderr, "Stack Trace:\n");
+    for (int i = 0; i < frames; ++i) {
+        fprintf(stderr, "%s\n", symbols[i]);
+    }
+
+    free(symbols);
 }
 
 

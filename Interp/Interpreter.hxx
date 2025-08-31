@@ -10,10 +10,11 @@
 #include <optional>
 #include <utility>
 #include <stdexcept>
+
 #include <cassert>
 #include <cctype>
-#include <stdx/tuple.hpp>
 
+#include <stdx/tuple.hpp>
 
 #include "../Utils/utils.hxx"
 #include "../Expr/Expr.hxx"
@@ -27,7 +28,7 @@ struct Dict;
 // carrys the default values to be copied into an object. essentially const
 // carrys objects' values. could be changed
 
-using Object = std::shared_ptr<Dict>; 
+using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
 // for lazy eval type
 using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
@@ -76,7 +77,11 @@ struct Visitor {
         if (auto&& var = getVar(n->stringify()); var) return var->first;
 
 
+
+        // std::println("Trace: {}", std::stacktrace::current())
+        // trace();
         error("Name \"" + n->stringify() + "\" is not defined");
+        // std::unreachable();
     }
 
 
@@ -92,8 +97,8 @@ struct Visitor {
 
             const auto& obj = get<Object>(left);
 
-            const auto& found = std::ranges::find_if(obj->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
-            if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+            const auto& found = std::ranges::find_if(obj.second->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
+            if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
 
             //TODO: Dry this out!
@@ -116,14 +121,14 @@ struct Visitor {
                 type = var->second;
             }
             else { // New var
-                validateType(name->type);
-                // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
-
                 type = name->type;
+                // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
+                validateType(type);
+
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     // type = std::make_shared<type::VarType>(stringify(c->first)); // check if the type is a user-defined-class
-                    type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(typeStringify(get<ClassValue>(c->first))));
+                    type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(c->first))));
             }
 
 
@@ -175,12 +180,15 @@ struct Visitor {
 
             // this performs type checking...i think
             // it doesn't add vars to the environment bc we added a scope guard
-            std::visit(*this, field.variant());
+
+            //! commented this for now
+            // // std::visit(*this, field.variant());
+
 
             // I think we don't need to check the type against the name.type
             // since the line above already did type checking
-            const auto& v = std::visit(*this, field.rhs->variant());
-            members.push_back({{field.lhs->stringify(), typeOf(v)}, v});
+            const auto& v = std::visit(*this, field.second->variant());
+            members.push_back({{field.first.stringify(), typeOf(v)}, v});
         }
 
 
@@ -205,15 +213,15 @@ struct Visitor {
 
         const auto& obj = std::get<Object>(left);
 
-        const auto& found = std::ranges::find_if(obj->members, [&name = acc->name] (auto&& member) { return member.first.stringify() == name; });
-        if (found == obj->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+        const auto& found = std::ranges::find_if(obj.second->members, [&name = acc->name] (auto&& member) { return member.first.stringify() == name; });
+        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
 
 
         if (std::holds_alternative<expr::Closure>(found->second)) {
             const auto& closure = get<expr::Closure>(found->second);
 
             Environment capture_list;
-            for (const auto& [name, value] : obj->members)
+            for (const auto& [name, value] : obj.second->members)
                 capture_list[name.stringify()] = {value, typeOf(value)}; //* maybe name.name?
 
             closure.capture(capture_list);
@@ -498,10 +506,12 @@ struct Visitor {
             }
 
 
-            Environment args_env;
             // full call. Don't curry!
+            Environment args_env;
             for (const auto& [name, type, arg] : std::views::zip(func.params, func.type.params, call->args)){
                 validateType(type);
+
+
                 // if (not isValidType(type)) error("Type '" + type->text() + "' is not a valid type!");
 
                 if (type->text() == "Syntax") {
@@ -510,6 +520,7 @@ struct Visitor {
                     continue;
                 }
 
+                // todo: look up types here..i think
 
                 const auto& value = std::visit(*this, arg->variant());
                 if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
@@ -552,24 +563,24 @@ struct Visitor {
             const auto& cls = std::get<ClassValue>(var);
 
             if (call->args.size() > cls.blueprint->members.size())
-                error("Too many arguments passed to constructor of class: " + typeStringify(cls));
+                error("Too many arguments passed to constructor of class: " + stringify(cls));
 
             // copying defaults field values from class definition
-            Object obj{ std::make_shared<Dict>(cls.blueprint->members) };
+            Object obj{cls, std::make_shared<Dict>(cls.blueprint->members) };
 
             // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
             // const auto& [arg, value] : std::views::zip(call->args, obj->members)
             for (size_t i{}; i < call->args.size(); ++i) {
                 const auto& v = std::visit(*this, call->args[i]->variant());
 
-                if (typeOf(v)->text() != typeOf(obj->members[i].second)->text())
+                if (typeOf(v)->text() != obj.second->members[i].first.type->text())
                     error(
-                        "Type mis-match in constructor of:\n" + typeStringify(cls) + "Member `" +
-                        obj->members[i].first.stringify() + "` expected: " + typeOf(obj->members[i].second)->text() +
+                        "Type mis-match in constructor of:\n" + stringify(cls) + "Member `" +
+                        obj.second->members[i].first.stringify() + "` expected: " + obj.second->members[i].first.type->text() +
                         "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
                     );
 
-                obj->members[i].second = v;
+                obj.second->members[i].second = v;
             }
 
             return obj;
@@ -587,8 +598,27 @@ struct Visitor {
         if (auto&& var = getVar(c->stringify()); var) return var->first;
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
-        c->capture(envStackToEnvMap());
-        return *c;
+        expr::Closure closure = *c; // copy
+
+        closure.capture(envStackToEnvMap());
+
+
+        // for (auto& type : closure.type.params) {
+        //     validateType(type);
+        //     // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
+
+        //     if (auto&& clos = getVar(type->text()); clos and std::holds_alternative<ClassValue>(clos->first))
+        //         type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(typeStringify(get<ClassValue>(clos->first))));
+        // }
+
+        // if (auto&& return_type = getVar(closure.type.ret->text());
+        //     return_type and std::holds_alternative<ClassValue>(return_type->first)
+        // )
+        // closure.type.ret =
+        //     std::make_shared<type::VarType>(std::make_shared<expr::Name>(typeStringify(get<ClassValue>(return_type->first))));
+
+
+        return closure;
     }
 
 
@@ -1094,7 +1124,7 @@ struct Visitor {
         std::print("{}{}", stringify(value), new_line? '\n' : '\0');
     }
 
-    static std::string stringify(const Value& value, size_t indent = {}) {
+    static std::string stringify(const Value& value, const size_t indent = {}) {
         std::string s;
 
         if (std::holds_alternative<bool>(value)) {
@@ -1127,11 +1157,11 @@ struct Visitor {
         else if (std::holds_alternative<ClassValue>(value)) {
             const auto& v = std::get<ClassValue>(value);
 
-            s = "class {\n";
+            s = "a_class {\n";
 
             const std::string space(indent + 4, ' ');
             for (const auto& [name, value] : v.blueprint->members) {
-                s += space + name.stringify() + " = ";
+                s += space + name.stringify() + ":: " + name.type->text() + " == ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
                 if (is_string) s += '\"';
@@ -1143,7 +1173,7 @@ struct Visitor {
                 s += ";\n";
             }
 
-            s += '}';
+            s += std::string(indent, ' ') + '}';
 
         }
 
@@ -1153,7 +1183,7 @@ struct Visitor {
             s = "Object {\n";
 
             const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v->members) {
+            for (const auto& [name, value] : v.second->members) {
                 s += space + name.stringify() + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
@@ -1167,7 +1197,7 @@ struct Visitor {
                 s += ";\n";
             }
 
-            s += indent + '}';
+            s += std::string(indent, ' ') + '}';
 
         }
         else if(std::holds_alternative<expr::Node>(value)) {
@@ -1186,14 +1216,15 @@ struct Visitor {
     void validateType(const type::TypePtr& type) noexcept {
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
             if (
-                const auto& t = var_type->text();
-                t == "Any" or
-                t == "Syntax" or
-                t == "Int" or
-                t == "Double" or
-                t == "Bool" or
-                t == "String" or
-                t == "Type"
+                // const auto& t = var_type->text();
+                // t == "Any" or
+                // t == "Syntax" or
+                // t == "Int" or
+                // t == "Double" or
+                // t == "Bool" or
+                // t == "String" or
+                // t == "Type"
+                type::isBuiltin(type)
             )
             return;
 
@@ -1222,27 +1253,45 @@ struct Visitor {
     }
 
 
-    static std::string typeStringify(const Object& o) {
-        std::string s = "class {\n";
+    // std::string getTypeValue(const type::TypePtr& type) noexcept {
+    //     validateType(type);
 
-        // should I use '\t' or "    "
-        for (const auto& [name, value] : o->members)
-            s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
-        s += "}\n";
+    //     if (type::isBuiltin(type) or type::isFunction(type)) return type->text();
 
-        return s;
-    }
+    //     // has to be class value now.
+    //     const type::VarType* var_type = dynamic_cast<const type::VarType*>(type.get());
+    //     if (not var_type) error();
+
+    //     const Value& value = std::visit(*this, var_type->t->variant());
+    //     if(not std::holds_alternative<ClassValue>(value)) error();
+    //     return typeStringify(get<ClassValue>(value));
+    // }
 
 
-    static std::string typeStringify(const ClassValue& c) {
-        std::string s = "class {\n";
+    // static std::string typeStringify(const Object& o) {
+    //     std::string s = "class {\n";
 
-        for (const auto& [name, value] : c.blueprint->members)
-            s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
-        s += "}\n";
+    //     // should I use '\t' or "    "
+    //     for (const auto& [name, value] : o.second->members)
+    //         s += "    " + name.stringify() + ": " + name.type->text() + " = " + stringify(value) + ";\n";
+    //         // s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
 
-        return s;
-    }
+    //     s += "}\n";
+
+    //     return s;
+    // }
+
+
+    // static std::string typeStringify(const ClassValue& c) {
+    //     std::string s = "class {\n";
+
+    //     for (const auto& [name, value] : c.blueprint->members)
+    //     s += "    " + name.stringify() + ": " + name.type->text() + " = " + stringify(value) + ";\n";
+    //         // s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
+    //     s += "}\n";
+
+    //     return s;
+    // }
 
 
     type::TypePtr typeOf(const Value& value) noexcept {
@@ -1272,7 +1321,7 @@ struct Visitor {
         if (std::holds_alternative<Object>(value)) {
             // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
 
-            std::string s = typeStringify(get<Object>(value));
+            std::string s = stringify(get<Object>(value).first);
 
             return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
             // return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));

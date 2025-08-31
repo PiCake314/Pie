@@ -22,6 +22,8 @@
 #include "../Utils/utils.hxx"
 
 
+
+
 // [[noreturn]] void error(const std::string& msg) noexcept {
 //     puts(msg.c_str());
 //     exit(1);
@@ -156,16 +158,19 @@ public:
             case CLASS:{
                 consume(L_BRACE);
 
-                std::vector<expr::Assignment> fields;
+                std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
 
                 while (not match(R_BRACE)) {
                     auto expr = parseExpr();
                     consume(SEMI);
 
-                    auto ass = dynamic_cast<const expr::Assignment*>(expr.get());
+                    const auto& ass = dynamic_cast<const expr::Assignment*>(expr.get());
                     if (not ass) error("Can only have assignments in class definition!");
 
-                    fields.push_back(*ass);
+                    const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
+                    if (not n) error("Can only assign to names in class definition!");
+
+                    fields.push_back({*n, std::move(ass->rhs)});
                 }
 
                 return std::make_unique<expr::Class>(std::move(fields));
@@ -346,6 +351,8 @@ public:
 
             case DOT:{
                 const auto& accessee = parseExpr(precedence::HIGH);
+
+                //* maybe this could change and i can allow object.1 + 2. :). Just a thought
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
                 if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
 

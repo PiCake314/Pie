@@ -15,7 +15,7 @@ using Type = std::string;
 
 namespace type {
     struct Type_t {
-        virtual std::string text() const = 0;
+        virtual std::string text(const size_t indent = 0) const = 0;
 
         virtual bool operator==(const Type_t& other) const { return text() == other.text(); }
         virtual bool operator> (const Type_t& other) const = 0;
@@ -27,14 +27,15 @@ namespace type {
     using TypePtr = std::shared_ptr<Type_t>;
 
     struct VarType : Type_t {
-        // std::string t;
         expr::ExprPtr t;
+        // std::string t;
 
         VarType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
 
-        std::string text() const override {
+        std::string text(const size_t indent = 0) const override {
             // return t.empty() ? "Any" : t;
-            const auto& type = t->stringify();
+            const auto& type = t->stringify(indent);
+            std::clog << "TRIGHTHERE: " << type << std::endl;
             return type.empty() ? "Any" : type;
         }
 
@@ -59,7 +60,7 @@ namespace type {
         FuncType() = default;
         explicit FuncType(std::vector<TypePtr> ps, TypePtr r) noexcept : params{std::move(ps)}, ret{std::move(r)} {}
 
-        std::string text() const override {
+        std::string text(const size_t = 0) const override {
 
             std::string t = params.empty() ? "" : params[0]->text();
             for (size_t i = 1uz; i < params.size(); ++i)
@@ -101,7 +102,7 @@ namespace type {
         std::string t;
 
         BuiltinType(std::string s) noexcept : VarType{nullptr}, t{std::move(s)} {}
-        std::string text() const override { return t; }
+        std::string text(const size_t = 0) const override { return t; }
     };
 
 
@@ -114,6 +115,24 @@ namespace type {
         TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
         TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
         TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
+    }
+
+    bool isFunction(const TypePtr& t) noexcept {
+        return dynamic_cast<const FuncType*>(t.get());
+    }
+
+    bool isBuiltin(const TypePtr& t) noexcept {
+        return dynamic_cast<const BuiltinType*>(t.get());
+
+        // const std::string& text = t->text();
+
+        // return text == "int"
+        //     or text == "Double"
+        //     or text == "Bool"
+        //     or text == "String"
+        //     or text == "Any"
+        //     or text == "Syntax"
+        //     or text == "Type";
     }
 }
 

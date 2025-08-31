@@ -1,7 +1,7 @@
 #pragma once
 
 #include <iostream>
-#include <cmath>
+#include <print>
 #include <string>
 #include <vector>
 #include <utility>
@@ -9,6 +9,7 @@
 #include <numeric>
 #include <memory>
 #include <variant>
+#include <cmath>
 
 #include "../Token/Token.hxx"
 #include "../Declarations.hxx"
@@ -62,7 +63,7 @@
 
 
 using ASTNode     = expr::ExprPtr;
-using Object      = std::shared_ptr<Dict>; 
+using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
 using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
@@ -125,17 +126,28 @@ struct Assignment : Expr {
 
 
 struct Class : Expr {
-    std::vector<Assignment> fields;
+    // std::vector<Assignment> fields;
+    std::vector<std::pair<Name, ExprPtr>> fields;
 
-    explicit Class(std::vector<Assignment> f) noexcept
-    : fields{std::move(f)}
-    {}
+    // explicit Class(std::vector<Assignment> f) noexcept
+    // : fields{std::move(f)} {}
+
+    explicit Class(std::vector<std::pair<Name, ExprPtr>> f) noexcept
+    : fields{std::move(f)} {}
 
     std::string stringify(const size_t indent = 0) const override {
-        std::string s = "class {\n";
+        puts("Class : Expr");
 
-        for (const auto& ass : fields) 
-            s += std::string(indent + 4, ' ') + ass.stringify(indent + 4) + ";\n";
+        std::string s = "b_class {\n";
+
+        // for (const auto& ass : fields) 
+        //     s += std::string(indent + 4, ' ') + ass.stringify(indent + 4) + ";\n";
+
+        const std::string space(indent + 4, ' ');
+        for (const auto& [name, value] : fields) 
+            s += space + name.name + ": " + name.type->text(indent + 4) + " = " + value->stringify(indent + 4) + ";\n";
+
+        puts((s + std::string(indent, ' ') + "}").c_str());
 
         return s + std::string(indent, ' ') + "}";
     }
@@ -509,7 +521,7 @@ struct Operator : Fix {
     // begin_expr{begin}, end_expr{end}
     {
         if (size_t(std::ranges::count(op_pos, true)) != rest.size() + 1) { // + 1 for first
-            std::println("rest: {}", rest);
+            // std::println("rest: {}", rest);
             puts("ERROR!! This should never happen..,");
             exit(1);
         }

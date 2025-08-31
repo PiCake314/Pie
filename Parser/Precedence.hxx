@@ -5,8 +5,6 @@
 
 #include <numeric>
 
-using Operators = std::unordered_map<std::string, expr::Fix*>;
-
 
 namespace precedence {
   inline constexpr auto LOW         = 0;
