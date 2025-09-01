@@ -1,30 +1,6 @@
 print = __builtin_print;
 
 
-
-comment: loop = (c: Syntax, b: Syntax) => {
-comment:     __builtin_conditional(
-comment:         __builtin_eval(__builtin_eval(c)),
-comment:         {
-comment:             __builtin_eval(b);
-comment:             loop(__builtin_eval(c), b);
-comment:         },
-comment:         "done"
-comment:     );
-comment: };
-
-comment: operator(LOW +) while:: = (cond: Syntax, body: Syntax) => loop(cond, b);
-
-
-
-comment: x = 0;
-comment: while (__builtin_not(__builtin_eq(x, 10))) {
-comment:     print(x);
-comment:     comment: x = __builtin_add(x, 1); BTW: this creates a new variable..
-comment: };
-
-
-
 infix(SUM) + = (a, b) => __builtin_add(a, b);
 
 
@@ -32,40 +8,11 @@ infix(SUM) + = (a, b) => __builtin_add(a, b);
 Human = class {
     name: Syntax = 1 + 2;
     age: Int = 0;
+
+    add = (a, b) => a + b + age;
 };
 
-h = Human();
-h.name = 1;
-comment: print(h);
-comment: print(h.name);
-
-comment: i: Int = h;
-
-func = (h: Human) => {
-    1 = 5;
-    print(__builtin_eval(h.name));
-};
-
-func(h);
-
-print(__builtin_eval(h.name));
-
-
-comment: Human = class {
-comment:     name: String = "";
-comment:     age: Int = 0;
-comment: };
-
-comment: ThingWithAge = class {
-comment:     age: Int = 0;
-comment: };
-
-comment: func = (h: Human) => h.age;
-
-
-comment: x: Human = Human("Ali", 23);
-comment: t: ThingWithAge = ThingWithAge(25);
-
-comment: print(func(x));
-comment: print(func(t));
-
+OldInt = Int;
+Int = Human;
+x: OldInt = 1;
+print(x);

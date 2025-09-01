@@ -121,7 +121,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         s = "ASTNode {\n" + space + std::visit(
             [] (auto&& v)-> std::string { return v->stringify(); },
             get<expr::Node>(value)
-        ) + "\n}";
+        ) + '\n' + std::string(indent, ' ') + '}';
     }
     else error("Type not found!");
 
@@ -616,11 +616,10 @@ struct Visitor {
                 validateType(type);
 
 
-                // if (not isValidType(type)) error("Type '" + type->text() + "' is not a valid type!");
-
                 if (type->text() == "Syntax") {
                     // addVar(name, arg->variant());
-                    args_env[name] = {arg->variant(), type::builtins::Any()};
+                    // args_env[name] = {arg->variant(), type::builtins::Any()};
+                    args_env[name] = {arg->variant(), type};
                     continue;
                 }
 
@@ -631,7 +630,7 @@ struct Visitor {
                     error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
 
                 // addVar(name, std::visit(*this, arg->variant()));
-                args_env[name] = {std::visit(*this, arg->variant()), type::builtins::Any()};
+                args_env[name] = {std::visit(*this, arg->variant()), type};
             }
                 // env.back()[param] = std::visit(*this, arg->variant());
 
