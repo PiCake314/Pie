@@ -38,12 +38,16 @@ namespace type {
 
 
         bool operator>(const Type_t& other) const override {
+            // if (not dynamic_cast<const VarType*>(&other)) return false;
+
             const auto& type = text();
             return type == "Syntax" or (type == "Any" and other.text() != "Any");
         }
 
 
         bool operator>=(const Type_t& other) const override {
+            // if (not dynamic_cast<const VarType*>(&other)) return false;
+
             const auto& type = text();
             return type == "Syntax" or type == "Any" or type == other.text();
         }
@@ -59,12 +63,16 @@ namespace type {
 
 
         bool operator>(const Type_t& other) const override {
+            if (not dynamic_cast<const LiteralType*>(&other)) return false;
+
             const auto& type = text();
             return type == "Syntax" or (type == "Any" and other.text() != "Any");
         }
 
 
         bool operator>=(const Type_t& other) const override {
+            if (not dynamic_cast<const LiteralType*>(&other)) return false;
+
             const auto& type = text();
             return type == "Syntax" or type == "Any" or type == other.text();
         }
@@ -89,7 +97,7 @@ namespace type {
 
 
         bool operator>(const Type_t& other) const override {
-            if (dynamic_cast<const VarType*>(&other)) return false;
+            if (not dynamic_cast<const FuncType*>(&other)) return false;
 
             // this might throw, but it technically shouldn't
             const auto& that = dynamic_cast<const FuncType&>(other);
@@ -102,7 +110,7 @@ namespace type {
         }
 
         bool operator>=(const Type_t& other) const override {
-            if (dynamic_cast<const VarType*>(&other)) return false;
+            if (not dynamic_cast<const FuncType*>(&other)) return false;
 
             // this might throw, but it technically shouldn't
             const auto& that = dynamic_cast<const FuncType&>(other);
@@ -125,7 +133,7 @@ namespace type {
 
 
     //* these builtins could be their own types!
-    namespace builtins{
+    namespace builtins {
         inline TypePtr Int    () { return std::make_shared<BuiltinType>("Int"   ); }
         inline TypePtr Double () { return std::make_shared<BuiltinType>("Double"); };
         inline TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
@@ -133,6 +141,8 @@ namespace type {
         inline TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
         inline TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
         inline TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
+
+        inline TypePtr _      () { return std::make_shared<BuiltinType>("_"  ); };
     }
 
     inline bool isFunction(const TypePtr& t) noexcept {

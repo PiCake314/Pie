@@ -3,16 +3,26 @@ print = __builtin_print;
 
 infix(SUM) + = (a, b) => __builtin_add(a, b);
 
+x: Int = 4;
+func1 = () => x: Int = 1;
+func2 = () => x = 1;
 
 
-Human = class {
-    name: Syntax = 1 + 2;
-    age: Int = 0;
-
-    add = (a, b) => a + b + age;
-};
-
-OldInt = Int;
-Int = Human;
-x: OldInt = 1;
+func1();
 print(x);
+
+func2();
+print(x);
+
+
+comment: Human = class {
+comment:     name: Syntax = 1 + 2;
+comment:     age: Int = 0;
+
+comment:     add = (a, b) => a + b + age;
+comment: };
+
+comment: OldInt = Int;
+comment: Int = Human;
+comment: x: OldInt = 1;
+comment: print(x);

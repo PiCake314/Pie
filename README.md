@@ -81,10 +81,17 @@ x = { };
 ## Operators
 Pie doesn't provide any operators. One has to define their own. For that reason, any operator symbol (+, -, *, /, etc...) can be used as a variable name.
 
-There are `3` types of operators that can be defined:
-- `prefix`
-- `infix`
-- `suffix`
+There are `5` types of operators that can be defined:
+- `prefix`:\
+    e.g. `- 1`
+- `infix`:\
+    e.g. `1 + 2`
+- `suffix`:\
+    e.g. `5 !`
+- `exfix`:\
+    e.g. `[ 0 ]`
+- `operator`:\
+    e.g. [example](#Operator-Example)
 
 Here is how to define your own operator:
 ```pie
@@ -110,6 +117,7 @@ Here is the list of the precedence levels (from lowest to highest)
 To create an operator that has a precedence higher than `SUM` but lower than `PROD`, then attach a `+` or `-` after the level. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
 i.e: `(PROD -) > (SUM +)`
 
+### Operator Example
 
 ## Builtins
 Since Pie doesn't provide any operators, how does one achieve ANYTHING at all with Pie?\
@@ -163,6 +171,27 @@ Functions can also be typed: `(T1, T2): T3`
 one: (Int): Int = (x: Int): Int => 1;
 ```
 
+### Syntax Type:
+The `Syntax` type is a special type that gives a handle onto the AST node used to represent an expression.\
+Take this example:
+```pie
+operator(SUM) + = (a, b) => __builtin_add(a, b);
+
+x: Syntax = 1 + a;
+```
+`x` is a hadle to the AST which represents the expression `1 + a`. 
+To evaluate `x`, you just need to call __builtin_eval on it:\
+```pie
+result = __builtin_eval(x);
+```
+However, evaluating `x` right now will error since `a` is not defined. All we need to do is define `a` before evaluating `x`.
+```pie
+a = 5;
+result = __builtin_eval(x);
+__builtin_print(result);
+```
+`6` will be printed.
+
 
 ## Comments:
 Any thing following one of the these will be considered a comment until a newline character `'\n'` is encountered (or EOF):
@@ -200,9 +229,8 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Todo:
 ##### in order of priority:
-- [ ] Add ternary operators
+- [ ] Change comments to `.::` and `::.`
 - [ ] Remove depedency on stdx and boost
-- [ ] Find a way to represent BigInt's without an extra library... :c
 - [ ] Add an import system (modules)
 - [ ] Add collections
 - [ ] Add looping
@@ -210,8 +238,11 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] Add variadic arguments
 - [ ] Add named arguments
 - [ ] Add method operators..?
-- [ ] Change int to BigInt type in interpreter
+- [ ] Add namespaces
+- [ ] World domination
+- [ ] Use Big Int instead of `int32_t`;
 - [ ] Add recursive operators
+
 ---
 ### Done:
 - [x] Add Arbitrary Operators!!!
@@ -224,5 +255,3 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [x] Add booleans
 - [x] Add closures
 ---
-### Long term:
-- World domination

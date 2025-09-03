@@ -203,18 +203,27 @@ struct Visitor {
         }
 
         if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
-            type::TypePtr type = type::builtins::Any();
+            // type::TypePtr type = type::builtins::Any();
+            type::TypePtr type = name->type;
 
             // variable already exists. Check that type matches the rhs type
             if (auto&& var = getVar(name->name); var) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
-                type = var->second;
+
+                // type = var->second;
+                // std::clog << type->text() << std::endl;
+
+                if (name->type->text() == "Any") { // "Any" for now indicates no type was annotated...potentially
+                    const auto& v = std::visit(*this, ass->rhs->variant());
+                    changeVar(name->name, v);
+                    return v;
+                }
+
             }
             else { // New var
-                type = name->type;
+                // type = name->type;
                 // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
                 validateType(type);
-
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
@@ -701,16 +710,18 @@ struct Visitor {
     Value operator()(const expr::Closure *c) {
         if (auto&& var = getVar(c->stringify()); var) return var->first;
 
-        // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
-        expr::Closure closure = *c; // copy
+        expr::Closure closure = *c; // copy to use for fix the types
 
-        closure.capture(envStackToEnvMap());
+        // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
+        // closure.capture(envStackToEnvMap());
+
 
 
         for (auto& type : closure.type.params) {
             validateType(type);
             // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
 
+            // replacing expressions that represnt types
             if (auto&& cls = getVar(type->text()); cls and std::holds_alternative<ClassValue>(cls->first))
                 // type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(clos->first))));
                 type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(cls->first)));
@@ -1382,8 +1393,18 @@ private:
         for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
             if (rev_it->contains(name)) return rev_it->at(name);
 
-
         return {};
+    }
+
+    bool changeVar(const std::string& name, const Value& v) {
+        for (auto rev_it = env.rbegin(); rev_it != env.rend(); ++rev_it)
+            if (rev_it->contains(name)) {
+                const auto& t = rev_it->at(name).second;
+                (*rev_it)[name] = {v, t};
+                return true;
+            }
+
+        return false;
     }
 
     void removeVar(const std::string& name) {
