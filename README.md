@@ -233,22 +233,23 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Todo:
 ##### in order of priority:
-- [ ] Change comments to `.::` and `::.`
-- [ ] Remove depedency on stdx and boost
-- [ ] Add an import system (modules)
+= [ ] Add overloading operators
 - [ ] Add collections
-- [ ] Add iterators
-- [ ] Add variadic arguments
-- [ ] Add named arguments
 - [ ] Add method operators..?
+- [ ] Add variadic arguments
 - [ ] Add namespaces
-- [ ] World domination
+- [ ] Add an import system (modules)
+- [ ] Add named arguments
 - [ ] Use Big Int instead of `int32_t`;
+- [ ] World domination
+- [ ] Add iterators
+- [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
 - [ ] Add LLVM backend
 
 ---
 ### Done:
+- [x] Change comments to `.::` and `::.`
 - [x] Add Arbitrary Operators!!!
 - [x] Add circumfix operators
 - [x] Add lazy evaluation
