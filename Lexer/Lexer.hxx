@@ -150,10 +150,10 @@ inline TokenLines lex(const std::string& src) {
                 std::string lower = word;
                 std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) { return std::tolower(c); });
 
-                if((lower == "comment" or lower == "note" or lower == "ps" or lower == "btw" or lower == "todo") and src[index] == ':'){
-                    while(++index < src.length() and src[index] != '\n');
-                    break;
-                }
+                // if((lower == "comment" or lower == "note" or lower == "ps" or lower == "btw" or lower == "todo") and src[index] == ':'){
+                //     while(++index < src.length() and src[index] != '\n');
+                //     break;
+                // }
 
                 if (word == "__TEXT__") [[unlikely]] {
                     std::string line_text;
@@ -191,7 +191,22 @@ inline TokenLines lex(const std::string& src) {
                 break;
 
             case ',': lines.back().push_back({COMMA, {src[index]}}); break;
-            case '.': lines.back().push_back({DOT, {src[index]}}); break;
+            case '.':
+                if (src.at(index+1) == ':') {
+                    if (src.at(index+2) == ':') {
+                        for(index += 2;
+                            // src.at(index) != ':' or src.at(index + 1) != ':' or src.at(index + 2) == '.'
+                            src.substr(index, 3) != "::.";
+                            ++index
+                        );
+                        index += 2;
+                    }
+                    else while(++index < src.length() and src[index] != '\n');
+                }
+                else lines.back().push_back({DOT, {src[index]}});
+
+                break;
+
             case ':': lines.back().push_back({COLON, {src[index]}}); break;
 
             case ';':
@@ -217,55 +232,21 @@ inline TokenLines lex(const std::string& src) {
 
             case '"':{
                 const size_t old = index;
-                while(src[++index] != '"') {
+                while(src.at(++index) != '"') {
                     // if (src[index] == '\\')
                 }
                 lines.back().push_back({STRING, src.substr(old + 1, index - old -1)});
             } break;
-
-            // case '&':
-            //     if (src[index + 1] == '&') {
-            //         lines.back().push_back({NAME, src.substr(index++, 2)}); // plusplused here
-            //         // ++index;
-            //         break;
-            //     }
-            // [[fallthrough]];
-
-            // case '|':
-            //     if (src[index + 1] == '|') {
-            //         lines.back().push_back({NAME, {src[index], src[++index]}});
-            //         break;
-            //     }
-            // [[fallthrough]];
-
-            // case '!':
-            // case '@':
-            // case '#':
-            // case '$':
-            // case '%':
-            // case '^':
-            // case '*':
-            // case '-':
-            // case '+':
-            // case '~':
-            // {
-            //     const char op = src[index];
-            //     const auto beginning = index;
-            //     while (src[++index] == op);
-            //     lines.back().push_back({NAME, src.substr(beginning, index - beginning)});
-            //     --index;
-            // } break;
-
 
 
             default: break;
         }
         }
         catch(const std::exception& err) {
-            std::cerr << err.what() << ":\n";
-            for (auto&& line : lines)
-                for (auto&& tok : line)
-                    std::cout << tok << '\n';
+            // std::cerr << err.what() << ":\n";
+            // for (auto&& line : lines)
+            //     for (auto&& tok : line)
+            //         std::cout << tok << '\n';
 
             error("Lexing Error!");
         }

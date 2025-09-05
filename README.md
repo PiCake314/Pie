@@ -194,15 +194,19 @@ __builtin_print(result);
 
 
 ## Comments:
-Any thing following one of the these will be considered a comment until a newline character `'\n'` is encountered (or EOF):
-- `comment:`
-- `todo:`
-- `note:`
-- `btw:`
-- `ps:`
-
-Casing doesn't matter.
-
+#### Line comments:
+```pie
+.: this is a comment
+this isn't
+```
+#### Block comments:
+```pie
+.::
+    this is a comment
+this is also a comment
+so is this::.
+this isn't
+```
 
 ## Install
 Make sure you have `git`, and C++ compiler that supports C++23. Then paste the following script in the terminal:
@@ -233,7 +237,6 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] Remove depedency on stdx and boost
 - [ ] Add an import system (modules)
 - [ ] Add collections
-- [ ] Add looping
 - [ ] Add iterators
 - [ ] Add variadic arguments
 - [ ] Add named arguments
@@ -242,6 +245,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] World domination
 - [ ] Use Big Int instead of `int32_t`;
 - [ ] Add recursive operators
+- [ ] Add LLVM backend
 
 ---
 ### Done:
@@ -255,3 +259,5 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [x] Add booleans
 - [x] Add closures
 ---
+### Discarded:
+- ~~[ ] Add looping~~

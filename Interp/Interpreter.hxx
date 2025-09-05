@@ -119,7 +119,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         const std::string space(indent + 4, ' ');
 
         s = "ASTNode {\n" + space + std::visit(
-            [] (auto&& v)-> std::string { return v->stringify(); },
+            [indent] (auto&& v)-> std::string { return v->stringify(indent + 4); },
             get<expr::Node>(value)
         ) + '\n' + std::string(indent, ' ') + '}';
     }
@@ -168,7 +168,7 @@ struct Visitor {
 
 
 
-        // std::println("Trace: {}", std::stacktrace::current())
+        // std::println("Trace: {}", std::stacktrace::current());
         // trace();
         error("Name \"" + n->stringify() + "\" is not defined");
         // std::unreachable();
@@ -542,10 +542,9 @@ struct Visitor {
         // if (oc->exprs.size() != func->params.size()) error();
 
         Environment args_env;
-
         for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
             if (param_type->text() == "Syntax") {
-                args_env[param] = {arg_expr->variant(), type::builtins::Any()}; //* Any type??
+                args_env[param] = {arg_expr->variant(), type::builtins::Any()}; //! Any type??
             }
             else {
                 validateType(param_type);
@@ -563,7 +562,7 @@ struct Visitor {
                 }
 
                 // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-                args_env[param] = {arg, type::builtins::Any()};
+                args_env[param] = {arg, type::builtins::Any()}; //! fix Any Type!!
             }
         }
 

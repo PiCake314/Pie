@@ -121,16 +121,16 @@ public:
                             const int prec = precedence::calculate(op->high, op->low, ops);
 
                             std::vector<expr::ExprPtr> exprs;
-                            for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(2)) {
+                            for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(1)) {
                                 // match will consume the op
                                 if (is_op) {
-                                    if (not match(op->rest[i]))
-                                        error("Expected '" + op->rest[i] + "', got '" + lookAhead().text + "'!");
+                                    if (not match(op->rest[i++]))
+                                        error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
                                 }
                                 else exprs.push_back(parseExpr(prec));
                             }
 
-                            if (not op->op_pos.back()) exprs.push_back(parseExpr(prec));
+                            // if (not op->op_pos.back()) exprs.push_back(parseExpr(prec));
 
                             return std::make_shared<expr::OpCall>(
                                 op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
@@ -316,8 +316,8 @@ public:
                             for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(2)) {
                                 // match will consume the op
                                 if (is_op) {
-                                    if (not match(op->rest[i]))
-                                        error("Expected '" + op->rest[i] + "', got '" + lookAhead().text + "'!");
+                                    if (not match(op->rest[i++]))
+                                        error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
                                 }
                                 else exprs.push_back(parseExpr(prec));
                             }

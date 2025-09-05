@@ -270,11 +270,12 @@ struct OpCall : Expr {
     std::string stringify(const size_t indent = 0) const override {
         // std::string s = op_pos[0] ? first : exprs[0]->stringify(indent) + ' ' + first;
 
+        // std::println(std::cerr, "{}, {}", first, rest);
 
         std::string s;
         for (ssize_t op = -1, i{}; const auto& field : op_pos) {
             if (field) {
-                s += op == -1 ? first : rest[op];
+                s += op == -1 ? first : ' ' + rest[op];
                 ++op;
             }
             else s += ' ' + exprs[i++]->stringify(indent);
@@ -553,7 +554,7 @@ struct Operator : Fix {
         //     + (end_expr ? ':' : '\0');
 
 
-        return "exfix(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
+        return "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
     }
 
 

@@ -1,28 +1,27 @@
 print = __builtin_print;
 
-
-infix(SUM) + = (a, b) => __builtin_add(a, b);
-
-x: Int = 4;
-func1 = () => x: Int = 1;
-func2 = () => x = 1;
+infix(SUM)   + = (a, b) => __builtin_add(a, b);
+infix(INFIX) < = (a, b) => __builtin_lt(a, b);
+operator(LOW +) if:then:else: = (__cnd: Bool, __thn: Syntax, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
 
 
-func1();
-print(x);
+loop = (cond, body) => if __builtin_eval(cond) then {
+    __builtin_eval(body);
+    loop(cond, body);
+}
+else "NONE";
 
-func2();
-print(x);
+operator(LOW +) while:: = (cond: Syntax, body: Syntax) => loop(cond, body);
 
 
-comment: Human = class {
-comment:     name: Syntax = 1 + 2;
-comment:     age: Int = 0;
 
-comment:     add = (a, b) => a + b + age;
-comment: };
+.:: wow ::.
 
-comment: OldInt = Int;
-comment: Int = Human;
-comment: x: OldInt = 1;
-comment: print(x);
+i = 0;
+while(i < 10) {
+    print(i);
+    i = i + 1;
+};
+
+
+
