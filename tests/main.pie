@@ -1,27 +1,29 @@
 print = __builtin_print;
 
-infix(SUM)   + = (a, b) => __builtin_add(a, b);
-infix(INFIX) < = (a, b) => __builtin_lt(a, b);
-operator(LOW +) if:then:else: = (__cnd: Bool, __thn: Syntax, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
-
-
-loop = (cond, body) => if __builtin_eval(cond) then {
-    __builtin_eval(body);
-    loop(cond, body);
-}
-else "NONE";
-
-operator(LOW +) while:: = (cond: Syntax, body: Syntax) => loop(cond, body);
+.: operator(LOW +) if:then:else: = (__cnd: Bool, __thn: Syntax, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
+infix(SUM) + = (a, b) => __builtin_add(a, b);
 
 
 
-.:: wow ::.
 
-i = 0;
-while(i < 10) {
-    print(i);
-    i = i + 1;
+outer = () => {
+    x = 1;
+
+    () => { a: Any = x; a; };
 };
+print(outer()());
 
 
+.: Human = class {
+.:     name: String = "";
+.:     age: Int = 0;
 
+.:     print = () => __builtin_print("Name: ", name, ", Age: ", age);
+
+.:     infix(SUM) + = (a, b) => "Added!";
+.: };
+
+
+.: h: Human = Human("Ali", 22);
+.: h.print();
+.: print(h);

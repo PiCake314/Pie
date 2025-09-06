@@ -147,7 +147,8 @@ public:
                 //     return std::make_unique<UnaryOp>(token, parseExpr(precedence::PREFIX));
                 // else
                 {
-                type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
                 // if (type->text() != "Any")
                 //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
@@ -159,6 +160,7 @@ public:
                 consume(L_BRACE);
 
                 std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
+                // std::vector<expr::ExprPtr> fields;
 
                 while (not match(R_BRACE)) {
                     auto expr = parseExpr();
@@ -169,6 +171,7 @@ public:
 
                     const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
                     if (not n) error("Can only assign to names in class definition!");
+
 
                     fields.push_back({*n, std::move(ass->rhs)});
                 }
@@ -202,6 +205,7 @@ public:
                 if (match(R_PAREN)) { // nullary closure
 
                     type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
+                    // type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::_();
 
                     consume(FAT_ARROW);
                     // It's a closure
@@ -218,15 +222,16 @@ public:
                 if (is_closure) {
 
                     Token name = consume(NAME);
-                    // type::TypePtr type = std::make_shared<type::VarType>(match(COLON) ? consume(NAME).text : "Any");
-                    type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                    // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                    type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
 
                     std::vector<std::string> params = {std::move(name).text};
                     std::vector<type::TypePtr> params_types = {std::move(type)};
 
                     while(match(COMMA)) {
                         name = consume(NAME);
-                        type = match(COLON) ? parseType() : type::builtins::Any();
+                        // type = match(COLON) ? parseType() : type::builtins::Any();
+                        type = match(COLON) ? parseType() : type::builtins::_();
                         // type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any();
 
                         params.push_back(std::move(name).text);
@@ -235,8 +240,8 @@ public:
 
                     consume(R_PAREN);
 
-                    // type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any(); // return type
-                    type = match(COLON) ? parseType() : type::builtins::Any();
+                    // type = match(COLON) ? parseType() : type::builtins::Any();
+                    type = match(COLON) ? parseType() : type::builtins::_();
 
                     consume(FAT_ARROW);
 

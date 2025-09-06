@@ -118,6 +118,10 @@ struct Assignment : Expr {
     {}
 
     std::string stringify(const size_t indent = 0) const override {
+        if (auto name = dynamic_cast<const Name*>(lhs.get())) {
+            return name->stringify() + ": " + name->type->text() + " = " + rhs->stringify(indent);
+        }
+
         return lhs->stringify(indent) + " = " + rhs->stringify(indent);
     }
 

@@ -210,10 +210,8 @@ struct Visitor {
             if (auto&& var = getVar(name->name); var) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
 
-                // type = var->second;
-                // std::clog << type->text() << std::endl;
-
-                if (name->type->text() == "Any") { // "Any" for now indicates no type was annotated...potentially
+                if (name->type->text() == "_") { // "_" indicates no type was annotated...
+                    // std::clog << ass->stringify() << std::endl;
                     const auto& v = std::visit(*this, ass->rhs->variant());
                     changeVar(name->name, v);
                     return v;
@@ -223,7 +221,9 @@ struct Visitor {
             else { // New var
                 // type = name->type;
                 // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
-                validateType(type);
+                if (type->text() == "_")
+                    type = type::builtins::Any();
+                else validateType(type);
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
@@ -712,7 +712,7 @@ struct Visitor {
         expr::Closure closure = *c; // copy to use for fix the types
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
-        // closure.capture(envStackToEnvMap());
+        closure.capture(envStackToEnvMap());
 
 
 
