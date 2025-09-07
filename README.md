@@ -233,12 +233,13 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Todo:
 ##### in order of priority:
-= [ ] Add overloading operators
-- [ ] Add collections
+- [ ] Add REPL
 - [ ] Add method operators..?
+= [ ] Add overloading operators
 - [ ] Add variadic arguments
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
+- [ ] Add collections
 - [ ] Add named arguments
 - [ ] Use Big Int instead of `int32_t`;
 - [ ] World domination

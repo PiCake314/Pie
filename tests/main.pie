@@ -1,29 +1,57 @@
 print = __builtin_print;
 
-.: operator(LOW +) if:then:else: = (__cnd: Bool, __thn: Syntax, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
+
+.: operator(LOW +) :if:then:else: = (__cnd: Bool, __thn: Syntax, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
+
+operator(LOW +) :if:else: = (__thn: Syntax, __cnd: Bool, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
+
+
+
+
+a = 1;
+b = __builtin_true();
+c = 2;
+e = __builtin_false();
+d = 3;
+
+print(a if b else c if e else d);
+
+
+
 infix(SUM) + = (a, b) => __builtin_add(a, b);
+.: infix(SUM) - = (a, b) => __builtin_sub(a, b);
+
+1 + 2 + 3;
 
 
 
 
-outer = () => {
-    x = 1;
+.: .: ;;{ COMMENT BLOCK }
 
-    () => { a: Any = x; a; };
-};
-print(outer()());
+.: double_outer = () => {
+.:     g = 10;
 
+.:     outer = (a) => {
+.:         a = 1;
+.:         x = 2;
 
-.: Human = class {
-.:     name: String = "";
-.:     age: Int = 0;
+.:         inner =
+.:         .: (a, x) =>
+.:         () => {
+.:             print(g);
+.:             print(a);
+.:             print(x);
+.:             z = 20;
+.:         };
 
-.:     print = () => __builtin_print("Name: ", name, ", Age: ", age);
+.:         .: a = 3;
+.:         .: x = 4;
 
-.:     infix(SUM) + = (a, b) => "Added!";
+.:         .: inner(a, x);
+.:         inner;
+.:     };
+.:     outer;
 .: };
 
-
-.: h: Human = Human("Ali", 22);
-.: h.print();
-.: print(h);
+.: double_outer()(0)();
+.: .: outer(0)();

@@ -31,17 +31,14 @@
 
 
 class Parser {
-    // TokenLines __lines; // owner of memory for iterator below
-    // typename TokenLines::iterator lines;
-
-    Tokens tokens;         // this is the owner of the memory now
+    Tokens tokens;         // owner of memory for iterator below
     typename Tokens::iterator token_iterator;
 
     Operators ops;
+    bool in_class{}; // tells us if we're in class definition or not
 
 
-    std::deque<Token> red;
-
+    std::deque<Token> red; // past tense of read lol
 public:
     Parser(Tokens t) : tokens{std::move(t)}, token_iterator{tokens.begin()} {
         // if (__lines.empty()) [[unlikely]] error("Empty File!");
@@ -59,7 +56,14 @@ public:
 
         while (not atEnd()) {
             expressions.push_back(parseExpr());
-            consume(TokenKind::SEMI);
+
+            // consume(TokenKind::SEMI);
+            if (not match(TokenKind::SEMI)) {
+                const auto t = lookAhead(0);
+                if (t.kind == TokenKind::NAME)
+                    error("Operator '" + t.text + "' not found!");
+                expected(TokenKind::SEMI, t);
+            }
         }
 
 
@@ -130,8 +134,6 @@ public:
                                 else exprs.push_back(parseExpr(prec));
                             }
 
-                            // if (not op->op_pos.back()) exprs.push_back(parseExpr(prec));
-
                             return std::make_shared<expr::OpCall>(
                                 op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
                             );
@@ -158,9 +160,10 @@ public:
 
             case CLASS:{
                 consume(L_BRACE);
+                in_class = true;
 
-                std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
-                // std::vector<expr::ExprPtr> fields;
+                // std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
+                std::vector<expr::ExprPtr> fields;
 
                 while (not match(R_BRACE)) {
                     auto expr = parseExpr();
@@ -173,8 +176,11 @@ public:
                     if (not n) error("Can only assign to names in class definition!");
 
 
-                    fields.push_back({*n, std::move(ass->rhs)});
+                    // fields.push_back({*n, std::move(ass->rhs)});
+                    fields.push_back(std::move(expr));
                 }
+
+                in_class = false;
 
                 return std::make_unique<expr::Class>(std::move(fields));
             }
@@ -222,16 +228,16 @@ public:
                 if (is_closure) {
 
                     Token name = consume(NAME);
-                    // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-                    type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
+                    type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                    // type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
 
                     std::vector<std::string> params = {std::move(name).text};
                     std::vector<type::TypePtr> params_types = {std::move(type)};
 
                     while(match(COMMA)) {
                         name = consume(NAME);
-                        // type = match(COLON) ? parseType() : type::builtins::Any();
-                        type = match(COLON) ? parseType() : type::builtins::_();
+                        type = match(COLON) ? parseType() : type::builtins::Any();
+                        // type = match(COLON) ? parseType() : type::builtins::_();
                         // type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any();
 
                         params.push_back(std::move(name).text);
@@ -240,8 +246,8 @@ public:
 
                     consume(R_PAREN);
 
-                    // type = match(COLON) ? parseType() : type::builtins::Any();
-                    type = match(COLON) ? parseType() : type::builtins::_();
+                    type = match(COLON) ? parseType() : type::builtins::Any();
+                    // type = match(COLON) ? parseType() : type::builtins::_();
 
                     consume(FAT_ARROW);
 
@@ -327,16 +333,8 @@ public:
                                 else exprs.push_back(parseExpr(prec));
                             }
 
-                            // for (const auto& part : op->rest) {
-                            //     exprs.push_back(parseExpr(prec));
-                            //     if (not match(part)) error("Expected '" + part + "', got '" + lookAhead().text + "'!");
-                            // }
-                            // if (op->end_expr) exprs.push_back(parseExpr(prec));
 
-
-                            return std::make_shared<expr::OpCall>(
-                                op->name, op->rest, std::move(exprs), op->op_pos
-                            );
+                            return std::make_shared<expr::OpCall>(op->name, op->rest, std::move(exprs), op->op_pos);
                         }
 
                         // case TokenKind::OPERATOR: {
@@ -501,17 +499,20 @@ public:
 
 
             case NAME: {
-                // can't have a name as an infix if it's not an operator
+                // Probably in the middle of an operator() with :: or more
                 if (not ops.contains(token.text)) {
                     // log();
-                    error("Operator " + token.text + " not found!");
+                    // error("Operator '" + token.text + "' not found!");
+                    return 0;
                 }
 
                 const auto op = ops[token.text];
-                // if (op->type() == TokenKind::EXFIX) return -100;
+                const int prec = precedence::calculate(op->high, op->low, ops);
 
 
-                return precedence::calculate(op->high, op->low, ops);
+                return token.text == op->name ? prec +1 : prec; // for OPERATORs!!!
+
+
             }
 
             case L_PAREN: return precedence::CALL;

@@ -131,12 +131,13 @@ struct Assignment : Expr {
 
 struct Class : Expr {
     // std::vector<Assignment> fields;
-    std::vector<std::pair<Name, ExprPtr>> fields;
+    // std::vector<std::pair<Name, ExprPtr>> fields;
+    std::vector<ExprPtr> fields;
 
-    // explicit Class(std::vector<Assignment> f) noexcept
+    // explicit Class(std::vector<std::pair<Name, ExprPtr>> f) noexcept
     // : fields{std::move(f)} {}
 
-    explicit Class(std::vector<std::pair<Name, ExprPtr>> f) noexcept
+    explicit Class(std::vector<ExprPtr> f) noexcept
     : fields{std::move(f)} {}
 
     std::string stringify(const size_t indent = 0) const override {
@@ -147,8 +148,18 @@ struct Class : Expr {
         //     s += std::string(indent + 4, ' ') + ass.stringify(indent + 4) + ";\n";
 
         const std::string space(indent + 4, ' ');
-        for (const auto& [name, value] : fields) 
-            s += space + name.name + ": " + name.type->text(indent + 4) + " = " + value->stringify(indent + 4) + ";\n";
+        for (const auto& field : fields) {
+            if (auto ass = dynamic_cast<const Assignment*>(field.get())) {
+                auto name = dynamic_cast<const Name*>(ass->lhs.get()); // don't need to check if it's nullptr. Parsing phase already did that
+
+                s += space + name->name + ": " + name->type->text(indent + 4)
+                + " = " + ass->rhs->stringify(indent + 4) + ";\n";
+            }
+            else { // has to be an operator...no need to check bc parsing did already check
+                puts("Error for now");
+                exit(1);
+            }
+        }
 
 
         return s + std::string(indent, ' ') + "}";
@@ -279,9 +290,11 @@ struct OpCall : Expr {
         std::string s;
         for (ssize_t op = -1, i{}; const auto& field : op_pos) {
             if (field) {
-                s += op == -1 ? first : ' ' + rest[op];
+                if (op == -1) s += first;
+                else s += ' ' + rest[op];
                 ++op;
             }
+            else if (op == -1) s += exprs[i++]->stringify(indent) + ' ';
             else s += ' ' + exprs[i++]->stringify(indent);
         }
 

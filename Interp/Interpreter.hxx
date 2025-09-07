@@ -37,8 +37,6 @@ struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
-
-
 inline std::string stringify(const Value& value, const size_t indent = {}) {
     std::string s;
 
@@ -129,6 +127,17 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
 }
 
 
+inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
+    for (const auto& [name, expr] : env){
+        const auto& [value, type] = expr;
+        os << name << ": " << type->text() << " = " << stringify(value) << std::endl;
+    }
+
+    return os;
+}
+
+
+
 struct Visitor {
     // struct Builtin { std::string name; }; // for later
 
@@ -205,17 +214,22 @@ struct Visitor {
         if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
             // type::TypePtr type = type::builtins::Any();
             type::TypePtr type = name->type;
+            bool change{};
 
             // variable already exists. Check that type matches the rhs type
             if (auto&& var = getVar(name->name); var) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
-
-                if (name->type->text() == "_") { // "_" indicates no type was annotated...
-                    // std::clog << ass->stringify() << std::endl;
-                    const auto& v = std::visit(*this, ass->rhs->variant());
-                    changeVar(name->name, v);
-                    return v;
+                if (name->type->text() == "_") {
+                    type = var->second;
+                    change = true;
                 }
+
+                // if (name->type->text() == "_") { // "_" indicates no type was annotated...
+                //     // std::clog << ass->stringify() << std::endl;
+                //     const auto& v = std::visit(*this, ass->rhs->variant());
+                //     changeVar(name->name, v);
+                //     return v;
+                // }
 
             }
             else { // New var
@@ -233,7 +247,6 @@ struct Visitor {
 
             if (type->text() == "Syntax")
                 return addVar(name->stringify(), ass->rhs->variant(), type);
-
 
 
             auto value = std::visit(*this, ass->rhs->variant());
@@ -257,7 +270,12 @@ struct Visitor {
 
 
             // std::clog << "Here: " << name->stringify() << '\n';
-            return addVar(name->stringify(), value, type);
+
+                //     return v;
+            if (change) changeVar(name->name, value);
+            else        addVar(name->stringify(), value, type);
+
+            return value;
         }
 
 
@@ -274,34 +292,41 @@ struct Visitor {
 
         ScopeGuard sg{this};
         for (const auto& field : cls->fields) {
-            type::TypePtr type = field.first.type;
-            Value v;
+            if (auto ass = dynamic_cast<const expr::Assignment*>(field.get())) {
+                auto name = dynamic_cast<const expr::Name*>(ass->lhs.get());
 
-            if (type->text() == "Syntax") {
-                // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
-                type = type::builtins::Syntax();
-                v = field.second->variant();
-            }
-            else {
-                validateType(type);
+                type::TypePtr type = name->type;
+                if (type->text() == "_") type = type::builtins::Any();
 
-                if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                Value v;
 
-
-                v = std::visit(*this, field.second->variant());
-
-                if (auto&& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
-                    std::println(std::cerr, "In class member assignment: {}: {} = {}",
-                        field.first.stringify(),
-                        field.first.type->text(),
-                        field.second->stringify());
-                    error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                if (type->text() == "Syntax") {
+                    // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
+                    type = type::builtins::Syntax();
+                    v = ass->rhs->variant();
                 }
+                else {
+                    validateType(type);
+
+                    if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                        type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+
+
+                    v = std::visit(*this, ass->rhs->variant());
+
+                    if (auto&& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
+                        std::println(std::cerr, "In class member assignment: {}: {} = {}",
+                            name->name,
+                            name->type->text(),
+                            ass->rhs->stringify());
+                        error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                    }
+                }
+
+
+                members.push_back({{name->name, type}, v});
             }
 
-
-            members.push_back({{field.first.stringify(), type}, v});
         }
 
 
@@ -632,7 +657,6 @@ struct Visitor {
                 }
 
                 // todo: look up types here..i think
-
                 const auto& value = std::visit(*this, arg->variant());
                 if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
                     error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
@@ -666,6 +690,14 @@ struct Visitor {
                     "Type mis-match! Function return type Expected: " +
                     return_type->text() + ", got: " + type_of_return_value->text()
                 );
+
+            // if (std::holds_alternative<expr::Closure>(ret)) {
+            //     const auto& closure = get<expr::Closure>(ret);
+
+            //     // closure.capture(func.env);
+            //     // closure.capture(env.back());
+            //     // closure.capture(env[env.size() - 2]);
+            // }
 
             return ret;
         }
@@ -712,7 +744,7 @@ struct Visitor {
         expr::Closure closure = *c; // copy to use for fix the types
 
         // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
-        closure.capture(envStackToEnvMap());
+        // closure.capture(envStackToEnvMap());
 
 
 
@@ -745,7 +777,7 @@ struct Visitor {
         ScopeGuard sg{this};
 
         Value ret;
-        for (const auto& line : block->lines) 
+        for (const auto& line : block->lines)
             ret = std::visit(*this, line->variant()); // a scope's value is the last expression
 
         return ret;
@@ -1431,16 +1463,6 @@ private:
 
             std::println("{}: {} = {}", name, type->text(), stringify(value));
         }
-    }
-
-
-    friend std::ostream& operator<<(std::ostream& os, const Environment& env) {
-        for (const auto& [name, expr] : env){
-            const auto& [value, type] = expr;
-            os << name << ": " << type->text() << " = " << stringify(value) << std::endl;
-        }
-
-        return os;
     }
 
 };
