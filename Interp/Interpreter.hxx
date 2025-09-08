@@ -397,7 +397,7 @@ struct Visitor {
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params.front(), up->expr->variant());
             //* maybe should use Syntax() instead of Any();
-            args_env[func->params[0]] = {up->expr->variant(), type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {up->expr->variant(), func->type.params[0]}; //? fixed
         }
         else {
             validateType(func->type.params[0]);
@@ -413,7 +413,7 @@ struct Visitor {
 
             // addVar(func->params.front(), arg);
             //* maybe should use Syntax() instead of Any();
-            args_env[func->params[0]] = {arg, type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
         }
 
         ScopeGuard sg{this, args_env};
@@ -437,7 +437,7 @@ struct Visitor {
         // LHS
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params[0], bp->lhs->variant());
-            args_env[func->params[0]] = {bp->lhs->variant(), type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {bp->lhs->variant(), func->type.params[0]}; //? fixed
         }
         else {
             validateType(func->type.params[0]);
@@ -453,13 +453,13 @@ struct Visitor {
                 );
 
             // addVar(func->params[0], arg1);
-            args_env[func->params[0]] = {arg1, type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {arg1, func->type.params[0]}; //? fixed
         }
 
         // RHS
         if (func->type.params[1]->text() == "Syntax") {
             // addVar(func->params[1], bp->rhs->variant());
-            args_env[func->params[1]] = {bp->rhs->variant(), type::builtins::Any()}; //! fix
+            args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]}; //? fixed
         }
         else {
             validateType(func->type.params[1]);
@@ -475,7 +475,7 @@ struct Visitor {
                 );
 
             // addVar(func->params[1], arg2);
-            args_env[func->params[1]] = {arg2, type::builtins::Any()}; //! fix
+            args_env[func->params[1]] = {arg2, func->type.params[1]}; //? fixed
         }
 
         ScopeGuard sg{this, args_env};
@@ -496,7 +496,7 @@ struct Visitor {
         Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params[0], pp->expr->variant());
-            args_env[func->params[0]] = {pp->expr->variant(), type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {pp->expr->variant(), func->type.params[0]}; //? fixed
         }
         else {
             validateType(func->type.params[0]);
@@ -512,7 +512,7 @@ struct Visitor {
                 );
 
             // addVar(func->params[0], std::visit(*this, pp->expr->variant()));
-            args_env[func->params[0]] = {arg, type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
         }
 
         ScopeGuard sg{this, args_env};
@@ -533,7 +533,7 @@ struct Visitor {
         Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params[0], co->expr->variant());
-            args_env[func->params[0]] = {cp->expr->variant(), type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {cp->expr->variant(), func->type.params[0]}; //? fixed
         }
         else {
             validateType(func->type.params[0]);
@@ -549,7 +549,7 @@ struct Visitor {
                 );
 
             // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-            args_env[func->params[0]] = {arg, type::builtins::Any()}; //! fix
+            args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
         }
 
         ScopeGuard sg{this, args_env};
@@ -569,7 +569,7 @@ struct Visitor {
         Environment args_env;
         for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
             if (param_type->text() == "Syntax") {
-                args_env[param] = {arg_expr->variant(), type::builtins::Any()}; //! Any type??
+                args_env[param] = {arg_expr->variant(), param_type}; //?
             }
             else {
                 validateType(param_type);
@@ -587,7 +587,7 @@ struct Visitor {
                 }
 
                 // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-                args_env[param] = {arg, type::builtins::Any()}; //! fix Any Type!!
+                args_env[param] = {arg, param_type}; //? fix Any Type!!
             }
         }
 
@@ -853,8 +853,9 @@ struct Visitor {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
         for(const auto& builtin : {
+            "print", "concat", //* variadic
             "true", "false", "input_str", "input_int", //* nullary
-            "print", "reset", "eval","neg", "not",     //* unary
+            "reset", "eval","neg", "not",     //* unary
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
             "conditional" //* trinary
         })
@@ -1164,6 +1165,9 @@ struct Visitor {
         if (name == "input_str") return execute<0>(stdx::get<S<"input_str">>(functions).value, {}, this);
         if (name == "input_int") return execute<0>(stdx::get<S<"input_int">>(functions).value, {}, this);
 
+
+
+        // for now, can only implement variadic functions inlined in this function
         if (name == "print") {
             if (call->args.empty()) error("'print' requires at least 1 argument passed!");
 
@@ -1176,6 +1180,21 @@ struct Visitor {
             puts(""); // print the new line in the end.
             return ret;
         }
+
+        if (name == "concat") {
+            if (call->args.size() < 2) error("'concat' requires at least 2 argument passed!");
+
+            std::string s;
+            for(const auto& arg : call->args) {
+                const Value& v = std::visit(*this, arg->variant());
+                if (not std::holds_alternative<std::string>(v)) error("'concat' only accepts strings as arguments: " + stringify(v));
+
+                s += get<std::string>(v);
+            }
+
+            return s;
+        }
+
 
 
         if (name == "neg" or name == "not" or name == "reset") arity_check(1); // just for now..
@@ -1197,7 +1216,6 @@ struct Visitor {
         }
 
 
-        // if (name == "print") return execute<1>(stdx::get<S<"print">>(functions).value, {value1}, this);
 
         if (name == "eval" ) return execute<1>(stdx::get<S<"eval" >>(functions).value, {value1}, this);
         if (name == "neg"  ) return execute<1>(stdx::get<S<"neg"  >>(functions).value, {value1}, this);

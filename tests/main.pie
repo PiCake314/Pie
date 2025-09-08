@@ -1,33 +1,10 @@
 print = __builtin_print;
 
 
+prefix(LOW +) pp = (a: String) => a = 1;
 
-d_o = () => {
-    g = 10;
-    outer = (a, b) => {
-        a = 1;
-        x = 2;
+pp "Hello";
 
-        inner = () => {
-            print(g);
-            print(a);
-            print(b);
-            print(x);
-            a = 10;
-            b = 20;
-        };
+.: f("Hello");
 
-        .: a = 3;
-        .: x = 4;
-
-        inner();
-
-        inner;
-    };
-
-    outer;
-};
-
-
-d_o()(0, 10)();
-.: outer(0, 10)();
+.: print(__builtin_concat(1, ", ", "World", "!"));
