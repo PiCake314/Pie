@@ -1,57 +1,33 @@
 print = __builtin_print;
 
 
-.: operator(LOW +) :if:then:else: = (__cnd: Bool, __thn: Syntax, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
 
-operator(LOW +) :if:else: = (__thn: Syntax, __cnd: Bool, __els: Syntax) => __builtin_eval(__builtin_conditional(__cnd, __thn, __els));
+d_o = () => {
+    g = 10;
+    outer = (a, b) => {
+        a = 1;
+        x = 2;
+
+        inner = () => {
+            print(g);
+            print(a);
+            print(b);
+            print(x);
+            a = 10;
+            b = 20;
+        };
+
+        .: a = 3;
+        .: x = 4;
+
+        inner();
+
+        inner;
+    };
+
+    outer;
+};
 
 
-
-
-a = 1;
-b = __builtin_true();
-c = 2;
-e = __builtin_false();
-d = 3;
-
-print(a if b else c if e else d);
-
-
-
-infix(SUM) + = (a, b) => __builtin_add(a, b);
-.: infix(SUM) - = (a, b) => __builtin_sub(a, b);
-
-1 + 2 + 3;
-
-
-
-
-.: .: ;;{ COMMENT BLOCK }
-
-.: double_outer = () => {
-.:     g = 10;
-
-.:     outer = (a) => {
-.:         a = 1;
-.:         x = 2;
-
-.:         inner =
-.:         .: (a, x) =>
-.:         () => {
-.:             print(g);
-.:             print(a);
-.:             print(x);
-.:             z = 20;
-.:         };
-
-.:         .: a = 3;
-.:         .: x = 4;
-
-.:         .: inner(a, x);
-.:         inner;
-.:     };
-.:     outer;
-.: };
-
-.: double_outer()(0)();
-.: .: outer(0)();
+d_o()(0, 10)();
+.: outer(0, 10)();

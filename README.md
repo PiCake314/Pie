@@ -233,10 +233,10 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Todo:
 ##### in order of priority:
-- [ ] Add REPL
 - [ ] Add method operators..?
 = [ ] Add overloading operators
 - [ ] Add variadic arguments
+- [ ] Change __builtin_{true|false} to true/false;
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
 - [ ] Add collections
@@ -244,6 +244,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] Use Big Int instead of `int32_t`;
 - [ ] World domination
 - [ ] Add iterators
+- [ ] Add REPL
 - [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
 - [ ] Add LLVM backend

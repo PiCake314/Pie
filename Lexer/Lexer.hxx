@@ -35,7 +35,6 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "INFIX"     ) return PR_INFIX;
     else if (word == "PREFIX"    ) return PR_PREFIX;
     else if (word == "POSTFIX"   ) return PR_POSTFIX;
-    // else if (word == "CIRCUMFIX" ) return PR_CIRCUMFIX;
     else if (word == "CALL"      ) return PR_CALL;
     else if (word == "HIGH"      ) return PR_HIGH;
 

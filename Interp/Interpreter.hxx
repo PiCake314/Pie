@@ -691,13 +691,16 @@ struct Visitor {
                     return_type->text() + ", got: " + type_of_return_value->text()
                 );
 
-            // if (std::holds_alternative<expr::Closure>(ret)) {
-            //     const auto& closure = get<expr::Closure>(ret);
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                const auto& closure = get<expr::Closure>(ret);
 
-            //     // closure.capture(func.env);
-            //     // closure.capture(env.back());
-            //     // closure.capture(env[env.size() - 2]);
-            // }
+                closure.capture(args_env);   // to capture the arguments of the enclosing functions
+                closure.capture(func.env);   // copy the environment of the parent function..
+
+                closure.capture(env.back()); // in case any argument was reassigned
+                // capturing env.back() after args_env ensures the latest binding gets chosen
+
+            }
 
             return ret;
         }
@@ -779,6 +782,13 @@ struct Visitor {
         Value ret;
         for (const auto& line : block->lines)
             ret = std::visit(*this, line->variant()); // a scope's value is the last expression
+
+
+
+        if (std::holds_alternative<expr::Closure>(ret)) {
+            const auto& func = get<expr::Closure>(ret);
+            func.capture(env.back());
+        }
 
         return ret;
     }
