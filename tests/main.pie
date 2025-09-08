@@ -1,10 +1,3 @@
 print = __builtin_print;
 
 
-prefix(LOW +) pp = (a: String) => a = 1;
-
-pp "Hello";
-
-.: f("Hello");
-
-.: print(__builtin_concat(1, ", ", "World", "!"));

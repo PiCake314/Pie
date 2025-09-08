@@ -18,54 +18,12 @@
 
 
 
-
-// struct Expr;
-// using ExprPtr = std::shared_ptr<Expr>;
-
-
-// struct Num;
-// struct String;
-// struct Name;
-// struct Assignment;
-// struct Class;
-// struct Access;
-// struct UnaryOp;
-// struct BinOp;
-// struct PostOp;
-// struct Call;
-// struct Closure;
-// struct Block;
-// struct Fix;
-// // struct Prefix;
-// // struct Infix;
-// // struct Suffix;
-
-// // has to be pointers kuz we're forward declareing
-// // has to be forward declared bc we're using in in the class bellow
-// using Node = std::variant<
-//     const Num*,
-//     const String*,
-//     const Name*,
-//     const Assignment*,
-//     const Class*,
-//     const Access*,
-//     const UnaryOp*,
-//     const BinOp*,
-//     const PostOp*,
-//     const Call*,
-//     const Closure*,
-//     const Fix*,
-//     const Block*
-//     // const Prefix*,
-//     // const Infix*,
-//     // const Suffix*
-// >;
-
-
 using ASTNode     = expr::ExprPtr;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
 using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
+
+
 
 namespace expr {
 
@@ -130,35 +88,20 @@ struct Assignment : Expr {
 
 
 struct Class : Expr {
-    // std::vector<Assignment> fields;
-    // std::vector<std::pair<Name, ExprPtr>> fields;
-    std::vector<ExprPtr> fields;
+    std::vector<std::pair<Name, ExprPtr>> fields;
 
-    // explicit Class(std::vector<std::pair<Name, ExprPtr>> f) noexcept
-    // : fields{std::move(f)} {}
-
-    explicit Class(std::vector<ExprPtr> f) noexcept
+    explicit Class(std::vector<std::pair<Name, ExprPtr>> f) noexcept
     : fields{std::move(f)} {}
+
 
     std::string stringify(const size_t indent = 0) const override {
 
         std::string s = "class {\n";
 
-        // for (const auto& ass : fields) 
-        //     s += std::string(indent + 4, ' ') + ass.stringify(indent + 4) + ";\n";
-
         const std::string space(indent + 4, ' ');
         for (const auto& field : fields) {
-            if (auto ass = dynamic_cast<const Assignment*>(field.get())) {
-                auto name = dynamic_cast<const Name*>(ass->lhs.get()); // don't need to check if it's nullptr. Parsing phase already did that
-
-                s += space + name->name + ": " + name->type->text(indent + 4)
-                + " = " + ass->rhs->stringify(indent + 4) + ";\n";
-            }
-            else { // has to be an operator...no need to check bc parsing did already check
-                puts("Error for now");
-                exit(1);
-            }
+            s += space + field.first.name + ": " + field.first.type->text(indent + 4)
+            + " = " + field.second->stringify(indent + 4) + ";\n";
         }
 
 

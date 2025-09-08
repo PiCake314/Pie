@@ -35,7 +35,6 @@ class Parser {
     typename Tokens::iterator token_iterator;
 
     Operators ops;
-    bool in_class{}; // tells us if we're in class definition or not
 
 
     std::deque<Token> red; // past tense of read lol
@@ -160,10 +159,8 @@ public:
 
             case CLASS:{
                 consume(L_BRACE);
-                in_class = true;
 
-                // std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
-                std::vector<expr::ExprPtr> fields;
+                std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
 
                 while (not match(R_BRACE)) {
                     auto expr = parseExpr();
@@ -176,11 +173,8 @@ public:
                     if (not n) error("Can only assign to names in class definition!");
 
 
-                    // fields.push_back({*n, std::move(ass->rhs)});
-                    fields.push_back(std::move(expr));
+                    fields.push_back({*n, std::move(ass->rhs)});
                 }
-
-                in_class = false;
 
                 return std::make_unique<expr::Class>(std::move(fields));
             }
@@ -559,7 +553,7 @@ public:
 
 
         // gotta dry out this part
-        // plus, I don't like that I made Fix : Expr take a ExprPtr rather than closure but I'll leave it for now
+        // plus, I don't like that I made "Fix" take a "ExprPtr" rather than closure but I'll leave it for now
         std::unique_ptr<expr::Fix> p;
         if (token.kind == PREFIX) {
             if (c->params.size() != 1) error("Prefix operator must be assigned to a unary closure!");

@@ -292,40 +292,37 @@ struct Visitor {
 
         ScopeGuard sg{this};
         for (const auto& field : cls->fields) {
-            if (auto ass = dynamic_cast<const expr::Assignment*>(field.get())) {
-                auto name = dynamic_cast<const expr::Name*>(ass->lhs.get());
 
-                type::TypePtr type = name->type;
-                if (type->text() == "_") type = type::builtins::Any();
+            type::TypePtr type = field.first.type;
+            if (type->text() == "_") type = type::builtins::Any();
 
-                Value v;
+            Value v;
 
-                if (type->text() == "Syntax") {
-                    // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
-                    type = type::builtins::Syntax();
-                    v = ass->rhs->variant();
-                }
-                else {
-                    validateType(type);
-
-                    if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                        type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
-
-
-                    v = std::visit(*this, ass->rhs->variant());
-
-                    if (auto&& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
-                        std::println(std::cerr, "In class member assignment: {}: {} = {}",
-                            name->name,
-                            name->type->text(),
-                            ass->rhs->stringify());
-                        error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
-                    }
-                }
-
-
-                members.push_back({{name->name, type}, v});
+            if (type->text() == "Syntax") {
+                // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
+                type = type::builtins::Syntax();
+                v = field.second->variant();
             }
+            else {
+                validateType(type);
+
+                if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+
+
+                v = std::visit(*this, field.second->variant());
+
+                if (auto&& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
+                    std::println(std::cerr, "In class member assignment: {}: {} = {}",
+                        field.first.name,
+                        field.first.type->text(),
+                        field.second->stringify());
+                    error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                }
+            }
+
+
+            members.push_back({{field.first.name, type}, v});
 
         }
 
