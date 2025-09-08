@@ -283,7 +283,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 #### in order of priority
 
 - [ ] Add method operators..?
-= [ ] Add overloading operators
+- [ ] Add overloading operators
 - [ ] Add variadic arguments
 - [ ] Change __builtin_{true|false} to true/false;
 - [ ] Add namespaces
