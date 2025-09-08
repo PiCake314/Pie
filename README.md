@@ -1,6 +1,5 @@
 # Welcome to Pie Lang!
 
-
 ## Philosophy
 <!-- This language aims to be unique, but it also should still feel familiar. Here are some of it's "features": -->
 - Pie aims to be unique yet feel familiar
@@ -11,41 +10,50 @@
 - No null/unit/none type or any type indicating nothing
 
 ## Introduction
-- [Variables](#Variables)
-- [Closures](#Closures)
-- [Classes](#Classes)
-- [Scopes](#Scopes)
-- [Operators](#Operators)
-- [Built-in Functions](#Builtins)
-- [Types](#Types)
-- [Comments](#Comments)
 
+- [Variables](#variables)
+- [Closures](#closures)
+- [Classes](#classes)
+- [Scopes](#scopes)
+- [Operators](#operators)
+- [Built-in Functions](#builtins)
+- [Types](#types)
+- [Comments](#comments)
 
-## Variables:
+## Variables
+
 Define variables using assignment with an optional type:
+
 ```pie
 x = 5;
 y: Int = 5;
 ```
 
+## Closures
 
-## Closures:
 Closures have a familiar syntax (JS syntax).\
 A nullary closure that returns `1` when called:
+
 ```pie
 () => 1;
 ```
+
 A closure that takes two arguments and returns the first:
+
 ```pie
 (x, y) => x;
 ```
+
 Closures can be assigned to variables:
+
 ```pie
 func = (x) => "yay";
 ```
 
 ## Classes
+
 A class is a block (scope) preceded by the `class` keyword. The block must consist of **ONLY** assignments:
+
 ```pie
 Human: Type = class {
     name: String = "";
@@ -57,15 +65,20 @@ Human: Type = class {
     };
 };
 ```
+
 Construct an object by calling the constructor of the class. Optionally pass initial values to the data members:
+
 ```pie
 h: Human = Human("Pie", 1);
 h.age = 10;
 h.prettyPrint();
 ```
-## Scopes:
+
+## Scopes
+
 Since everything is an expression, so are scopes! They take the value of the last expression in them.\
 Here, `x` will be assigned to 3.
+
 ```pie
 x = {
     1;
@@ -73,15 +86,20 @@ x = {
     3;
 };
 ```
+
 Since scopes take the value of their last expression, scopes cannot be empty!\
 The following line will error:
+
 ```pie
 x = { };
 ```
+
 ## Operators
+
 Pie doesn't provide any operators. One has to define their own. For that reason, any operator symbol (+, -, *, /, etc...) can be used as a variable name.
 
 There are `5` types of operators that can be defined:
+
 - `prefix`:\
     e.g. `- 1`
 - `infix`:\
@@ -91,21 +109,26 @@ There are `5` types of operators that can be defined:
 - `exfix`:\
     e.g. `[ 0 ]`
 - `operator`:\
-    e.g. [example](#Operator-Example)
+    e.g. [example](#operator-example)
 
 Here is how to define your own operator:
+
 ```pie
 prefix(LOW +) always_one = (x) => 1;
 ```
+
 `always_one` is now a prefix operator that when applied, always returns `1`!\
 In this example, `a` will come out as 1.
-```
+
+```pie
 a = always_one 5;
 ```
+
 `infix` has to be assigned to a binary closure while `prefix` and `suffix` have to be assigned to a unary closure.
 
 What goes between the parenthesis after the keyword `prefix` is the precedence.\
 Here is the list of the precedence levels (from lowest to highest)
+
 - `ASSIGNMENT`
 - `INFIX`
 - `SUM`
@@ -120,21 +143,25 @@ i.e: `(PROD -) > (SUM +)`
 ### Operator Example
 
 ## Builtins
+
 Since Pie doesn't provide any operators, how does one achieve ANYTHING at all with Pie?\
 Pie reserves the names starting with `__builtin_`.
 
-#### Nullary Functions:
+### Nullary Functions
+
 - `__builtin_true`
 - `__builtin_false`
 
-#### Unary Functions:
+### Unary Functions
+
 - `__builtin_neg`
 - `__builtin_not`
 - `__builtin_mod`
 - `__builtin_reset`
 - `__builtin_eval`
 
-#### Binary Functions:
+### Binary Functions
+
 - `__builtin_add`
 - `__builtin_sub`
 - `__builtin_mul`
@@ -148,14 +175,19 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_and`
 - `__builtin_or`
 
-#### Trinary Functions:
+### Trinary Functions
+
 - `__builtin_conditional`
 
-#### Variadic Functions:
-- `__builtin_print` (returns the last argument)
+### Variadic Functions
 
-## Types:
+- `__builtin_print` (returns the last argument)
+- `__builtin_concat`
+
+## Types
+
 Pie has 7 types:
+
 - `Int`
 - `Double`
 - `Bool`
@@ -167,39 +199,50 @@ Pie has 7 types:
 If something is left un-typed, the `Any` type will be given to it.
 
 Functions can also be typed: `(T1, T2): T3`
+
 ```pie
 one: (Int): Int = (x: Int): Int => 1;
 ```
 
-### Syntax Type:
+### Syntax Type
+
 The `Syntax` type is a special type that gives a handle onto the AST node used to represent an expression.\
 Take this example:
+
 ```pie
 operator(SUM) + = (a, b) => __builtin_add(a, b);
 
 x: Syntax = 1 + a;
 ```
-`x` is a hadle to the AST which represents the expression `1 + a`. 
+
+`x` is a hadle to the AST which represents the expression `1 + a`.
 To evaluate `x`, you just need to call __builtin_eval on it:\
+
 ```pie
 result = __builtin_eval(x);
 ```
+
 However, evaluating `x` right now will error since `a` is not defined. All we need to do is define `a` before evaluating `x`.
+
 ```pie
 a = 5;
 result = __builtin_eval(x);
 __builtin_print(result);
 ```
+
 `6` will be printed.
 
+## Comments
 
-## Comments:
-#### Line comments:
+### Line comments
+
 ```pie
 .: this is a comment
 this isn't
 ```
-#### Block comments:
+
+#### Block comments
+
 ```pie
 .::
     this is a comment
@@ -209,8 +252,10 @@ this isn't
 ```
 
 ## Install
+
 Make sure you have `git`, and C++ compiler that supports C++23. Then paste the following script in the terminal:
-```
+
+```pie
 mkdir PieLang
 cd PieLang
 
@@ -220,9 +265,12 @@ git clone https://github.com/PiCake314/Pie
 
 g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
+
 ## Update
+
 To update the language, paste this into the terminal:
-```
+
+```pie
 cd Pie
 git pull
 cd ..
@@ -230,9 +278,10 @@ cd ..
 g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
 
+### Todo
 
-### Todo:
-##### in order of priority:
+#### in order of priority
+
 - [ ] Add method operators..?
 = [ ] Add overloading operators
 - [ ] Add variadic arguments
@@ -250,7 +299,9 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] Add LLVM backend
 
 ---
-### Done:
+
+### Done
+
 - [x] Change comments to `.::` and `::.`
 - [x] Add Arbitrary Operators!!!
 - [x] Add circumfix operators
@@ -261,6 +312,9 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [x] Add assignment to any epxression
 - [x] Add booleans
 - [x] Add closures
+
 ---
-### Discarded:
+
+### Discarded
+
 - ~~[ ] Add looping~~
