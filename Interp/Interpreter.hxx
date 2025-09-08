@@ -397,7 +397,7 @@ struct Visitor {
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params.front(), up->expr->variant());
             //* maybe should use Syntax() instead of Any();
-            args_env[func->params[0]] = {up->expr->variant(), type::builtins::Any()};
+            args_env[func->params[0]] = {up->expr->variant(), type::builtins::Any()}; //! fix
         }
         else {
             validateType(func->type.params[0]);
@@ -413,7 +413,7 @@ struct Visitor {
 
             // addVar(func->params.front(), arg);
             //* maybe should use Syntax() instead of Any();
-            args_env[func->params[0]] = {arg, type::builtins::Any()};
+            args_env[func->params[0]] = {arg, type::builtins::Any()}; //! fix
         }
 
         ScopeGuard sg{this, args_env};
@@ -437,7 +437,7 @@ struct Visitor {
         // LHS
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params[0], bp->lhs->variant());
-            args_env[func->params[0]] = {bp->lhs->variant(), type::builtins::Any()};
+            args_env[func->params[0]] = {bp->lhs->variant(), type::builtins::Any()}; //! fix
         }
         else {
             validateType(func->type.params[0]);
@@ -453,13 +453,13 @@ struct Visitor {
                 );
 
             // addVar(func->params[0], arg1);
-            args_env[func->params[0]] = {arg1, type::builtins::Any()};
+            args_env[func->params[0]] = {arg1, type::builtins::Any()}; //! fix
         }
 
         // RHS
         if (func->type.params[1]->text() == "Syntax") {
             // addVar(func->params[1], bp->rhs->variant());
-            args_env[func->params[1]] = {bp->rhs->variant(), type::builtins::Any()};
+            args_env[func->params[1]] = {bp->rhs->variant(), type::builtins::Any()}; //! fix
         }
         else {
             validateType(func->type.params[1]);
@@ -475,7 +475,7 @@ struct Visitor {
                 );
 
             // addVar(func->params[1], arg2);
-            args_env[func->params[1]] = {arg2, type::builtins::Any()};
+            args_env[func->params[1]] = {arg2, type::builtins::Any()}; //! fix
         }
 
         ScopeGuard sg{this, args_env};
@@ -496,7 +496,7 @@ struct Visitor {
         Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params[0], pp->expr->variant());
-            args_env[func->params[0]] = {pp->expr->variant(), type::builtins::Any()};
+            args_env[func->params[0]] = {pp->expr->variant(), type::builtins::Any()}; //! fix
         }
         else {
             validateType(func->type.params[0]);
@@ -512,7 +512,7 @@ struct Visitor {
                 );
 
             // addVar(func->params[0], std::visit(*this, pp->expr->variant()));
-            args_env[func->params[0]] = {arg, type::builtins::Any()};
+            args_env[func->params[0]] = {arg, type::builtins::Any()}; //! fix
         }
 
         ScopeGuard sg{this, args_env};
@@ -533,7 +533,7 @@ struct Visitor {
         Environment args_env;
         if (func->type.params[0]->text() == "Syntax") {
             // addVar(func->params[0], co->expr->variant());
-            args_env[func->params[0]] = {cp->expr->variant(), type::builtins::Any()};
+            args_env[func->params[0]] = {cp->expr->variant(), type::builtins::Any()}; //! fix
         }
         else {
             validateType(func->type.params[0]);
@@ -549,7 +549,7 @@ struct Visitor {
                 );
 
             // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-            args_env[func->params[0]] = {arg, type::builtins::Any()};
+            args_env[func->params[0]] = {arg, type::builtins::Any()}; //! fix
         }
 
         ScopeGuard sg{this, args_env};
