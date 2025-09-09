@@ -361,10 +361,17 @@ struct Fix : Expr {
     Token high;
     Token low;
     int shift; // needed for printing
-    ExprPtr func;
 
-    Fix(std::string n, Token up, Token down, const int s, ExprPtr c)
-    : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
+    std::vector<ExprPtr> funcs;
+    // ExprPtr func;
+
+
+    Fix(std::string n, Token up, Token down, const int s, std::vector<ExprPtr> cs)
+    : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, funcs{std::move(cs)} {}
+
+
+    // Fix(std::string n, Token up, Token down, const int s, ExprPtr c)
+    // : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
 
 
     virtual TokenKind type() const = 0;
@@ -386,7 +393,13 @@ struct Prefix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
 
-        return "prefix(" + token.text + shifts + ") " + name + " = " +func->stringify(indent);
+        std::string s;
+
+        for (const auto& func : funcs)
+            s += "prefix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
+
+        // return "prefix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+        return s;
     }
 
 
@@ -407,7 +420,14 @@ struct Infix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
 
-        return "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+        std::string s;
+
+        for (const auto& func : funcs)
+            s += "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
+
+        // return "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+
+        return s;
     }
 
     TokenKind type() const override { return TokenKind::INFIX; }
@@ -427,7 +447,15 @@ struct Suffix : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
         //! FIX THIS
-        return "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+
+        std::string s;
+
+        for (const auto& func : funcs)
+            s += "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
+
+        // return "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+
+        return s;
     }
 
     TokenKind type() const override { return TokenKind::SUFFIX; }
@@ -436,8 +464,8 @@ struct Suffix : Fix {
 
 struct Exfix : Fix {
     std::string name2;
-    Exfix(std::string n1, std::string n2, Token up, Token down, const int s, ExprPtr c)
-    : Fix{std::move(n1), std::move(up), std::move(down), s, std::move(c)}, name2{std::move(n2)} {}
+    Exfix(std::string n1, std::string n2, Token up, Token down, const int s, std::vector<ExprPtr> cs)
+    : Fix{std::move(n1), std::move(up), std::move(down), s, std::move(cs)}, name2{std::move(n2)} {}
 
     std::string stringify(const size_t indent = 0) const override {
         const auto [c, token] = [this] -> std::pair<char, Token> {
@@ -448,8 +476,17 @@ struct Exfix : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        //! FIX THIS
-        return "exfix(" + token.text + shifts + ") " + name + ':' + name2 + " = " + func->stringify(indent);
+        std::string s;
+
+        for (const auto& func : funcs)
+            s += "exfix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
+
+
+        // //! FIX THIS
+        // return "exfix(" + token.text + shifts + ") " + name + ':' + name2 + " = " + func->stringify(indent);
+
+        return s;
+
     }
 
     TokenKind type() const override { return TokenKind::EXFIX; }
@@ -468,13 +505,13 @@ struct Operator : Fix {
         Token up, Token down,
         const int s,
         // const bool begin, const bool end,
-        ExprPtr c
+        std::vector<ExprPtr> cs
     )
     : Fix{
         std::move(first),
         std::move(up), std::move(down),
         s,
-        std::move(c)
+        std::move(cs)
     },
     rest{std::move(rst)}, op_pos{std::move(pos)}
     // begin_expr{begin}, end_expr{end}
@@ -514,7 +551,14 @@ struct Operator : Fix {
         //     + (end_expr ? ':' : '\0');
 
 
-        return "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
+        std::string s;
+
+        for (const auto& func : funcs)
+            s += "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent) + '\n';
+
+        // return "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
+
+        return s;
     }
 
 

@@ -186,7 +186,6 @@ struct Visitor {
 
     Value operator()(const expr::Assignment *ass) {
 
-
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
         if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) {
             const auto& left = std::visit(*this, acc->var->variant());
@@ -374,146 +373,201 @@ struct Visitor {
         return std::visit(*this, g->expr->variant());
     }
 
+
+    static void checkNoSyntaxType(const std::vector<expr::ExprPtr>& funcs) noexcept {
+        for (auto&& func : funcs) {
+            const auto& closure = dynamic_cast<const expr::Closure*>(func.get());
+            for (auto&& param_type : closure->type.params) {
+                if (param_type->text() == "Syntax") error("Cannot have paramater of 'Syntax' in an overload set!");
+            }
+        }
+
+        return;
+    }
+
+    static const expr::Closure* resolveOverloadSet(
+        const std::string& name,
+        const std::vector<expr::ExprPtr>& funcs,
+        const std::vector<type::TypePtr>& types
+    ) {
+        std::vector<const expr::Closure*> set;
+
+        for (auto&& func : funcs) {
+            const auto& closure = dynamic_cast<const expr::Closure*>(func.get());
+
+            bool found = true;
+            for (auto&& [arg_type, param_type] : std::views::zip(types, closure->type.params)) {
+                if (not (*param_type >= *arg_type)) {
+                    found = false;
+                    break;
+                }
+            }
+
+            if (found) set.push_back(closure);
+        }
+
+
+        if (set.size() > 1 and set[0]->params.size() == 1) {
+            // remove the functions that take Any's to favour the concrete functions rather than "templates"
+            std::erase_if(set, [] (const expr::Closure *e) { return e->type.params[0]->text() == "Any"; });
+        }
+
+        // for now
+        if (set.size() != 1) error("Could not resolve overload set for operator: " + name);
+
+        return set[0];
+    }
+
     Value operator()(const expr::UnaryOp *up) {
         if (auto&& var = getVar(up->stringify()); var) return var->first;
 
 
-        // ScopeGuard sg{this}; // RAII is so cool
-        // scope();
-
         const expr::Fix* op = ops.at(up->op);
-        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+        if (op->funcs.size() == 1) {
 
-        // don't need to check this
-        // if (not func) error("This shouldn't happen, but also Unary Operator not equal to a closure!");
-        // no need to assert I guess
-        // assert(func->params.size() == 1);
+            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
-        //* this could be dried out between all the OPs and function calls in general
-        Environment args_env;
-        if (func->type.params[0]->text() == "Syntax") {
-            // addVar(func->params.front(), up->expr->variant());
-            //* maybe should use Syntax() instead of Any();
-            args_env[func->params[0]] = {up->expr->variant(), func->type.params[0]}; //? fixed
+
+            //* this could be dried out between all the OPs and function calls in general
+            Environment args_env;
+            if (func->type.params[0]->text() == "Syntax") {
+                // addVar(func->params.front(), up->expr->variant());
+                //* maybe should use Syntax() instead of Any();
+                args_env[func->params[0]] = {up->expr->variant(), func->type.params[0]}; //? fixed
+            }
+            else {
+                validateType(func->type.params[0]);
+
+                const auto& arg = std::visit(*this, up->expr->variant());
+                if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match! Prefix operator '" + up->op + 
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                        // ", got: " + type_of_arg->text()
+                    );
+
+                // addVar(func->params.front(), arg);
+                //* maybe should use Syntax() instead of Any();
+                args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
+            }
+
+            ScopeGuard sg{this, args_env};
+
+            return std::visit(*this, func->body->variant()); // RAII takes care of unscoping
         }
-        else {
-            validateType(func->type.params[0]);
+        else { // do selection based on type
+            checkNoSyntaxType(op->funcs);
 
-            const auto& arg = std::visit(*this, up->expr->variant());
-            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                error(
-                    "Type mis-match! Prefix operator '" + up->op + 
-                    "' expected: " + func->type.params[0]->text() +
-                    ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                    // ", got: " + type_of_arg->text()
-                );
+            const auto& arg  = std::visit(*this, up->expr->variant());
+            const auto& type = typeOf(arg);
+            validateType(type);
 
-            // addVar(func->params.front(), arg);
-            //* maybe should use Syntax() instead of Any();
+            const auto& func = resolveOverloadSet(up->op, op->funcs, {type});
+
+            Environment args_env;
             args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
+            ScopeGuard sg{this, args_env};
+
+            return std::visit(*this, func->body->variant());
         }
-
-        ScopeGuard sg{this, args_env};
-
-        return std::visit(*this, func->body->variant()); // RAII takes care of unscoping
-
-        // unscope();
     }
 
     Value operator()(const expr::BinOp *bp) {
         if (auto&& var = getVar(bp->stringify()); var) return var->first;
 
 
-        // ScopeGuard sg{this};
-
         const expr::Fix* op = ops.at(bp->op);
-        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+        if (op->funcs.size() == 1) {
+            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
+            Environment args_env;
+            // LHS
+            if (func->type.params[0]->text() == "Syntax") {
+                // addVar(func->params[0], bp->lhs->variant());
+                args_env[func->params[0]] = {bp->lhs->variant(), func->type.params[0]}; //? fixed
+            }
+            else {
+                validateType(func->type.params[0]);
 
-        Environment args_env;
-        // LHS
-        if (func->type.params[0]->text() == "Syntax") {
-            // addVar(func->params[0], bp->lhs->variant());
-            args_env[func->params[0]] = {bp->lhs->variant(), func->type.params[0]}; //? fixed
+                const auto& arg1 = std::visit(*this, bp->lhs->variant());
+                if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match! Infix operator '" + bp->op + 
+                        "', parameter '" + func->params[0] +
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
+                        // ", got: " + type_of_arg->text()
+                    );
+
+                // addVar(func->params[0], arg1);
+                args_env[func->params[0]] = {arg1, func->type.params[0]}; //? fixed
+            }
+
+            // RHS
+            if (func->type.params[1]->text() == "Syntax") {
+                // addVar(func->params[1], bp->rhs->variant());
+                args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]}; //? fixed
+            }
+            else {
+                validateType(func->type.params[1]);
+
+                const auto& arg2 = std::visit(*this, bp->rhs->variant());
+                if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
+                    error(
+                        "Type mis-match! Infix operator '" + bp->op + 
+                        "', parameter '" + func->params[1] +
+                        "' expected: " + func->type.params[1]->text() +
+                        ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
+                        // ", got: " + type_of_arg->text()
+                    );
+
+                // addVar(func->params[1], arg2);
+                args_env[func->params[1]] = {arg2, func->type.params[1]}; //? fixed
+            }
+
+            ScopeGuard sg{this, args_env};
+
+            return std::visit(*this, func->body->variant());
         }
-        else {
-            validateType(func->type.params[0]);
-
-            const auto& arg1 = std::visit(*this, bp->lhs->variant());
-            if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
-                error(
-                    "Type mis-match! Infix operator '" + bp->op + 
-                    "', parameter '" + func->params[0] +
-                    "' expected: " + func->type.params[0]->text() +
-                    ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
-                    // ", got: " + type_of_arg->text()
-                );
-
-            // addVar(func->params[0], arg1);
-            args_env[func->params[0]] = {arg1, func->type.params[0]}; //? fixed
-        }
-
-        // RHS
-        if (func->type.params[1]->text() == "Syntax") {
-            // addVar(func->params[1], bp->rhs->variant());
-            args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]}; //? fixed
-        }
-        else {
-            validateType(func->type.params[1]);
-
-            const auto& arg2 = std::visit(*this, bp->rhs->variant());
-            if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
-                error(
-                    "Type mis-match! Infix operator '" + bp->op + 
-                    "', parameter '" + func->params[1] +
-                    "' expected: " + func->type.params[1]->text() +
-                    ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
-                    // ", got: " + type_of_arg->text()
-                );
-
-            // addVar(func->params[1], arg2);
-            args_env[func->params[1]] = {arg2, func->type.params[1]}; //? fixed
-        }
-
-        ScopeGuard sg{this, args_env};
-
-        return std::visit(*this, func->body->variant());
     }
+
 
     Value operator()(const expr::PostOp *pp) {
         if (auto&& var = getVar(pp->stringify()); var) return var->first;
 
 
-        // ScopeGuard sg{this};
-
         const expr::Fix* op = ops.at(pp->op);
-        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+        if (op->funcs.size() == 1) {
+
+            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
 
-        Environment args_env;
-        if (func->type.params[0]->text() == "Syntax") {
-            // addVar(func->params[0], pp->expr->variant());
-            args_env[func->params[0]] = {pp->expr->variant(), func->type.params[0]}; //? fixed
+            Environment args_env;
+            if (func->type.params[0]->text() == "Syntax") {
+                // addVar(func->params[0], pp->expr->variant());
+                args_env[func->params[0]] = {pp->expr->variant(), func->type.params[0]}; //? fixed
+            }
+            else {
+                validateType(func->type.params[0]);
+
+                const auto& arg = std::visit(*this, pp->expr->variant());
+                if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match! Suffix operator '" + pp->op + 
+                        "', parameter '" + func->params[0] +
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                        // ", got: " + type_of_arg->text()
+                    );
+
+                // addVar(func->params[0], std::visit(*this, pp->expr->variant()));
+                args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
+            }
+
+            ScopeGuard sg{this, args_env};
+            return std::visit(*this, func->body->variant());
         }
-        else {
-            validateType(func->type.params[0]);
-
-            const auto& arg = std::visit(*this, pp->expr->variant());
-            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                error(
-                    "Type mis-match! Suffix operator '" + pp->op + 
-                    "', parameter '" + func->params[0] +
-                    "' expected: " + func->type.params[0]->text() +
-                    ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                    // ", got: " + type_of_arg->text()
-                );
-
-            // addVar(func->params[0], std::visit(*this, pp->expr->variant()));
-            args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
-        }
-
-        ScopeGuard sg{this, args_env};
-        return std::visit(*this, func->body->variant());
     }
 
 
@@ -524,33 +578,36 @@ struct Visitor {
         // ScopeGuard sg{this};
 
         const expr::Fix* op = ops.at(cp->op1);
-        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+        if (op->funcs.size() == 1) {
+
+            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
 
-        Environment args_env;
-        if (func->type.params[0]->text() == "Syntax") {
-            // addVar(func->params[0], co->expr->variant());
-            args_env[func->params[0]] = {cp->expr->variant(), func->type.params[0]}; //? fixed
+            Environment args_env;
+            if (func->type.params[0]->text() == "Syntax") {
+                // addVar(func->params[0], co->expr->variant());
+                args_env[func->params[0]] = {cp->expr->variant(), func->type.params[0]}; //? fixed
+            }
+            else {
+                validateType(func->type.params[0]);
+
+                const auto& arg = std::visit(*this, cp->expr->variant());
+                if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match! Suffix operator '" + cp->op1 + 
+                        "', parameter '" + func->params[0] +
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                        // ", got: " + type_of_arg->text()
+                    );
+
+                // addVar(func->params[0], std::visit(*this, co->expr->variant()));
+                args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
+            }
+
+            ScopeGuard sg{this, args_env};
+            return std::visit(*this, func->body->variant());
         }
-        else {
-            validateType(func->type.params[0]);
-
-            const auto& arg = std::visit(*this, cp->expr->variant());
-            if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                error(
-                    "Type mis-match! Suffix operator '" + cp->op1 + 
-                    "', parameter '" + func->params[0] +
-                    "' expected: " + func->type.params[0]->text() +
-                    ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                    // ", got: " + type_of_arg->text()
-                );
-
-            // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-            args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
-        }
-
-        ScopeGuard sg{this, args_env};
-        return std::visit(*this, func->body->variant());
     };
 
     Value operator()(const expr::OpCall *oc) {
@@ -558,39 +615,42 @@ struct Visitor {
 
 
         const expr::Fix* op = ops.at(oc->first);
-        expr::Closure* func = dynamic_cast<expr::Closure*>(op->func.get());
+        if (op->funcs.size() == 1) {
 
-        // this may be not needed
-        // if (oc->exprs.size() != func->params.size()) error();
+            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
-        Environment args_env;
-        for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
-            if (param_type->text() == "Syntax") {
-                args_env[param] = {arg_expr->variant(), param_type}; //?
-            }
-            else {
-                validateType(param_type);
+            // this may be not needed
+            // if (oc->exprs.size() != func->params.size()) error();
 
-                const auto& arg = std::visit(*this, arg_expr->variant());
-                if (auto&& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
-                    const auto& op_name = oc->first + 
-                        std::accumulate(oc->rest.cbegin(), oc->rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; });
-                    error(
-                        "Type mis-match! Operator '" + op_name + 
-                        "', parameter '" + param +
-                        "' expected: " + param_type->text() +
-                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                    );
+            Environment args_env;
+            for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
+                if (param_type->text() == "Syntax") {
+                    args_env[param] = {arg_expr->variant(), param_type}; //?
                 }
+                else {
+                    validateType(param_type);
 
-                // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-                args_env[param] = {arg, param_type}; //? fix Any Type!!
+                    const auto& arg = std::visit(*this, arg_expr->variant());
+                    if (auto&& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
+                        const auto& op_name = oc->first + 
+                            std::accumulate(oc->rest.cbegin(), oc->rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; });
+                        error(
+                            "Type mis-match! Operator '" + op_name + 
+                            "', parameter '" + param +
+                            "' expected: " + param_type->text() +
+                            ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                        );
+                    }
+
+                    // addVar(func->params[0], std::visit(*this, co->expr->variant()));
+                    args_env[param] = {arg, param_type}; //? fix Any Type!!
+                }
             }
+
+
+            ScopeGuard sg{this, args_env};
+            return std::visit(*this, func->body->variant());
         }
-
-
-        ScopeGuard sg{this, args_env};
-        return std::visit(*this, func->body->variant());
     }
 
     Value operator()(const expr::Call *call) {
@@ -793,7 +853,8 @@ struct Visitor {
 
     Value operator()(const expr::Fix *fix) {
         if (auto&& var = getVar(fix->stringify()); var) return var->first;
-        return std::visit(*this, fix->func->variant());
+        // return std::visit(*this, fix->func->variant());
+        return "What should I return?!";
     }
 
     // // split so I can param check at definition time instead of call time..

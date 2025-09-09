@@ -554,21 +554,52 @@ public:
 
         // gotta dry out this part
         // plus, I don't like that I made "Fix" take a "ExprPtr" rather than closure but I'll leave it for now
-        std::unique_ptr<expr::Fix> p;
+
+        if (ops.contains(name)) {
+            auto op = ops[name];
+            op->funcs.push_back(std::move(func));
+
+            if (op->type() != token.kind) {
+                std::println(std::cerr, "Overload set for operator '{}' must have the same operator type:", name);
+                expected(op->type(), token);
+            }
+
+            if (op->high != high or op->low != low)
+                error("Overloaded set of operator '" + name + "' must all have the same precedence!");
+
+
+            // this feels like double checking the fix operator
+            // but it also seems like I need to get the derived type to create a shared_ptr anyway..so IDK
+            if (auto p = dynamic_cast<const expr::Prefix*>(ops[name]))
+                return std::make_shared<expr::Prefix>(*p);
+
+            if (auto p = dynamic_cast<const expr::Infix*>(ops[name]))
+                return std::make_shared<expr::Infix>(*p);
+
+            if (auto p = dynamic_cast<const expr::Suffix*>(ops[name]))
+                return std::make_shared<expr::Suffix>(*p);
+
+
+            error();
+        }
+
+        std::shared_ptr<expr::Fix> p;
         if (token.kind == PREFIX) {
             if (c->params.size() != 1) error("Prefix operator must be assigned to a unary closure!");
-            p = std::make_unique<expr::Prefix>(name, std::move(high), std::move(low), shift, std::move(func));
+            p = std::make_shared<expr::Prefix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{std::move(func)});
         }
         else if (token.kind == INFIX) {
             if (c->params.size() != 2) error("Infix operator must be assigned to a binary closure!");
-            p = std::make_unique<expr::Infix> (name, std::move(high), std::move(low), shift, std::move(func));
+            p = std::make_shared<expr::Infix> (name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{std::move(func)});
         }
         else /* if (token.kind == SUFFIX) */ {
             if (c->params.size() != 1) error("Suffix operator must be assigned to a unary closure!");
-            p = std::make_unique<expr::Suffix>(name, std::move(high), std::move(low), shift, std::move(func));
+            p = std::make_shared<expr::Suffix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{std::move(func)});
         }
 
+
         ops[name] = p.get();
+
         return p;
     }
 
@@ -589,8 +620,9 @@ public:
 
 
         const Token low_prec{PR_LOW, "LOW"};
-        std::shared_ptr<expr::Fix> p
-            = std::make_shared<expr::Exfix>(name1, name2, low_prec, low_prec, 0, std::move(func));
+        std::shared_ptr<expr::Fix> p = std::make_shared<expr::Exfix>(
+            name1, name2, low_prec, low_prec, 0, std::vector<expr::ExprPtr>{std::move(func)}
+        );
 
 
 
@@ -683,7 +715,7 @@ public:
                 std::move(high), std::move(low),
                 shift,
                 // begins_with_expr, ends_with_expr,
-                std::move(func)
+                std::vector<expr::ExprPtr>{std::move(func)}
             );
 
 
@@ -697,7 +729,7 @@ public:
     int parseOperatorShift() {
         if (check(TokenKind::NAME)) {
             const Token& shift_token = consume();
-            assert(shift_token.text.length() <= 1);
+            // assert(shift_token.text.length() <= 1);
 
             if (shift_token.text.length() == 1){
                 if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
@@ -705,6 +737,12 @@ public:
                 // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
 
                 return shift_token.text[0] == '+' ? 1 : -1;
+            }
+            else if (shift_token.text.length() > 1) {
+                if (shift_token.text[0] == '+' or shift_token.text[0] == '-')
+                    error("Can only have one +/- after a precedence level");
+                else
+                    error("can only have '+' or '-' after precedene!");
             }
         }
 

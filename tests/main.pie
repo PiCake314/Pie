@@ -1,3 +1,13 @@
 print = __builtin_print;
 
 
+
+.: prefix(LOW +) no = (x: Any)    => print("Any1");
+prefix(LOW +) no = (x: Int)    => print("Int");
+prefix(LOW +) no = (x: String) => print("String");
+.: prefix(LOW +) no = (x: Any)    => print("Any2");
+
+
+x = "";
+no x;
+
