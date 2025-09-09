@@ -50,7 +50,8 @@ enum class TokenKind {
     END,
 };
 
-inline const char* stringify(const TokenKind token) noexcept {
+// SSO will almost always kick in anyway..
+inline std::string stringify(const TokenKind token) noexcept {
     switch (token) {
         using enum TokenKind;
         case NAME:          return "NAME";
