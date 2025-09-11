@@ -1,7 +1,4 @@
 
 
 
-infix(SUM) + = (a: Int, b: Int): Int => "hmm";
 
-
-1 + 2;

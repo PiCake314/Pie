@@ -419,12 +419,12 @@ struct Visitor {
     }
 
 
-    const Value& checkReturnType(const Value& ret, const expr::Closure* func) {
-        validateType(func->type.ret);
+    const Value& checkReturnType(const Value& ret, type::TypePtr return_type) {
+        validateType(return_type);
 
         const auto& type_of_return_value = typeOf(ret);
 
-        auto return_type = func->type.ret;
+        // auto return_type = ret_type;
         if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
             return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
@@ -489,7 +489,7 @@ struct Visitor {
 
         ScopeGuard sg{this, args_env};
 
-        return checkReturnType(std::visit(*this, func->body->variant()), func);
+        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
     Value operator()(const expr::BinOp *bp) {
@@ -567,7 +567,7 @@ struct Visitor {
 
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func);
+        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
 
@@ -618,7 +618,7 @@ struct Visitor {
         }
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func);
+        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
 
@@ -672,7 +672,7 @@ struct Visitor {
 
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func);
+        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     };
 
     Value operator()(const expr::OpCall *oc) {
@@ -733,7 +733,7 @@ struct Visitor {
 
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func);
+        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
     Value operator()(const expr::Call *call) {
@@ -815,21 +815,23 @@ struct Visitor {
 
             const auto& ret = std::visit(*this, func.body->variant());
 
-            const auto& type_of_return_value = typeOf(ret);
-            validateType(func.type.ret); //* maybe this should be moved up?
-            // if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
+            checkReturnType(ret, func.type.ret);
 
-            auto return_type = func.type.ret;
-            if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+            // const auto& type_of_return_value = typeOf(ret);
+            // validateType(func.type.ret); //* maybe this should be moved up?
+            // // if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
 
-                // return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
+            // auto return_type = func.type.ret;
+            // if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
+            //     return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
-            if (not (*return_type >= *type_of_return_value))
-                error(
-                    "Type mis-match! Function return type Expected: " +
-                    return_type->text() + ", got: " + type_of_return_value->text()
-                );
+            //     // return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
+
+            // if (not (*return_type >= *type_of_return_value))
+            //     error(
+            //         "Type mis-match! Function return type Expected: " +
+            //         return_type->text() + ", got: " + type_of_return_value->text()
+            //     );
 
             if (std::holds_alternative<expr::Closure>(ret)) {
                 const auto& closure = get<expr::Closure>(ret);
