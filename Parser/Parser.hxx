@@ -101,7 +101,7 @@ public:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
                         case TokenKind::PREFIX:{
-                            const int prec = precedence::calculate(op->high, op->low, ops);
+                            const int prec = prec::calculate(op->high, op->low, ops);
                             return std::make_unique<expr::UnaryOp>(token.text, parseExpr(prec));
                         }
 
@@ -121,7 +121,7 @@ public:
                             if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
 
 
-                            const int prec = precedence::calculate(op->high, op->low, ops);
+                            const int prec = prec::calculate(op->high, op->low, ops);
 
                             std::vector<expr::ExprPtr> exprs;
                             for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(1)) {
@@ -283,7 +283,7 @@ public:
                         // case TokenKind::PREFIX:
                         //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :{
-                            const auto prec = precedence::calculate(op->high, op->low, ops);
+                            const auto prec = prec::calculate(op->high, op->low, ops);
                             return std::make_unique<expr::BinOp>(std::move(left), token.text, parseExpr(prec));
                         }
                         case TokenKind::SUFFIX:
@@ -313,7 +313,7 @@ public:
                             // if (op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
 
 
-                            const int prec = precedence::calculate(op->high, op->low, ops);
+                            const int prec = prec::calculate(op->high, op->low, ops);
 
                             std::vector<expr::ExprPtr> exprs = {std::move(left)};
 
@@ -347,7 +347,7 @@ public:
                 return std::make_unique<expr::Name>(token.text);
 
             case DOT:{
-                const auto& accessee = parseExpr(precedence::HIGH);
+                const auto& accessee = parseExpr(prec::HIGH);
 
                 //* maybe this could change and i can allow object.1 + 2. :). Just a thought
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
@@ -357,7 +357,7 @@ public:
             }
 
             case ASSIGN: 
-                return std::make_unique<expr::Assignment>(std::move(left), parseExpr(precedence::ASSIGNMENT +1)); // right associative
+                return std::make_unique<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT +1)); // right associative
 
 
             case L_PAREN: {
@@ -412,7 +412,7 @@ public:
             if (match("Type"  )) return type::builtins::Type();
         }
         // or an expression
-        return std::make_shared<type::VarType>(parseExpr(precedence::ASSIGNMENT));
+        return std::make_shared<type::VarType>(parseExpr(prec::ASSIGNMENT));
         // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
 
         // log();
@@ -480,8 +480,8 @@ public:
         switch (token.kind) {
             using enum TokenKind;
 
-            case ASSIGN: return precedence::ASSIGNMENT;
-            case DOT   : return precedence::HIGH;
+            case ASSIGN: return prec::ASSIGNMENT;
+            case DOT   : return prec::HIGH;
 
             // case TokenKind::NUM: return precedence::SUM;
 
@@ -501,7 +501,7 @@ public:
                 }
 
                 const auto op = ops[token.text];
-                const int prec = precedence::calculate(op->high, op->low, ops);
+                const int prec = prec::calculate(op->high, op->low, ops);
 
 
                 return token.text == op->name ? prec +1 : prec; // for OPERATORs!!!
@@ -509,7 +509,7 @@ public:
 
             }
 
-            case L_PAREN: return precedence::CALL;
+            case L_PAREN: return prec::CALL;
 
 
             default: return 0;
@@ -531,8 +531,8 @@ public:
 
         // non-const so it's movable later
         Token high = [shift, &low, this] {
-            if (shift > 0) return precedence::higher(low, ops);
-            if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
+            if (shift > 0) return prec::higher(low, ops);
+            if (shift < 0) return std::exchange(low, prec::lower(low, ops));
             return low;
         }();
 
@@ -542,7 +542,7 @@ public:
 
 
         // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
-        if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW))
+        if (high.kind == low.kind and (prec::fromToken(high, ops) == prec::HIGH or prec::fromToken(low, ops) == prec::LOW))
             error("Can't have set operator precedence to only LOW/HIGH: " + name);
 
         consume(ASSIGN);
@@ -561,7 +561,7 @@ public:
 
             if (op->type() != token.kind) {
                 std::println(std::cerr, "Overload set for operator '{}' must have the same operator type:", name);
-                expected(op->type(), token);
+                expected(op->type(), token.kind);
             }
 
             if (op->high != high or op->low != low)
@@ -582,6 +582,7 @@ public:
 
             error();
         }
+
 
         std::shared_ptr<expr::Fix> p;
         if (token.kind == PREFIX) {
@@ -619,12 +620,30 @@ public:
 
 
 
-        const Token low_prec{PR_LOW, "LOW"};
+        const Token low_prec{PR_LOW, "LOW"}; // grouping doesn't have precedence
         std::shared_ptr<expr::Fix> p = std::make_shared<expr::Exfix>(
             name1, name2, low_prec, low_prec, 0, std::vector<expr::ExprPtr>{std::move(func)}
         );
 
 
+        if (ops.contains(name1)) {
+            auto op = ops[name1];
+            op->funcs.push_back(std::move(func));
+
+            if (op->type() != TokenKind::EXFIX) {
+                std::println(std::cerr, "Overload set for operator '{}:{}' must have the same operator type:", name1, name2);
+                expected(op->type(), TokenKind::EXFIX);
+            }
+
+            auto ex = dynamic_cast<const expr::Exfix*>(op);
+
+            if (ex->name != name1 or ex->name2 != name2) {
+                error("Overload set of exfix operator must all have the same operator name '" + ex->name + ':' + ex->name2 + '\'');
+            }
+
+
+            return std::make_shared<expr::Exfix>(*ex);
+        }
 
         ops[name1] = p.get();
         ops[name2] = p.get(); //* maybe? //* maybe not...? idk
@@ -643,8 +662,8 @@ public:
 
         // non-const so it's movable later
         Token high = [shift, &low, this] {
-            if (shift > 0) return precedence::higher(low, ops);
-            if (shift < 0) return std::exchange(low, precedence::lower(low, ops));
+            if (shift > 0) return prec::higher(low, ops);
+            if (shift < 0) return std::exchange(low, prec::lower(low, ops));
             return low;
         }();
 
@@ -718,6 +737,27 @@ public:
                 std::vector<expr::ExprPtr>{std::move(func)}
             );
 
+
+
+        if (ops.contains(first)) {
+            auto op = ops[first];
+            op->funcs.push_back(std::move(func));
+
+            if (op->type() != TokenKind::OPERATOR) error(); // ! ADD ERR MSG
+
+            auto arb = dynamic_cast<const expr::Operator*>(op);
+
+            bool same = first == arb->name;
+            for (auto&& [n1, n2] : std::views::zip(rest, arb->rest))
+                if (n1 != n2) {
+                    same = false;
+                    break;
+                }
+
+            if (not same) error(); // ! ADD ERR MSG
+
+            return std::make_shared<expr::Operator>(*arb);
+        }
 
         ops[p->name] = p.get();
         for (const auto& name : rest) ops[name] = p.get(); //* double "maybe?"??

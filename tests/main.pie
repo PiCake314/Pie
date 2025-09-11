@@ -1,13 +1,7 @@
-print = __builtin_print;
 
 
 
-.: prefix(LOW +) no = (x: Any)    => print("Any1");
-prefix(LOW +) no = (x: Int)    => print("Int");
-prefix(LOW +) no = (x: String) => print("String");
-.: prefix(LOW +) no = (x: Any)    => print("Any2");
+infix(SUM) + = (a: Int, b: Int): Int => "hmm";
 
 
-x = "";
-no x;
-
+1 + 2;

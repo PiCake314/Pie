@@ -418,18 +418,38 @@ struct Visitor {
         return set[0];
     }
 
+
+    const Value& checkReturnType(const Value& ret, const expr::Closure* func) {
+        validateType(func->type.ret);
+
+        const auto& type_of_return_value = typeOf(ret);
+
+        auto return_type = func->type.ret;
+        if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
+            return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+
+
+        if (not (*return_type >= *type_of_return_value))
+            error(
+                "Type mis-match! Function return type Expected: " +
+                return_type->text() + ", got: " + type_of_return_value->text()
+            );
+
+        return ret;
+    }
+
     Value operator()(const expr::UnaryOp *up) {
         if (auto&& var = getVar(up->stringify()); var) return var->first;
 
 
         const expr::Fix* op = ops.at(up->op);
+        const expr::Closure* func;
+        Environment args_env;
+
         if (op->funcs.size() == 1) {
-
-            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
-
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
             //* this could be dried out between all the OPs and function calls in general
-            Environment args_env;
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params.front(), up->expr->variant());
                 //* maybe should use Syntax() instead of Any();
@@ -452,9 +472,7 @@ struct Visitor {
                 args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
             }
 
-            ScopeGuard sg{this, args_env};
 
-            return std::visit(*this, func->body->variant()); // RAII takes care of unscoping
         }
         else { // do selection based on type
             checkNoSyntaxType(op->funcs);
@@ -463,14 +481,15 @@ struct Visitor {
             const auto& type = typeOf(arg);
             validateType(type);
 
-            const auto& func = resolveOverloadSet(up->op, op->funcs, {type});
+            func = resolveOverloadSet(up->op, op->funcs, {type});
 
-            Environment args_env;
             args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
-            ScopeGuard sg{this, args_env};
-
-            return std::visit(*this, func->body->variant());
         }
+
+
+        ScopeGuard sg{this, args_env};
+
+        return checkReturnType(std::visit(*this, func->body->variant()), func);
     }
 
     Value operator()(const expr::BinOp *bp) {
@@ -478,10 +497,12 @@ struct Visitor {
 
 
         const expr::Fix* op = ops.at(bp->op);
-        if (op->funcs.size() == 1) {
-            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+        const expr::Closure* func;
+        Environment args_env;
 
-            Environment args_env;
+        if (op->funcs.size() == 1) {
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+
             // LHS
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], bp->lhs->variant());
@@ -497,17 +518,16 @@ struct Visitor {
                         "', parameter '" + func->params[0] +
                         "' expected: " + func->type.params[0]->text() +
                         ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
-                        // ", got: " + type_of_arg->text()
                     );
 
                 // addVar(func->params[0], arg1);
-                args_env[func->params[0]] = {arg1, func->type.params[0]}; //? fixed
+                args_env[func->params[0]] = {arg1, func->type.params[0]};
             }
 
             // RHS
             if (func->type.params[1]->text() == "Syntax") {
                 // addVar(func->params[1], bp->rhs->variant());
-                args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]}; //? fixed
+                args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]};
             }
             else {
                 validateType(func->type.params[1]);
@@ -523,13 +543,31 @@ struct Visitor {
                     );
 
                 // addVar(func->params[1], arg2);
-                args_env[func->params[1]] = {arg2, func->type.params[1]}; //? fixed
+                args_env[func->params[1]] = {arg2, func->type.params[1]};
             }
 
-            ScopeGuard sg{this, args_env};
-
-            return std::visit(*this, func->body->variant());
         }
+        else {
+            checkNoSyntaxType(op->funcs);
+
+            const auto& arg1  = std::visit(*this, bp->lhs->variant());
+            const auto& type1 = typeOf(arg1);
+            validateType(type1);
+
+            const auto& arg2  = std::visit(*this, bp->rhs->variant());
+            const auto& type2 = typeOf(arg2);
+            validateType(type2);
+
+            func = resolveOverloadSet(bp->op, op->funcs, {type1, type2});
+
+            args_env[func->params[0]] = {arg1, func->type.params[0]};
+            args_env[func->params[1]] = {arg2, func->type.params[1]};
+        }
+
+
+
+        ScopeGuard sg{this, args_env};
+        return checkReturnType(std::visit(*this, func->body->variant()), func);
     }
 
 
@@ -538,12 +576,14 @@ struct Visitor {
 
 
         const expr::Fix* op = ops.at(pp->op);
+        const expr::Closure* func;
+        Environment args_env;
+
         if (op->funcs.size() == 1) {
 
-            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
 
-            Environment args_env;
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], pp->expr->variant());
                 args_env[func->params[0]] = {pp->expr->variant(), func->type.params[0]}; //? fixed
@@ -561,13 +601,24 @@ struct Visitor {
                         // ", got: " + type_of_arg->text()
                     );
 
-                // addVar(func->params[0], std::visit(*this, pp->expr->variant()));
                 args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
             }
 
-            ScopeGuard sg{this, args_env};
-            return std::visit(*this, func->body->variant());
         }
+        else {
+            checkNoSyntaxType(op->funcs);
+
+            const auto& arg  = std::visit(*this, pp->expr->variant());
+            const auto& type = typeOf(arg);
+            validateType(type);
+
+            func = resolveOverloadSet(pp->op, op->funcs, {type});
+
+            args_env[func->params[0]] = {arg, func->type.params[0]};
+        }
+
+        ScopeGuard sg{this, args_env};
+        return checkReturnType(std::visit(*this, func->body->variant()), func);
     }
 
 
@@ -578,12 +629,14 @@ struct Visitor {
         // ScopeGuard sg{this};
 
         const expr::Fix* op = ops.at(cp->op1);
+        const expr::Closure* func;
+        Environment args_env;
+
         if (op->funcs.size() == 1) {
 
-            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
 
-            Environment args_env;
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], co->expr->variant());
                 args_env[func->params[0]] = {cp->expr->variant(), func->type.params[0]}; //? fixed
@@ -604,10 +657,22 @@ struct Visitor {
                 // addVar(func->params[0], std::visit(*this, co->expr->variant()));
                 args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
             }
-
-            ScopeGuard sg{this, args_env};
-            return std::visit(*this, func->body->variant());
         }
+        else {
+            checkNoSyntaxType(op->funcs);
+
+            const auto& arg  = std::visit(*this, cp->expr->variant());
+            const auto& type = typeOf(arg);
+            validateType(type);
+
+            func = resolveOverloadSet(cp->op1 + ':' + cp->op2, op->funcs, {type});
+
+            args_env[func->params[0]] = {arg, func->type.params[0]};
+        }
+
+
+        ScopeGuard sg{this, args_env};
+        return checkReturnType(std::visit(*this, func->body->variant()), func);
     };
 
     Value operator()(const expr::OpCall *oc) {
@@ -615,14 +680,16 @@ struct Visitor {
 
 
         const expr::Fix* op = ops.at(oc->first);
+        const expr::Closure* func;
+        Environment args_env;
+
         if (op->funcs.size() == 1) {
 
-            expr::Closure* func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
 
             // this may be not needed
             // if (oc->exprs.size() != func->params.size()) error();
 
-            Environment args_env;
             for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
                 if (param_type->text() == "Syntax") {
                     args_env[param] = {arg_expr->variant(), param_type}; //?
@@ -646,11 +713,27 @@ struct Visitor {
                     args_env[param] = {arg, param_type}; //? fix Any Type!!
                 }
             }
-
-
-            ScopeGuard sg{this, args_env};
-            return std::visit(*this, func->body->variant());
         }
+        else {
+            checkNoSyntaxType(op->funcs);
+
+            std::vector<Value> args;
+            std::vector<type::TypePtr> types;
+            for (auto&& expr : oc->exprs) {
+                args .push_back(std::visit(*this, expr->variant()));
+                types.push_back(typeOf(args.back()));
+                validateType(types.back());
+            }
+
+            func = resolveOverloadSet("[ADD OP NAME]", op->funcs, std::move(types));
+
+            for (auto&& [param, arg, type] : std::views::zip(func->params, args, func->type.params))
+                args_env[param] = {arg, type};
+        }
+
+
+        ScopeGuard sg{this, args_env};
+        return checkReturnType(std::visit(*this, func->body->variant()), func);
     }
 
     Value operator()(const expr::Call *call) {

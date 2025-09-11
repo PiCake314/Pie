@@ -6,15 +6,15 @@
 #include <numeric>
 
 
-namespace precedence {
+namespace prec {
   inline constexpr auto LOW         = 0;
   inline constexpr auto ASSIGNMENT  = 100;
 //   inline constexpr auto CONDITIONAL = 200;
   inline constexpr auto INFIX       = 300;
   inline constexpr auto SUM         = 400;
   inline constexpr auto PROD        = 500;
-  // inline constexpr auto CIRCUMFIX   = 600;
   inline constexpr auto PREFIX      = 700;
+
   inline constexpr auto POSTFIX     = 800;
   inline constexpr auto CALL        = 900;
   inline constexpr auto HIGH        = 1'000;
@@ -27,7 +27,6 @@ namespace precedence {
       case TokenKind::PR_INFIX:      return INFIX;
       case TokenKind::PR_SUM:        return SUM;
       case TokenKind::PR_PROD:       return PROD;
-      // case TokenKind::PR_CIRCUMFIX:  return CIRCUMFIX;
       case TokenKind::PR_PREFIX:     return PREFIX;
       case TokenKind::PR_POSTFIX:    return POSTFIX;
       case TokenKind::PR_CALL:       return CALL;
