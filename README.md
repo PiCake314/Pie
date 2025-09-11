@@ -282,9 +282,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] Fix operator return type checking..?
 - [ ] Add method operators..?
-- [ ] Add overloading operators
 - [ ] Add variadic arguments
 - [ ] Change __builtin_{true|false} to true/false;
 - [ ] Add namespaces
@@ -303,6 +301,8 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
+- [x] Fix operator return type checking..?
+- [x] Add overloading operators
 - [x] Change comments to `.::` and `::.`
 - [x] Add Arbitrary Operators!!!
 - [x] Add circumfix operators
