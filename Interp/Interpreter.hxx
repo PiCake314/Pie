@@ -1459,6 +1459,8 @@ struct Visitor {
 
 
     void validateType(type::TypePtr type) noexcept {
+
+        //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (auto&& var = getVar(type->text()); var) {
             if (typeOf(var->first)->text() != "Type") error("'" + stringify(var->first) + "' does not name a type!");
 
