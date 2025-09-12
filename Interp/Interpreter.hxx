@@ -70,47 +70,55 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
     else if (std::holds_alternative<ClassValue>(value)) {
         const auto& v = std::get<ClassValue>(value);
 
-        s = "class {\n";
+        if (v.blueprint->members.empty())
+            s = "class { }";
+        else {
+            s = "class {\n";
 
-        const std::string space(indent + 4, ' ');
-        for (const auto& [name, value] : v.blueprint->members) {
-            s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v.blueprint->members) {
+                s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
 
-            const bool is_string = std::holds_alternative<std::string>(value);
-            if (is_string) s += '\"';
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) s += '\"';
 
-            s += stringify(value, indent + 4);
+                s += stringify(value, indent + 4);
 
-            if (is_string) s += '\"';
+                if (is_string) s += '\"';
 
-            s += ";\n";
+                s += ";\n";
+            }
+
+            s += std::string(indent, ' ') + '}';
         }
-
-        s += std::string(indent, ' ') + '}';
-
     }
 
     else if (std::holds_alternative<Object>(value)) {
         const auto& v = std::get<Object>(value);
 
-        s = "Object {\n";
+        if (v.second->members.empty()) {
+            s = "Object { }";
+        }
+        else {
+            s = "Object {\n";
 
-        const std::string space(indent + 4, ' ');
-        for (const auto& [name, value] : v.second->members) {
-            s += space + name.stringify() + " = ";
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v.second->members) {
+                s += space + name.stringify() + " = ";
 
-            const bool is_string = std::holds_alternative<std::string>(value);
-            if (is_string) s += '\"';
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) s += '\"';
 
-            s += stringify(value, indent + 4);
+                s += stringify(value, indent + 4);
 
-            if (is_string) s += '\"';
+                if (is_string) s += '\"';
 
+                s += ";\n";
+            }
 
-            s += ";\n";
+            s += std::string(indent, ' ') + '}';
         }
 
-        s += std::string(indent, ' ') + '}';
 
     }
     else if(std::holds_alternative<expr::Node>(value)) {
@@ -1450,7 +1458,13 @@ struct Visitor {
     }
 
 
-    void validateType(const type::TypePtr& type) noexcept {
+    void validateType(type::TypePtr type) noexcept {
+        if (auto&& var = getVar(type->text()); var) {
+            if (typeOf(var->first)->text() != "Type") error("'" + stringify(var->first) + "' does not name a type!");
+
+            type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
+        }
+
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
             if (
                 // const auto& t = var_type->text();

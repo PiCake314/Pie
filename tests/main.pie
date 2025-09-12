@@ -7,7 +7,6 @@ print = __builtin_print;
 
 
 
-
 List: Type = class {
     elm: Int = 0;
     rest = "";
@@ -20,11 +19,9 @@ printList = (l: List) => {
 };
 
 
-
-
-print(__builtin_true());
-print(__builtin_false());
-print(true);
-print(false);
-
+4 = class {};
+Int = 4;
+print(Int);
+x: 4 = Int();
+print(x);
 
