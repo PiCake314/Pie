@@ -1,6 +1,7 @@
 print = __builtin_print;
 
-infix(SUM) + = (a: Int, b: Int) => __builtin_add(a, b);
+infix(SUM)  + = (a: Int, b: Int): Int => __builtin_add(a, b);
+infix(SUM)  + = (a: String, b: String): String => __builtin_concat(a, b);
 
-
-[ x ]
+print(1 + 2);
+print("Hello" + "World");

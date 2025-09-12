@@ -20,6 +20,8 @@
 - [Built-in Functions](#builtins)
 - [Types](#types)
 - [Comments](#comments)
+- [Install](#install)
+- [Update](#update)
 
 ## Variables
 
