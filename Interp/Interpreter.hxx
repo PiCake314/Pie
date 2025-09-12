@@ -862,9 +862,9 @@ struct Visitor {
             for (size_t i{}; i < call->args.size(); ++i) {
                 const auto& v = std::visit(*this, call->args[i]->variant());
 
-                if (typeOf(v)->text() != obj.second->members[i].first.type->text())
+                if (not (*obj.second->members[i].first.type >= *typeOf(v)))
                     error(
-                        "Type mis-match in constructor of:\n" + stringify(cls) + "Member `" +
+                        "Type mis-match in constructor of:\n" + stringify(cls) + "\nMember `" +
                         obj.second->members[i].first.stringify() + "` expected: " + obj.second->members[i].first.type->text() +
                         "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
                     );

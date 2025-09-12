@@ -1,7 +1,25 @@
 print = __builtin_print;
 
-infix(SUM)  + = (a: Int, b: Int): Int => __builtin_add(a, b);
-infix(SUM)  + = (a: String, b: String): String => __builtin_concat(a, b);
 
-print(1 + 2);
-print("Hello" + "World");
+.: makeList = (first: Int, rest: Int..., last: Int): List => List(first, makeList(rest...));
+
+.: operator(LOW +) [ :... ] = (es: Int...): Int... => makeList(es...);
+
+
+
+
+List: Type = class {
+    elm: Int = 0;
+    rest: Any = "";
+};
+
+operator(LOW +) [: : :] = (a: Int, b: Int, c: Int): List => List(a, List(b, List(c)));
+
+printList = (l: List) => {
+    print(l.elm);
+    __builtin_conditional(__builtin_eq(l.rest, ""), "", printList(l.rest));
+};
+
+list: List = [ 1 2 3 ];
+
+printList(list);
