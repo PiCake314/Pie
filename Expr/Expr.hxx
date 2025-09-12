@@ -38,6 +38,17 @@ struct Num : Expr {
 };
 
 
+struct Bool : Expr {
+    bool boo;
+
+    explicit Bool(const bool b) noexcept : boo{b} {}
+
+    std::string stringify(const size_t = 0) const override { return boo ? "true" : "false"; }
+
+    Node variant() const override { return this; }
+};
+
+
 struct String : Expr {
     std::string str;
 
@@ -562,7 +573,7 @@ struct Operator : Fix {
     }
 
 
-    TokenKind type() const override { return TokenKind::OPERATOR; }
+    TokenKind type() const override { return TokenKind::MIXFIX; }
     Node variant() const override { return this; }
 };
 

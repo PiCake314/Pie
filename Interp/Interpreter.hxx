@@ -160,10 +160,16 @@ struct Visitor {
         else return std::stoi(n->num);
     }
 
+    Value operator()(const expr::Bool *b) {
+        if (auto&& var = getVar(b->stringify()); var) return var->first;
+
+        return b->boo;
+    }
+
     Value operator()(const expr::String *s) {
         if (auto&& var = getVar(s->stringify()); var) return var->first;
 
-        return s->str; 
+        return s->str;
     }
 
     Value operator()(const expr::Name *n) {

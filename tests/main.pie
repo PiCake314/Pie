@@ -10,16 +10,21 @@ print = __builtin_print;
 
 List: Type = class {
     elm: Int = 0;
-    rest: Any = "";
+    rest = "";
 };
 
-operator(LOW +) [: : :] = (a: Int, b: Int, c: Int): List => List(a, List(b, List(c)));
 
 printList = (l: List) => {
     print(l.elm);
     __builtin_conditional(__builtin_eq(l.rest, ""), "", printList(l.rest));
 };
 
-list: List = [ 1 2 3 ];
 
-printList(list);
+
+
+print(__builtin_true());
+print(__builtin_false());
+print(true);
+print(false);
+
+

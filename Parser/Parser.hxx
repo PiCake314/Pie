@@ -93,8 +93,8 @@ public:
             using enum TokenKind;
 
             case INT:
-            case FLOAT: return std::make_unique<expr::Num>(token.text);
-
+            case FLOAT : return std::make_unique<expr::Num>(token.text);
+            case BOOL  : return std::make_unique<expr::Bool>(token.text == "true" ? true : false);
             case STRING: return std::make_unique<expr::String>(token.text);
 
             case NAME:
@@ -116,7 +116,7 @@ public:
                             return ret;
                         }
 
-                        case TokenKind::OPERATOR: {
+                        case TokenKind::MIXFIX: {
                             const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
                             if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
 
@@ -180,7 +180,7 @@ public:
             }
 
 
-            case OPERATOR:
+            case MIXFIX:
             case PREFIX:
             case INFIX :
             case SUFFIX:
@@ -300,7 +300,7 @@ public:
 
 
                         // some other part of Operator. 
-                        case TokenKind::OPERATOR:
+                        case TokenKind::MIXFIX:
                         {
                             const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
 
@@ -520,8 +520,8 @@ public:
     expr::ExprPtr fixOperator(const Token& token) {
         using enum TokenKind;
 
-        if (token.kind == EXFIX)    return exfixOperator();
-        if (token.kind == OPERATOR) return arbitraryOperator();
+        if (token.kind == EXFIX )    return exfixOperator();
+        if (token.kind == MIXFIX) return arbitraryOperator();
 
 
         consume(L_PAREN);
@@ -743,7 +743,7 @@ public:
             auto op = ops[first];
             op->funcs.push_back(std::move(func));
 
-            if (op->type() != TokenKind::OPERATOR) error(); // ! ADD ERR MSG
+            if (op->type() != TokenKind::MIXFIX) error(); // ! ADD ERR MSG
 
             auto arb = dynamic_cast<const expr::Operator*>(op);
 

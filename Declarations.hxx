@@ -34,6 +34,7 @@ namespace expr {
 // has to be forward declared bc we're using in in the class bellow
 using Node = std::variant<
     const struct Num*,
+    const struct Bool*,
     const struct String*,
     const struct Name*,
     const struct Assignment*,

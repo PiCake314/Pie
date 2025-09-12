@@ -20,12 +20,14 @@ using TokenLines = std::vector<Tokens>;
 
 inline TokenKind keyword(const std::string_view word) noexcept {
     using enum TokenKind;
-         if (word == "operator"  ) return OPERATOR;
-    else if (word == "prefix"    ) return PREFIX;
-    else if (word == "infix"     ) return INFIX;
-    else if (word == "suffix"    ) return SUFFIX;
-    else if (word == "exfix"     ) return EXFIX;
-    else if (word == "class"     ) return CLASS;
+         if (word == "mixfix") return MIXFIX;
+    else if (word == "prefix") return PREFIX;
+    else if (word == "infix" ) return INFIX;
+    else if (word == "suffix") return SUFFIX;
+    else if (word == "exfix" ) return EXFIX;
+    else if (word == "class" ) return CLASS;
+    else if (word == "true"  ) return BOOL;
+    else if (word == "false" ) return BOOL;
 
     // PRIORITIES
     else if (word == "LOW"       ) return PR_LOW;

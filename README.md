@@ -324,6 +324,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] Add REPL
 - [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
+- [ ] Add recursive operators
 - [ ] Add LLVM backend
 
 ---

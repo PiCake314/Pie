@@ -17,15 +17,15 @@ enum class TokenKind {
     INT,
     FLOAT,
     BOOL,
-
     STRING,
+
     L_BRACE,
     R_BRACE,
     L_PAREN,
     R_PAREN,
 
 // Keywords
-    OPERATOR,
+    MIXFIX,
     PREFIX,
     INFIX,
     SUFFIX,
@@ -72,7 +72,7 @@ inline const char* stringify(const TokenKind token) noexcept {
         case FAT_ARROW:     return "FAT_ARROW";
 
         // keywords
-        case OPERATOR:      return "OPERATOR";
+        case MIXFIX:        return "MIXFIX";
         case PREFIX:        return "PREFIX";
         case INFIX:         return "INFIX";
         case SUFFIX:        return "SUFFIX";
