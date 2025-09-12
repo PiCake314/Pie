@@ -93,23 +93,23 @@ public:
             using enum TokenKind;
 
             case INT:
-            case FLOAT : return std::make_unique<expr::Num>(token.text);
-            case BOOL  : return std::make_unique<expr::Bool>(token.text == "true" ? true : false);
-            case STRING: return std::make_unique<expr::String>(token.text);
+            case FLOAT : return std::make_shared<expr::Num>(token.text);
+            case BOOL  : return std::make_shared<expr::Bool>(token.text == "true" ? true : false);
+            case STRING: return std::make_shared<expr::String>(token.text);
 
             case NAME:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
                         case TokenKind::PREFIX:{
                             const int prec = prec::calculate(op->high, op->low, ops);
-                            return std::make_unique<expr::UnaryOp>(token.text, parseExpr(prec));
+                            return std::make_shared<expr::UnaryOp>(token.text, parseExpr(prec));
                         }
 
                         case TokenKind::EXFIX:{
                             const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text]);
                             // if (not op) error("This should never happen!!");
 
-                            auto ret = std::make_unique<expr::CircumOp>(op->name, op->name2, parseExpr());
+                            auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
 
                             if (not match(op->name2)) error("Exfix operator not closed!");
 
@@ -137,7 +137,7 @@ public:
                                 op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
                             );
                         }
-                        //     return std::make_unique<BinOp>(token, parseExpr(precFromToken(op->prec)));
+                        //     return std::make_shared<BinOp>(token, parseExpr(precFromToken(op->prec)));
 
                         default:
                             // log();
@@ -145,7 +145,7 @@ public:
                     }
                 }
                 // if (lookAhead().kind == NAME || lookAhead().kind == NUM)
-                //     return std::make_unique<UnaryOp>(token, parseExpr(precedence::PREFIX));
+                //     return std::make_shared<UnaryOp>(token, parseExpr(precedence::PREFIX));
                 // else
                 {
                 // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
@@ -153,9 +153,9 @@ public:
                 // if (type->text() != "Any")
                 //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
-                return std::make_unique<expr::Name>(token.text, std::move(type));
+                return std::make_shared<expr::Name>(token.text, std::move(type));
                 }
-            // case DASH: return std::make_unique<UnaryOp>(token.kind, parse(precedence::SUM));
+            // case DASH: return std::make_shared<UnaryOp>(token.kind, parse(precedence::SUM));
 
             case CLASS:{
                 consume(L_BRACE);
@@ -176,7 +176,7 @@ public:
                     fields.push_back({*n, std::move(ass->rhs)});
                 }
 
-                return std::make_unique<expr::Class>(std::move(fields));
+                return std::make_shared<expr::Class>(std::move(fields));
             }
 
 
@@ -197,7 +197,7 @@ public:
                 }
                 while(not match(R_BRACE));
 
-                return std::make_unique<expr::Block>(std::move(lines));
+                return std::make_shared<expr::Block>(std::move(lines));
             }
 
 
@@ -210,7 +210,7 @@ public:
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr();
-                    return std::make_unique<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
+                    return std::make_shared<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
                 }
 
                 // could still be closure or groupings
@@ -246,7 +246,7 @@ public:
                     consume(FAT_ARROW);
 
                     auto body = parseExpr();
-                    return std::make_unique<expr::Closure>(
+                    return std::make_shared<expr::Closure>(
                         std::move(params), type::FuncType{std::move(params_types), std::move(type)}, std::move(body)
                     );
                 }
@@ -281,13 +281,13 @@ public:
                 if (ops.contains(token.text)) {
                     switch (const auto op = ops[token.text]; op->type()) {
                         // case TokenKind::PREFIX:
-                        //     return std::make_unique<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
+                        //     return std::make_shared<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :{
                             const auto prec = prec::calculate(op->high, op->low, ops);
-                            return std::make_unique<expr::BinOp>(std::move(left), token.text, parseExpr(prec));
+                            return std::make_shared<expr::BinOp>(std::move(left), token.text, parseExpr(prec));
                         }
                         case TokenKind::SUFFIX:
-                            return std::make_unique<expr::PostOp>(token.text, std::move(left));
+                            return std::make_shared<expr::PostOp>(token.text, std::move(left));
 
 
                         //* I can fix this. Check if the name is the first or not and error accordingly!
@@ -344,7 +344,7 @@ public:
                     }
                 }
 
-                return std::make_unique<expr::Name>(token.text);
+                return std::make_shared<expr::Name>(token.text);
 
             case DOT:{
                 const auto& accessee = parseExpr(prec::HIGH);
@@ -353,11 +353,11 @@ public:
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
                 if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
 
-                return std::make_unique<expr::Access>(std::move(left), std::move(accessee_ptr->name));
+                return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr->name));
             }
 
             case ASSIGN: 
-                return std::make_unique<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT +1)); // right associative
+                return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT +1)); // right associative
 
 
             case L_PAREN: {
@@ -368,7 +368,7 @@ public:
                     consume(R_PAREN);
                 }
 
-                return std::make_unique<expr::Call>(std::move(left), std::move(args));
+                return std::make_shared<expr::Call>(std::move(left), std::move(args));
             }
 
 
