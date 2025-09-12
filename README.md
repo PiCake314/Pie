@@ -129,7 +129,8 @@ a = always_one 5;
 
 `infix` has to be assigned to a binary closure while `prefix` and `suffix` have to be assigned to a unary closure.
 
-What goes between the parenthesis after the keyword `prefix` is the precedence.\
+### Precedence
+What goes between the parenthesis after the keyword (i.e.`prefix(SUM)`) is the precedence.\
 Here is the list of the precedence levels (from lowest to highest)
 
 - `ASSIGNMENT`
@@ -140,7 +141,6 @@ Here is the list of the precedence levels (from lowest to highest)
 - `POSTFIX`
 - `CALL`
 
-### Precedence
 To create an operator that has a precedence higher than `SUM`, one can attach a plus sign, making the precedence `SUM +`. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
 i.e: `(PROD -) > (SUM +)`\
 
