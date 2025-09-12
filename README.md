@@ -142,9 +142,9 @@ Here is the list of the precedence levels (from lowest to highest)
 - `CALL`
 
 To create an operator that has a precedence higher than `SUM`, one can attach a plus sign, making the precedence `SUM +`. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
-i.e: `(PROD -) > (SUM +)`\
+i.e: `(PROD -) > (SUM +)`
 
-An operator can also have the precedence of another operator:\
+An operator can also have the precedence of another operator:
 ```pie
 infix(SUM)   add = (a, b) => __builtin_add(a, b);
 infix(add)   sub = (a, b) => __builtin_sub(a, b);
@@ -245,7 +245,7 @@ x: Syntax = 1 + a;
 ```
 
 `x` is a hadle to the AST which represents the expression `1 + a`.
-To evaluate `x`, you just need to call __builtin_eval on it:\
+To evaluate `x`, you just need to call __builtin_eval on it:
 
 ```pie
 result = __builtin_eval(x);
