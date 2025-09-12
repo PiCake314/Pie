@@ -1,15 +1,6 @@
 print = __builtin_print;
 
-
-infix(INFIX) + = (a: Int   , b: Int   ): Int    => __builtin_add(a, b);
-infix(INFIX) + = (a: String, b: String): String => __builtin_concat(a, b);
+infix(SUM) + = (a: Int, b: Int) => __builtin_add(a, b);
 
 
-.: print(1 + 2);
-.: print("Hello, " + "World");
-
-
-x: Int = 1;
-x = "";
-x: String = "hello";
-print(x);
+[ x ]

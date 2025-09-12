@@ -16,6 +16,7 @@
 - [Classes](#classes)
 - [Scopes](#scopes)
 - [Operators](#operators)
+- [Overloading](#overloading)
 - [Built-in Functions](#builtins)
 - [Types](#types)
 - [Comments](#comments)
@@ -140,7 +141,24 @@ Here is the list of the precedence levels (from lowest to highest)
 To create an operator that has a precedence higher than `SUM` but lower than `PROD`, then attach a `+` or `-` after the level. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
 i.e: `(PROD -) > (SUM +)`
 
-### Operator Example
+<!-- ### Operator Example
+
+```pie
+
+``` -->
+
+## Overloading
+
+You can overload operators based on the parameter types"
+```pie
+infix(SUM) + = (a: Int, b: Int): Int => __builtin_add(a, b);
+infix(SUM) + = (a: String, b: String): String => __builtin_concat(a, b);
+
+1 + 2;
+"Hi" + "Bye";
+```
+The  `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
+
 
 ## Builtins
 
@@ -282,6 +300,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
+- [ ] Fix builin reset
 - [ ] Add variadic arguments
 - [ ] Change __builtin_{true|false} to true/false;
 - [ ] Add namespaces
