@@ -114,7 +114,7 @@ There are `5` types of operators that can be defined:
 Here is how to define your own operator:
 
 ```pie
-prefix(LOW +) always_one = (x) => 1;
+prefix(PREFIX) always_one = (x) => 1;
 ```
 
 `always_one` is now a prefix operator that when applied, always returns `1`!\
