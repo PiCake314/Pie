@@ -145,14 +145,6 @@ inline TokenLines lex(const std::string& src) {
                 const auto word = src.substr(beginning, index - beginning);
                 // check for keywords here :)
 
-                // technically "comments" and friends are keywords..ghost keywords!
-                std::string lower = word;
-                std::transform(lower.begin(), lower.end(), lower.begin(), [](const char c) { return std::tolower(c); });
-
-                // if((lower == "comment" or lower == "note" or lower == "ps" or lower == "btw" or lower == "todo") and src[index] == ':'){
-                //     while(++index < src.length() and src[index] != '\n');
-                //     break;
-                // }
 
                 if (word == "__TEXT__") [[unlikely]] {
                     std::string line_text;
