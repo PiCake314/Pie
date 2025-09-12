@@ -140,8 +140,17 @@ Here is the list of the precedence levels (from lowest to highest)
 - `POSTFIX`
 - `CALL`
 
+### Precedence
 To create an operator that has a precedence higher than `SUM`, one can attach a plus sign, making the precedence `SUM +`. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
-i.e: `(PROD -) > (SUM +)`
+i.e: `(PROD -) > (SUM +)`\
+
+An operator can also have the precedence of another operator:\
+```pie
+infix(SUM)   add = (a, b) => __builtin_add(a, b);
+infix(add)   sub = (a, b) => __builtin_sub(a, b);
+infix(add +) mul = (a, b) => __builtin_mul(a, b);
+```
+Operator `sub` has a precedence that is equal to operator `add`'s precedence. Operator `mul`, on the other hand, has a higher precedence.
 
 <!-- ### Operator Example
 
