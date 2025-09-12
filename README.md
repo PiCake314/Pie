@@ -140,7 +140,7 @@ Here is the list of the precedence levels (from lowest to highest)
 - `POSTFIX`
 - `CALL`
 
-To create an operator that has a precedence higher than `SUM` but lower than `PROD`, then attach a `+` or `-` after the level. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
+To create an operator that has a precedence higher than `SUM`, one can attach a plus sign, making the precedence `SUM +`. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
 i.e: `(PROD -) > (SUM +)`
 
 <!-- ### Operator Example
