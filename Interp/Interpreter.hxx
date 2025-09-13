@@ -495,7 +495,7 @@ struct Visitor {
             const auto& type = typeOf(arg);
             validateType(type);
 
-            func = resolveOverloadSet(up->op, op->funcs, {type});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
             args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
         }
@@ -572,7 +572,7 @@ struct Visitor {
             const auto& type2 = typeOf(arg2);
             validateType(type2);
 
-            func = resolveOverloadSet(bp->op, op->funcs, {type1, type2});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {type1, type2});
 
             args_env[func->params[0]] = {arg1, func->type.params[0]};
             args_env[func->params[1]] = {arg2, func->type.params[1]};
@@ -626,7 +626,7 @@ struct Visitor {
             const auto& type = typeOf(arg);
             validateType(type);
 
-            func = resolveOverloadSet(pp->op, op->funcs, {type});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
             args_env[func->params[0]] = {arg, func->type.params[0]};
         }
@@ -679,7 +679,7 @@ struct Visitor {
             const auto& type = typeOf(arg);
             validateType(type);
 
-            func = resolveOverloadSet(cp->op1 + ':' + cp->op2, op->funcs, {type});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
             args_env[func->params[0]] = {arg, func->type.params[0]};
         }
@@ -739,7 +739,7 @@ struct Visitor {
                 validateType(types.back());
             }
 
-            func = resolveOverloadSet("[ADD OP NAME]", op->funcs, std::move(types));
+            func = resolveOverloadSet(op->OpName(), op->funcs, std::move(types));
 
             for (auto&& [param, arg, type] : std::views::zip(func->params, args, func->type.params))
                 args_env[param] = {arg, type};

@@ -385,6 +385,7 @@ struct Fix : Expr {
     // : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
 
 
+    virtual std::string OpName() const = 0;
     virtual TokenKind type() const = 0;
 };
 
@@ -414,6 +415,7 @@ struct Prefix : Fix {
     }
 
 
+    std::string OpName() const override { return name; }
     TokenKind type() const override { return TokenKind::PREFIX; }
     Node variant() const override { return this; }
 };
@@ -441,6 +443,7 @@ struct Infix : Fix {
         return s;
     }
 
+    std::string OpName() const override { return name; }
     TokenKind type() const override { return TokenKind::INFIX; }
     Node variant() const override { return this; }
 };
@@ -469,6 +472,7 @@ struct Suffix : Fix {
         return s;
     }
 
+    std::string OpName() const override { return name; }
     TokenKind type() const override { return TokenKind::SUFFIX; }
     Node variant() const override { return this; }
 };
@@ -500,6 +504,7 @@ struct Exfix : Fix {
 
     }
 
+    std::string OpName() const override { return name + ':' + name2; }
     TokenKind type() const override { return TokenKind::EXFIX; }
     Node variant() const override { return this; }
 };
@@ -545,17 +550,6 @@ struct Operator : Fix {
         const std::string shifts(size_t(std::abs(shift)), c);
 
 
-
-        // maybe I should cache that
-        std::string op_name;
-        for (ssize_t i = -1; const auto& field : op_pos) {
-            if (field) {
-                op_name += i == -1 ? name : rest[i];
-                ++i;
-            }
-            else op_name += ':';
-        }
-
         // const std::string& op_name = (begin_expr ? ':' : '\0')
         //     + name
         //     + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
@@ -565,7 +559,7 @@ struct Operator : Fix {
         std::string s;
 
         for (const auto& func : funcs)
-            s += "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent) + '\n';
+            s += "operator(" + token.text + shifts + ") " + OpName() + " = " + func->stringify(indent) + '\n';
 
         // return "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
 
@@ -573,6 +567,17 @@ struct Operator : Fix {
     }
 
 
+    std::string OpName() const override {
+        std::string op_name;
+        for (ssize_t i = -1; const auto& field : op_pos) {
+            if (field) {
+                op_name += i == -1 ? name : rest[i];
+                ++i;
+            }
+            else op_name += ':';
+        }
+        return op_name;
+    }
     TokenKind type() const override { return TokenKind::MIXFIX; }
     Node variant() const override { return this; }
 };

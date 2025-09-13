@@ -19,6 +19,8 @@
 - [Overloading](#overloading)
 - [Built-in Functions](#builtins)
 - [Types](#types)
+- [Keywords List](#keywords-list)
+- [Reserved Punctuaion](#reserved-punctuaion)
 - [Comments](#comments)
 - [Install](#install)
 - [Update](#update)
@@ -111,8 +113,8 @@ There are `5` types of operators that can be defined:
     e.g. `5 !`
 - `exfix`:\
     e.g. `[ 0 ]`
-- `operator`:\
-    e.g. [example](#operator-example)
+- `mixfix`:\
+    e.g. `if 1 then 2 else 3`
 
 Here is how to define your own operator:
 
@@ -280,6 +282,29 @@ so is this::.
 this isn't
 ```
 
+
+## Keywords List
+
+<!-- - import -->
+- `prefix`
+- `infix`
+- `suffix`
+- `exfix`
+- `mixfix`
+- `class`
+- `true`
+- `false`
+
+## Reserved Punctuaion
+
+- `__builtin_*`
+- `( )`
+- `{ }`
+- `,`
+- `.`
+- `:`
+- `;`
+
 ## Install
 
 Make sure you have `git`, and C++ compiler that supports C++23. Then paste the following script in the terminal:
@@ -313,17 +338,13 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 - [ ] Fix builin reset
 - [ ] Add variadic arguments
-- [ ] Change __builtin_{true|false} to true/false;
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
-- [ ] Add collections
 - [ ] Add named arguments
 - [ ] Use Big Int instead of `int32_t`;
 - [ ] World domination
-- [ ] Add iterators
 - [ ] Add REPL
 - [ ] Remove depedency on stdx and boost
-- [ ] Add recursive operators
 - [ ] Add recursive operators
 - [ ] Add LLVM backend
 
@@ -331,6 +352,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
+- [x] Change __builtin_{true|false} to true/false;
 - [x] Fix operator return type checking..?
 - [x] Add overloading operators
 - [x] Change comments to `.::` and `::.`
@@ -348,5 +370,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Discarded
 
-- ~~[ ] Add looping~~
-- ~~[ ] Add method operators..?~~
+- ~~Add collections~~
+- ~~Add iterators~~
+- ~~Add looping~~
+- ~~Add method operators..?~~
