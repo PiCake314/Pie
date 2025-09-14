@@ -1,8 +1,9 @@
 #pragma once
 
 #include <cstddef>
-#include "../Expr/Expr.hxx"
+#include <stdx/tuple.hpp>
 
+#include "../Expr/Expr.hxx"
 
 
 template<size_t Sz>
