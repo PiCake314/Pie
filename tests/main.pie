@@ -1,27 +1,8 @@
 print = __builtin_print;
 
 
-.: makeList = (first: Int, rest: Int..., last: Int): List => List(first, makeList(rest...));
-
-.: operator(LOW +) [ :... ] = (es: Int...): Int... => makeList(es...);
+add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
 
 
-
-List: Type = class {
-    elm: Int = 0;
-    rest = "";
-};
-
-
-printList = (l: List) => {
-    print(l.elm);
-    __builtin_conditional(__builtin_eq(l.rest, ""), "", printList(l.rest));
-};
-
-
-4 = class {};
-Int = 4;
-print(Int);
-x: 4 = Int();
-print(x);
+print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
 

@@ -12,19 +12,19 @@
 struct ClassValue;
 
 namespace type {
-    struct Type_t {
+    struct Type {
         virtual std::string text(const size_t indent = 0) const = 0;
 
-        virtual bool operator==(const Type_t& other) const { return text() == other.text(); }
-        virtual bool operator> (const Type_t& other) const = 0;
-        virtual bool operator>=(const Type_t& other) const = 0;
+        virtual bool operator==(const Type& other) const { return text() == other.text(); }
+        virtual bool operator> (const Type& other) const = 0;
+        virtual bool operator>=(const Type& other) const = 0;
 
-        virtual ~Type_t() = default;
+        virtual ~Type() = default;
     };
 
-    using TypePtr = std::shared_ptr<Type_t>;
+    using TypePtr = std::shared_ptr<Type>;
 
-    struct VarType : Type_t {
+    struct VarType : Type {
         expr::ExprPtr t;
         // std::string t;
 
@@ -37,7 +37,7 @@ namespace type {
         }
 
 
-        bool operator>(const Type_t& other) const override {
+        bool operator>(const Type& other) const override {
             // if (not dynamic_cast<const VarType*>(&other)) return false;
 
             const auto& type = text();
@@ -45,7 +45,7 @@ namespace type {
         }
 
 
-        bool operator>=(const Type_t& other) const override {
+        bool operator>=(const Type& other) const override {
             // if (not dynamic_cast<const VarType*>(&other)) return false;
 
             const auto& type = text();
@@ -53,7 +53,7 @@ namespace type {
         }
     };
 
-    struct LiteralType : Type_t {
+    struct LiteralType : Type {
         std::shared_ptr<ClassValue> cls;
         // std::string t;
 
@@ -62,7 +62,7 @@ namespace type {
         std::string text(const size_t indent = 0) const override;
 
 
-        bool operator>(const Type_t& other) const override {
+        bool operator>(const Type& other) const override {
             if (not dynamic_cast<const LiteralType*>(&other)) return false;
 
             const auto& type = text();
@@ -70,7 +70,7 @@ namespace type {
         }
 
 
-        bool operator>=(const Type_t& other) const override {
+        bool operator>=(const Type& other) const override {
             if (not dynamic_cast<const LiteralType*>(&other)) return false;
 
             const auto& type = text();
@@ -78,13 +78,12 @@ namespace type {
         }
     };
 
-    struct FuncType final : Type_t {
+    struct FuncType final : Type {
         std::vector<TypePtr> params;
         TypePtr ret;
 
 
-        FuncType() = default;
-        explicit FuncType(std::vector<TypePtr> ps, TypePtr r) noexcept : params{std::move(ps)}, ret{std::move(r)} {}
+        FuncType(std::vector<TypePtr> ps, TypePtr r) noexcept : params{std::move(ps)}, ret{std::move(r)} {}
 
         std::string text(const size_t = 0) const override {
 
@@ -96,7 +95,7 @@ namespace type {
         }
 
 
-        bool operator>(const Type_t& other) const override {
+        bool operator>(const Type& other) const override {
             if (not dynamic_cast<const FuncType*>(&other)) return false;
 
             // this might throw, but it technically shouldn't
@@ -109,7 +108,7 @@ namespace type {
             return *ret > *that.ret;
         }
 
-        bool operator>=(const Type_t& other) const override {
+        bool operator>=(const Type& other) const override {
             if (not dynamic_cast<const FuncType*>(&other)) return false;
 
             // this might throw, but it technically shouldn't

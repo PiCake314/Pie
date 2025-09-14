@@ -17,25 +17,22 @@
 #include <stdx/tuple.hpp>
 
 #include "../Utils/utils.hxx"
+#include "../Utils/ConstexprLookup.hxx"
 #include "../Expr/Expr.hxx"
 #include "../Parser/Parser.hxx"
 #include "../Declarations.hxx"
 
 
-
 struct Dict;
-
-// carrys the default values to be copied into an object. essentially const
-// carrys objects' values. could be changed
 
 using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
-// for lazy eval type
 using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
+
 
 inline std::string stringify(const Value& value, const size_t indent = {}) {
     std::string s;
@@ -767,28 +764,93 @@ struct Visitor {
         if (std::holds_alternative<expr::Closure>(var)) {
             const auto& func = std::get<expr::Closure>(var);
 
-            // assert(call->args.size() == func.params.size());
-            if (call->args.size() > func.params.size()) error("Wrong arity call!");
+            for (auto&& [name, _] : call->named_args) {
 
-            if (const auto args_size = call->args.size(); args_size < func.params.size()) {
-                expr::Closure closure{std::vector<std::string>{func.params.begin() + args_size, func.params.end()}, func.type, func.body};
+                if (std::ranges::find(func.params, name) == func.params.end())
+                    error("Named argument '" + name + "' does not name a parameter name!");
+            }
+
+
+            if (call->args.size() + call->named_args.size() > func.params.size()) error("Wrong arity call!");
+
+
+            // check for invalid named arguments
+            for (auto&& [name, _] : call->named_args) { 
+                if (std::ranges::find(func.params, name) == func.params.end())
+                    error("Named argument '" + name + "' does not name a parameter name!");
+            }
+
+
+            if (const auto args_size = call->args.size() + call->named_args.size(); args_size < func.params.size()) {
 
                 Environment argument_capture_list = func.env;
-                for(const auto& [name, type, expr] : std::views::zip(func.params, func.type.params, call->args)) {
-
-                    if (type->text() == "Syntax") {
-                        argument_capture_list[name] = {expr->variant(), type};
-                        continue;
+                for (auto&& [name, expr] : call->named_args) {
+                    type::TypePtr type;
+                    for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
+                        if (n == name) {
+                            type = t;
+                            break;
+                        }
                     }
 
+                    if (not type) error(); // should never happen anyway
 
-                    const auto& value = std::visit(*this, expr->variant());
-                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) // if the param type not a super type of arg type
-                        error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                    Value value;
+                    if (type->text() == "Syntax") value = expr->variant();
+                    else {
+                        value = std::visit(*this, expr->variant());
+
+                        // if the param type not a super type of arg type, error out
+                        if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                    }
+
+                    argument_capture_list[name] = {std::move(value), std::move(type)};
+                }
 
 
-                    // if (type == "Lazy") value = 
-                    argument_capture_list[name] = {value, type};
+                std::vector<std::pair<std::string, type::TypePtr>> pos_params;
+                for (auto&& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
+
+                std::erase_if(pos_params, [&named_args = call->named_args] (auto&& p) {
+                    return std::ranges::find_if(named_args, [&p] (auto&& n) { return n.first == p.first; }) != named_args.cend();
+                });
+
+                std::vector<std::string> new_params;
+                for (auto&& [name, _] : pos_params | std::views::drop(call->args.size())) new_params.push_back(name);
+
+                std::vector<type::TypePtr> new_types;
+                for (auto&& name : new_params) {
+                    type::TypePtr type;
+                    for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
+                        if (n == name) {
+                            type = t;
+                            break;
+                        }
+                    }
+                    new_types.push_back(std::move(type));
+                }
+
+                type::FuncType func_type{std::move(new_types), func.type.ret};
+                expr::Closure closure{std::move(new_params),  std::move(func_type),  func.body};
+
+
+                for(auto&& [param, expr] : std::views::zip(pos_params, call->args)) {
+                    auto&& [name, type] = param;
+
+                    Value value;
+                    if (type->text() == "Syntax") {
+                        value = expr->variant();
+                    }
+                    else {
+                        value = std::visit(*this, expr->variant());
+
+                        // if the param type not a super type of arg type, error out
+                        if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                    }
+
+                    argument_capture_list[name] = {std::move(value), std::move(type)};
                 }
 
                 closure.capture(argument_capture_list);
@@ -799,26 +861,72 @@ struct Visitor {
 
             // full call. Don't curry!
             Environment args_env;
-            for (const auto& [name, type, arg] : std::views::zip(func.params, func.type.params, call->args)){
-                validateType(type);
-
-
-                if (type->text() == "Syntax") {
-                    // addVar(name, arg->variant());
-                    // args_env[name] = {arg->variant(), type::builtins::Any()};
-                    args_env[name] = {arg->variant(), type};
-                    continue;
+            for (auto&& [name, expr] : call->named_args) {
+                type::TypePtr type;
+                for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
+                    if (n == name) {
+                        type = t;
+                        break;
+                    }
                 }
 
-                // todo: look up types here..i think
-                const auto& value = std::visit(*this, arg->variant());
-                if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                    error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                if (not type) error(); // should never happen anyway
 
-                // addVar(name, std::visit(*this, arg->variant()));
-                args_env[name] = {std::visit(*this, arg->variant()), type};
+                Value value;
+                if (type->text() == "Syntax") value = expr->variant();
+                else {
+                    value = std::visit(*this, expr->variant());
+
+                    // if the param type not a super type of arg type, error out
+                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                }
+
+                args_env[name] = {std::move(value), std::move(type)};
             }
-                // env.back()[param] = std::visit(*this, arg->variant());
+
+
+            std::vector<std::pair<std::string, type::TypePtr>> pos_params;
+            for (auto&& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
+
+            std::erase_if(pos_params, [&named_args = call->named_args] (auto&& p) {
+                return std::ranges::find_if(named_args, [&p] (auto&& n) { return n.first == p.first; }) != named_args.cend();
+            });
+
+            std::vector<std::string> new_params;
+            for (auto&& [name, _] : pos_params | std::views::drop(call->args.size())) new_params.push_back(name);
+
+            std::vector<type::TypePtr> new_types;
+            for (auto&& name : new_params) {
+                type::TypePtr type;
+                for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
+                    if (n == name) {
+                        type = t;
+                        break;
+                    }
+                }
+                new_types.push_back(std::move(type));
+            }
+
+
+            for(auto&& [param, expr] : std::views::zip(pos_params, call->args)) {
+                auto&& [name, type] = param;
+
+                Value value;
+                if (type->text() == "Syntax") {
+                    value = expr->variant();
+                }
+                else {
+                    value = std::visit(*this, expr->variant());
+
+                    // if the param type not a super type of arg type, error out
+                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                }
+
+                args_env[name] = {std::move(value), std::move(type)};
+            }
+
 
 
             //* should I capture the env and bundle it with the function before returning it?
@@ -831,21 +939,6 @@ struct Visitor {
 
             checkReturnType(ret, func.type.ret);
 
-            // const auto& type_of_return_value = typeOf(ret);
-            // validateType(func.type.ret); //* maybe this should be moved up?
-            // // if(not isValidType(func.type.ret)) error("Invalid Type: " + func.type.ret->text());
-
-            // auto return_type = func.type.ret;
-            // if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
-            //     return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
-
-            //     // return_type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(c->first)));
-
-            // if (not (*return_type >= *type_of_return_value))
-            //     error(
-            //         "Type mis-match! Function return type Expected: " +
-            //         return_type->text() + ", got: " + type_of_return_value->text()
-            //     );
 
             if (std::holds_alternative<expr::Closure>(ret)) {
                 const auto& closure = get<expr::Closure>(ret);
@@ -1561,7 +1654,7 @@ struct Visitor {
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& func = get<expr::Closure>(value);
 
-            type::FuncType type;
+            type::FuncType type{{}, {}};
             for (const auto& t : func.type.params)
                 type.params.push_back(t);
 

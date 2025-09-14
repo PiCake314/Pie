@@ -4,13 +4,16 @@
 #include <print>
 #include <string>
 #include <vector>
+#include <unordered_map>
 #include <utility>
 #include <algorithm>
+#include <ranges>
 #include <numeric>
 #include <memory>
 #include <variant>
 #include <cmath>
 
+#include "../Utils/utils.hxx"
 #include "../Token/Token.hxx"
 #include "../Declarations.hxx"
 #include "../Type/Type.hxx"
@@ -23,6 +26,9 @@ using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
 using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
+namespace expr { struct Fix; }
+
+using Operators  = std::unordered_map<std::string, expr::Fix*>;
 
 
 namespace expr {
@@ -271,18 +277,27 @@ struct OpCall : Expr {
 
 struct Call : Expr {
     ExprPtr func;
+
+    std::unordered_map<std::string, ExprPtr> named_args;
     std::vector<ExprPtr> args;
 
 
-    Call(ExprPtr function, std::vector<ExprPtr> arguments)
-    : func{std::move(function)}, args{std::move(arguments)}
-    {}
+    Call(ExprPtr function, std::unordered_map<std::string, ExprPtr> named, std::vector<ExprPtr> pos)
+    : func{std::move(function)}, named_args{std::move(named)}, args{std::move(pos)} { }
 
     std::string stringify(const size_t indent = 0) const override {
         std::string s;
         s = func->stringify(indent) + '(';
 
+
         std::string_view comma = "";
+
+        for (auto&& [name, arg] : named_args) {
+            s += comma;
+            s += name + '=' + arg->stringify(indent);
+            comma = ", ";
+        }
+
         for (const auto& arg : args) {
             s += comma;
             s += arg->stringify(indent);
@@ -296,10 +311,6 @@ struct Call : Expr {
 };
 
 
-// redeclared in Interpreter.hxx
-// using Value = std::variant<int, double, bool, std::string, Closure>;
-
-
 struct Closure : Expr {
     std::vector<std::string> params;
 
@@ -311,10 +322,7 @@ struct Closure : Expr {
 
     Closure(std::vector<std::string> ps, type::FuncType t, ExprPtr b)
     : params{std::move(ps)}, type{std::move(t)}, body{std::move(b)} {
-        if(ps.size() != t.params.size()) {
-            puts("ERROR!! This should never happen..,");
-            exit(1);
-        }
+        if(ps.size() != t.params.size()) error("ERROR!! This should never happen..,");
     }
 
 
@@ -532,11 +540,8 @@ struct Operator : Fix {
     rest{std::move(rst)}, op_pos{std::move(pos)}
     // begin_expr{begin}, end_expr{end}
     {
-        if (size_t(std::ranges::count(op_pos, true)) != rest.size() + 1) { // + 1 for first
-            // std::println("rest: {}", rest);
-            puts("ERROR!! This should never happen..,");
-            exit(1);
-        }
+        if (size_t(std::ranges::count(op_pos, true)) != rest.size() + 1)// + 1 for first
+            error("ERROR!! This should never happen..,");
     }
 
 

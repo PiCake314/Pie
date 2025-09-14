@@ -267,7 +267,7 @@ public:
             case R_BRACE: error("Can't have empty block!");
 
             default:
-                // log();
+                log();
                 error("Couldn't parse \"" + token.text + "\"!");
         }
     }
@@ -361,14 +361,37 @@ public:
 
 
             case L_PAREN: {
+                std::unordered_map<std::string, expr::ExprPtr> named_args;
                 std::vector<expr::ExprPtr> args;
+
                 if (not match(R_PAREN)) { // while not closing the paren for the call
-                    do args.emplace_back(parseExpr()); while(match(COMMA));
+
+                    do if (check(NAME)) {
+                        std::string name = consume().text;
+                        if (match(ASSIGN)) {
+                            if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
+                                error("Named parameter '" + name + "' passed more than once!");
+
+                            named_args[std::move(name)] = parseExpr();
+                        }
+                        else {
+                            ----token_iterator; //? back track the consumption of the name..?
+                            red.pop_front();
+                            // std::println("{}", *token_iterator);
+                            // std::println("{}", red);
+                            // std::println("{}", consume());
+                            // log();
+                            // std::cin.get();
+                            args.emplace_back(parseExpr()); // could possibly be dried
+                        }
+                    }
+                    else args.emplace_back(parseExpr()); 
+                    while (match(COMMA));
 
                     consume(R_PAREN);
                 }
 
-                return std::make_shared<expr::Call>(std::move(left), std::move(args));
+                return std::make_shared<expr::Call>(std::move(left), std::move(named_args), std::move(args));
             }
 
 
@@ -387,7 +410,7 @@ public:
         // either a function type
         if (match(L_PAREN)) {
             // type::TypePtr type = std::make_shared<type::FuncType>();
-            type::FuncType type;
+            type::FuncType type{{}, {}};
 
             if (not check(R_PAREN)) do
                 type.params.push_back(parseType());
@@ -792,12 +815,12 @@ public:
     /**
      * @attention only call right before calling error/expected
      */
-    void log(bool begin = false) {
+    void log(bool shift = false, bool begin = false) {
         puts("");
         const ptrdiff_t dist = std::distance(tokens.begin(), token_iterator);
         const ptrdiff_t diff = begin ? 0 : dist < 5 ? dist : 5;
 
-        std::copy(token_iterator - diff, tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
+        std::copy(token_iterator - (shift ? diff : 0), tokens.end(), std::ostream_iterator<Token>{std::cout, " "});
         puts("");
     }
 
