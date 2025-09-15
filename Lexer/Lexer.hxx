@@ -74,7 +74,7 @@ inline bool validNameChar(const char c) noexcept {
     return isalnum(c);
 }
 
-inline TokenLines lex(const std::string& src) {
+[[nodiscard]] inline Tokens lex(const std::string& src) {
     TokenLines lines = {{}};
     Tokens line;
 
@@ -254,6 +254,12 @@ inline TokenLines lex(const std::string& src) {
         lines.back().emplace_back(TokenKind::END, "EOF");
     }
 
-    return lines;
+
+    Tokens tokens;
+    for (auto&& line : lines)
+        for (auto&& t : line)
+            tokens.push_back(std::move(t));
+
+    return tokens;
 }
 
