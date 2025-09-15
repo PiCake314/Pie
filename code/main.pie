@@ -1,8 +1,0 @@
-print = __builtin_print;
-
-
-add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
-
-
-add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.);
-
