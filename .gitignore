@@ -1,6 +1,5 @@
 Pie
 run_tests
-tests/
 .vscode/
 includes/
 Pie.dSYM/
