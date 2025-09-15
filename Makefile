@@ -21,6 +21,9 @@ main: checklibs main.cc
 	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) main.cc -o Pie $(SAN)
 
 
+test: checklibs Tests/Test.cc
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN)
+
 # Check and clone libraries if they don't exist
 checklibs:
 	@mkdir -p $(INCLUDE_DIR)
@@ -35,7 +38,7 @@ checklibs:
 
 # Clean up
 clean:
-	rm -f Pie
+	rm -f Pie run_tests
 
 .PHONY: checklibs clean
 

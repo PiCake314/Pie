@@ -23,17 +23,6 @@
 }
 
 
-[[nodiscard]] Tokens flattenLines(TokenLines&& lines) {
-    Tokens tokens;
-
-    for (auto&& line : lines)
-        for (auto&& t : line)
-            tokens.push_back(std::move(t));
-
-    return tokens;
-}
-
-
 int main(int argc, char *argv[]) {
     using std::operator""sv;
     if (argc < 2) error("Please pass a file name!");
@@ -51,29 +40,17 @@ int main(int argc, char *argv[]) {
     }
 
 
+
     const auto src = readFile(argv[1]);
 
-// y y v x v x y v z z;
-
-    // std::println("{}", src);
-
-    TokenLines v = lex(src);
-
+    const Tokens v = lex(src);
 
     if (v.empty()) return 0;
 
-    // std::println("{}", v); // uncomment this, and everything break!!!
-
-    const auto flattened_v = flattenLines(std::move(v));
-    Parser p{flattened_v};
-    if (print_tokens) std::println("{}", flattened_v);
+    Parser p{v};
+    if (print_tokens) std::println("{}", v);
 
     const auto [exprs, ops] = p.parse();
-
-
-    // puts("\nPrecedences:");
-    // for (const auto& ops = p.operators();  const auto& [name, fix] : ops) 
-    //     std::println("OP: {} = {}", name, precedence::calculate(fix->high, fix->low, ops));
 
 
     if (print_parsed) {
@@ -83,11 +60,9 @@ int main(int argc, char *argv[]) {
         if(run) puts("Output:\n");
     }
 
-
     if (run) {
         Visitor visitor{ops};
         for (const auto& expr : exprs)
             std::visit(visitor, expr->variant());
     }
-
 }
