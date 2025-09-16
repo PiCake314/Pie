@@ -3,32 +3,18 @@
 #include <memory>
 
 
-
 struct Dict;
 struct ClassValue { std::shared_ptr<Dict> blueprint; };
 
-namespace expr {
+struct List;
+using Pack = std::shared_ptr<List>;
 
-// struct Num;
-// struct String;
-// struct Name;
-// struct Assignment;
-// struct Class;
-// struct Access;
-// struct Grouping;
-// struct UnaryOp;
-// struct BinOp;
-// struct PostOp;
-// struct CircumOp;
-// struct Call;
-// struct Closure;
-// struct Block;
-// // struct Fix;
-// struct Prefix;
-// struct Infix;
-// struct Suffix;
-// struct Exfix;
-// struct Operator;
+template <typename ...Ts>
+[[nodiscard]] inline std::shared_ptr<List> makePack(Ts... args) {
+    return std::make_shared<List>(std::forward<Ts>(args)...);
+}
+
+namespace expr {
 
 // has to be pointers kuz we're forward declareing
 // has to be forward declared bc we're using in in the class bellow
@@ -37,6 +23,7 @@ using Node = std::variant<
     const struct Bool*,
     const struct String*,
     const struct Name*,
+    const struct Variadic*,
     const struct Assignment*,
     const struct Class*,
     const struct Access*,
@@ -49,7 +36,6 @@ using Node = std::variant<
     const struct Call*,
     const struct Closure*,
     const struct Block*,
-    // const Fix*,
     const struct Prefix*,
     const struct Infix*,
     const struct Suffix*,

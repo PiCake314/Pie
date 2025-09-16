@@ -20,10 +20,9 @@
 #include "../Utils/utils.hxx"
 
 
-
-using ASTNode     = expr::ExprPtr;
+struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node>;
+using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, Pack>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 namespace expr { struct Fix; }
@@ -76,6 +75,28 @@ struct Name : Expr {
     std::string stringify(const size_t = 0) const override {
         return name;
         // return name + ": " + type->text();
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct Variadic : Expr {
+    std::vector<ExprPtr> values;
+
+    Variadic(std::vector<ExprPtr> vs) : values{std::move(vs)} {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        std::string s;
+        std::string comma;
+
+        for (auto&& v : values) {
+            s += comma + v->stringify(indent);
+            comma = ", ";
+        }
+
+        return s;
     }
 
     Node variant() const override { return this; }

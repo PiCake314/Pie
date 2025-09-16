@@ -51,7 +51,7 @@ namespace type {
         std::shared_ptr<ClassValue> cls;
         // std::string t;
 
-        LiteralType(std::shared_ptr<ClassValue> s) noexcept : cls{std::move(s)} {}
+        LiteralType(std::shared_ptr<ClassValue> c) noexcept : cls{std::move(c)} {}
 
         std::string text(const size_t indent = 0) const override;
 
@@ -101,6 +101,10 @@ namespace type {
 
     inline bool isFunction(const TypePtr& t) noexcept {
         return dynamic_cast<const FuncType*>(t.get());
+    }
+
+    inline bool isVariadic(const TypePtr& t) noexcept {
+        return dynamic_cast<const VariadicType*>(t.get());
     }
 
     inline bool isBuiltin(const TypePtr& t) noexcept {

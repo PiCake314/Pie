@@ -11,15 +11,11 @@
 #include "../Token/Token.hxx"
 
 
-// not sure where to put it
-// keep it here for now...
 
 [[noreturn]] inline void error(
-    const std::string& msg = "[no diagnostic]. If you see this, please file a bug report!",
+    const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
     const std::source_location& location = std::source_location::current()) noexcept {
-    // puts(msg.c_str());
 
-    // std::cerr << location.file_name()  << ", Line: " << location.line() << ", Function: " << location.function_name() << '';
     std::println(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m {}", location.file_name(), location.line(), location.column(), msg);
 
     exit(1);

@@ -69,7 +69,7 @@ std::string run(const char* src) {
 
     const Tokens v = lex(src);
 
-    if (v.empty()) return;
+    if (v.empty()) return "";
 
     Parser p{v};
 

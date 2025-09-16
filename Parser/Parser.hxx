@@ -23,13 +23,6 @@
 
 
 
-
-// [[noreturn]] void error(const std::string& msg) noexcept {
-//     puts(msg.c_str());
-//     exit(1);
-// }
-
-
 class Parser {
     Tokens tokens;         // owner of memory for iterator below
     typename Tokens::iterator token_iterator;
@@ -171,9 +164,11 @@ public:
 
                     const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
                     if (not n) error("Can only assign to names in class definition!");
+                    auto name = *n; // copy so I can modify
+                    if (name.type->text() == "_") name.type = type::builtins::Any();
 
 
-                    fields.push_back({*n, std::move(ass->rhs)});
+                    fields.push_back({name, std::move(ass->rhs)});
                 }
 
                 return std::make_shared<expr::Class>(std::move(fields));
@@ -214,25 +209,42 @@ public:
                 }
 
                 // could still be closure or groupings
-                // Token t = consume(); // NAME or NUM
-
-                const bool is_closure = check(NAME) and (check(COMMA, 1) or check(COLON, 1) or (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2))));
-                // bool is_closure = t.kind == NAME and (check(COMMA) or check(R_PAREN)); // if there is a ','/')', closure, otherwise,
+                const bool is_closure =
+                    check(NAME) and (
+                        check(COMMA, 1) or  // (a, 
+                        check(COLON, 1) or  // (a: 
+                        (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2)))  // (a) =>
+                    );
 
                 if (is_closure) {
 
                     Token name = consume(NAME);
-                    type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-                    // type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
+                    type::TypePtr type;
+                    bool variadic = false;
+
+                    if (match(COLON)) {
+                        variadic = match(ELLIPSIS);
+                        type = variadic ? std::make_shared<type::VariadicType>(parseType()) : parseType();
+                    }
+                    else type = type::builtins::Any();
+
 
                     std::vector<std::string> params = {std::move(name).text};
                     std::vector<type::TypePtr> params_types = {std::move(type)};
 
                     while(match(COMMA)) {
                         name = consume(NAME);
-                        type = match(COLON) ? parseType() : type::builtins::Any();
-                        // type = match(COLON) ? parseType() : type::builtins::_();
-                        // type = match(COLON) ? std::make_shared<type::VarType>(std::make_shared<expr::Name>(consume(NAME).text)) : type::builtins::Any();
+
+                        // type = match(COLON) ? parseType() : type::builtins::Any();
+                        if (match(COLON)) {
+                            const bool ellipsis = match(ELLIPSIS);
+                            if(ellipsis and variadic) error("Variadic parameters can only appear once in parameter list!");
+                            else variadic = true;
+
+                            type = ellipsis ? std::make_shared<type::VariadicType>(parseType()) : parseType();
+                        }
+                        else type = type::builtins::Any();
+
 
                         params.push_back(std::move(name).text);
                         params_types.push_back(std::move(type));
@@ -240,8 +252,12 @@ public:
 
                     consume(R_PAREN);
 
-                    type = match(COLON) ? parseType() : type::builtins::Any();
-                    // type = match(COLON) ? parseType() : type::builtins::_();
+                    // type = match(COLON) ? parseType() : type::builtins::Any();
+                    if (match(COLON)) {
+                        type = match(ELLIPSIS) ? std::make_shared<type::VariadicType>(parseType()) : parseType();
+                    }
+                    else type = type::builtins::Any();
+
 
                     consume(FAT_ARROW);
 

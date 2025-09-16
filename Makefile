@@ -22,7 +22,7 @@ main: checklibs main.cc
 
 
 test: checklibs Tests/Test.cc
-	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN)
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) && ./run_tests
 
 # Check and clone libraries if they don't exist
 checklibs:

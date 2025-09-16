@@ -3,8 +3,6 @@
 #include "../Interp/Interpreter.hxx"
 
 
-
-
 namespace type {
 
     std::string VarType::text(const size_t indent) const {
@@ -29,8 +27,6 @@ namespace type {
 
 
     std::string BuiltinType::text(const size_t) const { return t; }
-
-
 
 
 
@@ -93,9 +89,6 @@ namespace type {
 
         return *ret >= *that.ret;
     }
-
-
-
 
 
 
