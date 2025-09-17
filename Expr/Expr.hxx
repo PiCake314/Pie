@@ -22,7 +22,7 @@
 
 struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, Pack>;
+using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 namespace expr { struct Fix; }
@@ -81,10 +81,10 @@ struct Name : Expr {
 };
 
 
-struct Variadic : Expr {
+struct Pack : Expr {
     std::vector<ExprPtr> values;
 
-    Variadic(std::vector<ExprPtr> vs) : values{std::move(vs)} {}
+    explicit Pack(std::vector<ExprPtr> vs) : values{std::move(vs)} {}
 
 
     std::string stringify(const size_t indent = 0) const override {
@@ -103,6 +103,20 @@ struct Variadic : Expr {
 };
 
 
+struct Expansion : Expr {
+    ExprPtr pack;
+
+    explicit Expansion(ExprPtr p) noexcept : pack{std::move(p)} {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        return pack->stringify(indent) + "...";
+    }
+
+    Node variant() const override { return this; }
+};
+
+
 struct Assignment : Expr {
     // std::string name;
     ExprPtr lhs;
@@ -114,7 +128,7 @@ struct Assignment : Expr {
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and name->type->text() != "_") {
+        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and type::shouldReassign(name->type)) {
             return name->stringify() + ": " + name->type->text() + " = " + rhs->stringify(indent);
         }
 

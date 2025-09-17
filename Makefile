@@ -6,7 +6,7 @@ VER = -std=c++23
 OPT = -O3
 ARGS = -Wall -Wextra -Wimplicit-fallthrough -Wpedantic -Wno-gnu-case-range -Wno-missing-braces
 CPP = Type/*.cxx
-# SAN = -fsanitize=address -fsanitize=undefined
+SAN = -fsanitize=address -fsanitize=undefined
 
 # Library directories
 INCLUDE_DIR = includes

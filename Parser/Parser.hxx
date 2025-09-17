@@ -142,7 +142,7 @@ public:
                 // else
                 {
                 // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
+                type::TypePtr type = match(COLON) ? parseType() : type::_();
                 // if (type->text() != "Any")
                 //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
@@ -165,7 +165,10 @@ public:
                     const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
                     if (not n) error("Can only assign to names in class definition!");
                     auto name = *n; // copy so I can modify
-                    if (name.type->text() == "_") name.type = type::builtins::Any();
+
+                    // Can't reassign variables in a class definition
+                    // This just means the type was not annotated. Default to "Any"
+                    if (type::shouldReassign(name.type)) name.type = type::builtins::Any();
 
 
                     fields.push_back({name, std::move(ass->rhs)});
@@ -388,17 +391,18 @@ public:
                             if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
                                 error("Named parameter '" + name + "' passed more than once!");
 
+
                             named_args[std::move(name)] = parseExpr();
+
+                            if (match(ELLIPSIS)) error("Cannot expand pack in named argument!");
                         }
                         else {
                             ----token_iterator; //? back track the consumption of the name..?
                             red.pop_front();
-                            // std::println("{}", *token_iterator);
-                            // std::println("{}", red);
-                            // std::println("{}", consume());
-                            // log();
-                            // std::cin.get();
-                            args.emplace_back(parseExpr()); // could possibly be dried
+                            auto expr = parseExpr();
+                            if (match(ELLIPSIS))
+                                args.emplace_back(std::make_shared<expr::Expansion>(std::move(expr)));
+                            else args.emplace_back(std::move(expr));
                         }
                     }
                     else args.emplace_back(parseExpr()); 

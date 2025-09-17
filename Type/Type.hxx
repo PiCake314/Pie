@@ -95,8 +95,6 @@ namespace type {
         inline TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
         inline TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
         inline TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
-
-        inline TypePtr _      () { return std::make_shared<BuiltinType>("_"  ); };
     }
 
     inline bool isFunction(const TypePtr& t) noexcept {
@@ -109,6 +107,19 @@ namespace type {
 
     inline bool isBuiltin(const TypePtr& t) noexcept {
         return dynamic_cast<const BuiltinType*>(t.get());
+    }
+
+
+    struct TryReassign : Type {
+        std::string text(const size_t = 0) const override { return ""; }
+
+        bool operator> (const Type&) const override { return false; };
+        bool operator>=(const Type&) const override { return false; };
+    };
+
+    inline TypePtr _() { return std::make_shared<TryReassign>(); };
+    inline bool shouldReassign(const TypePtr& t) {
+        return dynamic_cast<const TryReassign*>(t.get());
     }
 }
 

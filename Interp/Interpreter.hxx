@@ -30,7 +30,7 @@ using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
 struct List;
 
-using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, Pack>;
+using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 struct List { std::vector<Value> values; };
@@ -131,9 +131,9 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         ) + '\n' + std::string(indent, ' ') + '}';
     }
 
-    else if (std::holds_alternative<Pack>(value)) {
+    else if (std::holds_alternative<PackList>(value)) {
         std::string comma = "";
-        for (auto&& v : get<Pack>(value)->values) {
+        for (auto&& v : get<PackList>(value)->values) {
             s += comma + stringify(v);
             comma = ", ";
         }
@@ -208,8 +208,13 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Variadic*) {
+    Value operator()(const expr::Pack *) {
         error();
+    }
+
+
+    Value operator()(const expr::Expansion *) {
+        error("Can only have an expansion inside of a function call!");
     }
 
 
@@ -247,23 +252,15 @@ struct Visitor {
             // variable already exists. Check that type matches the rhs type
             if (auto&& var = getVar(name->name); var) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
-                if (name->type->text() == "_") {
+                if (type::shouldReassign(name->type)) { // condition not conjuncted with above "if" intentionally
                     type = var->second;
                     change = true;
                 }
-
-                // if (name->type->text() == "_") { // "_" indicates no type was annotated...
-                //     // std::clog << ass->stringify() << std::endl;
-                //     const auto& v = std::visit(*this, ass->rhs->variant());
-                //     changeVar(name->name, v);
-                //     return v;
-                // }
-
             }
             else { // New var
                 // type = name->type;
                 // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
-                if (type->text() == "_")
+                if (type::shouldReassign(type))
                     type = type::builtins::Any();
                 else validateType(type);
 
@@ -290,15 +287,12 @@ struct Visitor {
                 // we verified types are compatible so this is fine..should be...I hope
                 if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
                     closure.type = *t;
-                else if (const auto* t = dynamic_cast<type::VarType*>(type.get()); t and t->text() != "Any")
-                    error("Incompatible types. This should never happen. File a bug report!");
-                // else 
+                else if (const auto* t = dynamic_cast<type::BuiltinType*>(type.get()); t and t->text() != "Any")
+                     error("Incompatible types. This should never happen. File a bug report!");
+                // else error("Again, Incompatible types. This should never happen. File a bug report!");
             }
 
 
-            // std::clog << "Here: " << name->stringify() << '\n';
-
-                //     return v;
             if (change) changeVar(name->name, value);
             else        addVar(name->stringify(), value, type);
 
@@ -321,7 +315,7 @@ struct Visitor {
         for (const auto& field : cls->fields) {
 
             type::TypePtr type = field.first.type;
-            if (type->text() == "_") type = type::builtins::Any();
+            if (type::shouldReassign(type)) type = type::builtins::Any();
 
             Value v;
 
@@ -767,20 +761,41 @@ struct Visitor {
     Value operator()(const expr::Call *call) {
         if (auto&& var = getVar(call->stringify()); var) return var->first;
 
-
         ScopeGuard sg{this};
+
+
+        // using Arg = std::variant<expr::ExprPtr, Value>;
+        auto args = call->args;
+        std::vector<std::pair<size_t, std::vector<Value>>> expand_at;
+
+        for (size_t i{}; i < args.size(); ++i) {
+            if (const auto expand = dynamic_cast<const expr::Expansion*>(args[i].get())) {
+                const auto pack = std::visit(*this, expand->pack->variant());
+
+                if (not std::holds_alternative<PackList>(pack))
+                    error("Expansion applied on a non-pack variable: " + args[i]->stringify());
+
+                expand_at.push_back({i, get<PackList>(pack)->values});
+                // args.erase(std::next(args.begin(), i--));
+            }
+        }
+
+        const size_t args_size =
+            args.size() +
+            std::ranges::fold_left(expand_at, size_t{}, [] (auto&& acc, auto&& elt) { return acc + elt.second.size(); }) - // plus the expansions
+            expand_at.size(); // minus redundant packs (already expanded)
+
 
         auto var = std::visit(*this, call->func->variant());
 
         if (std::holds_alternative<std::string>(var)) { // that dumb lol. but now it works
             const auto& name = std::get<std::string>(var);
-            if (isBuiltIn(name)) return evaluateBuiltin(call, name);
+            if (isBuiltIn(name)) return evaluateBuiltin(args, expand_at, call->named_args, name);
         }
 
 
         if (std::holds_alternative<expr::Closure>(var)) {
             const auto& func = std::get<expr::Closure>(var);
-
 
             // check for invalid named arguments
             for (auto&& [name, _] : call->named_args) {
@@ -791,13 +806,13 @@ struct Visitor {
 
             const bool is_variadic = std::ranges::any_of(func.type.params, type::isVariadic);
             // const size_t arity = func.params.size() - is_variadic; // don't count pack as a concrete param
-            const size_t args_size = call->args.size() + call->named_args.size(); 
+            // const size_t args_size = call->args.size() + call->named_args.size(); 
 
-            if (not is_variadic and args_size > func.params.size()) error("Wrong arity call!");
+            if (not is_variadic and args_size + call->named_args.size() > func.params.size()) error("Wrong arity call!");
 
 
             // * curry!
-            if (args_size < func.params.size() -  is_variadic) {
+            if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
                 Environment argument_capture_list = func.env;
 
                 for (auto&& [name, expr] : call->named_args) {
@@ -833,7 +848,7 @@ struct Visitor {
                 });
 
                 std::vector<std::string> new_params;
-                for (auto&& [name, _] : pos_params | std::views::drop(call->args.size())) new_params.push_back(name);
+                for (auto&& [name, _] : pos_params | std::views::drop(args_size)) new_params.push_back(name);
 
                 std::vector<type::TypePtr> new_types;
                 for (auto&& name : new_params) {
@@ -858,9 +873,8 @@ struct Visitor {
 
                     // call->args.erase(std::next(call->args.begin(), variadic_index));
 
-                    if (call->args.size() > variadic_index) {
+                    if (args_size > variadic_index) {
                         normal = false;
-
 
                         pos_params.erase(std::next(pos_params.begin(), variadic_index));
 
@@ -868,43 +882,60 @@ struct Visitor {
                         closure.params.erase(closure.params.begin());
                         closure.type.params.erase(closure.type.params.begin());
 
-                        for(auto&& [param, expr] : std::views::zip(pos_params, call->args)) {
+                        for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(pos_params, args)) {
                             auto&& [name, type] = param;
-
                             Value value;
-                            if (type->text() == "Syntax") {
-                                value = expr->variant();
+
+                            if (curr < expand_at.size() and i == expand_at[curr].first) {
+                                for (auto&& val : expand_at[curr++].second) {
+                                    if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                }
                             }
                             else {
-                                value = std::visit(*this, expr->variant());
+                                if (type->text() == "Syntax") {
+                                    value = expr->variant();
+                                }
+                                else {
+                                    value = std::visit(*this, expr->variant());
 
-                                // if the param type not a super type of arg type, error out
-                                if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                }
                             }
 
+
+                            ++i;
                             argument_capture_list[name] = {std::move(value), std::move(type)};
                         }
                     }
-
-
                 }
 
-                if (normal) for(auto&& [param, expr] : std::views::zip(pos_params, call->args)) {
+                /* else */
+                if (normal) for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(pos_params, args)) {
                     auto&& [name, type] = param;
-
                     Value value;
-                    if (type->text() == "Syntax") {
-                        value = expr->variant();
+
+                    if (i == expand_at[curr].first) {
+                        for (auto&& val : expand_at[curr++].second) {
+                            if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        }
                     }
                     else {
-                        value = std::visit(*this, expr->variant());
+                        if (type->text() == "Syntax") {
+                            value = expr->variant();
+                        }
+                        else {
+                            value = std::visit(*this, expr->variant());
 
-                        // if the param type not a super type of arg type, error out
-                        if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                            // if the param type not a super type of arg type, error out
+                            if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        }
                     }
 
+                    ++i;
                     argument_capture_list[name] = {std::move(value), std::move(type)};
                 }
 
@@ -947,20 +978,21 @@ struct Visitor {
                     return std::ranges::find_if(named_args, [&p] (auto&& n) { return n.first == p.first; }) != named_args.cend();
                 });
 
-                std::vector<std::string> new_params;
-                for (auto&& [name, _] : pos_params | std::views::drop(call->args.size())) new_params.push_back(name);
 
-                std::vector<type::TypePtr> new_types;
-                for (auto&& name : new_params) {
-                    type::TypePtr type;
-                    for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
-                        if (n == name) {
-                            type = t;
-                            break;
-                        }
-                    }
-                    new_types.push_back(std::move(type));
-                }
+                // std::vector<std::string> new_params;
+                // for (auto&& [name, _] : pos_params | std::views::drop(args_size)) new_params.push_back(name);
+
+                // std::vector<type::TypePtr> new_types;
+                // for (auto&& name : new_params) {
+                //     type::TypePtr type;
+                //     for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
+                //         if (n == name) {
+                //             type = t;
+                //             break;
+                //         }
+                //     }
+                //     new_types.push_back(std::move(type));
+                // }
 
 
                 if (is_variadic) {
@@ -972,19 +1004,19 @@ struct Visitor {
 
                     const size_t pre_variadic_size = std::ranges::size(pre_variadic);
                     const size_t post_variadic_size = std::ranges::size(post_variadic);
-                    const size_t pack_size = call->args.size() - pre_variadic_size - post_variadic_size;
+                    const size_t pack_size = args_size - pre_variadic_size - post_variadic_size;
 
-                    const auto pre_pack = std::ranges::subrange(call->args, std::ranges::size(pre_variadic));
+                    const auto pre_pack = std::ranges::subrange(args, std::ranges::size(pre_variadic));
 
                     const auto pack = std::ranges::subrange{
-                        std::next(call->args.begin(), pre_variadic_size),
-                        std::prev(call->args.end(), post_variadic_size)
+                        std::next(args.begin(), pre_variadic_size),
+                        std::prev(args.end(), post_variadic_size)
                     };
                     assert(pack_size == std::ranges::size(pack));
 
                     const auto post_pack = std::ranges::subrange{
-                        std::prev(call->args.end(), post_variadic_size),
-                        call->args.end()
+                        std::prev(args.end(), post_variadic_size),
+                        args.end()
                     };
 
                     // *
@@ -1006,7 +1038,7 @@ struct Visitor {
                     }
 
                     // * evaluating the pack
-                    Pack pack_expr = makePack();
+                    PackList pack_expr = makePack();
 
                     for (const type::TypePtr type = func.type.params[variadic_index];auto&& expr : pack) {
 
@@ -1018,7 +1050,7 @@ struct Visitor {
                             value = std::visit(*this, expr->variant());
 
                             if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error("Type mis-match! Parameter '" + func.params[variadic_index] + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                error("Type mis-match! Parameter '" + func.params[variadic_index] + "' expected type: " + type->text() + ", got a: " + type_of_value->text());
                         }
 
                         pack_expr->values.push_back(std::move(value));
@@ -1026,10 +1058,53 @@ struct Visitor {
                     args_env[func.params[variadic_index]] = {std::move(pack_expr), func.type.params[variadic_index]};
 
                     // *
-                    for(auto&& [param, expr] : std::views::zip(post_variadic, post_pack)) {
+                    for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(post_variadic, post_pack)) {
                         auto&& [name, type] = param;
-
                         Value value;
+
+                        if (curr < expand_at.size() and i == expand_at[curr].first) {
+                            for (auto&& val : expand_at[curr++].second) {
+                                if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                            }
+                        }
+                        else {
+                            if (type->text() == "Syntax") {
+                                value = expr->variant();
+                            }
+                            else {
+                                value = std::visit(*this, expr->variant());
+
+                                // if the param type not a super type of arg type, error out
+                                if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                            }
+                        }
+
+                        ++i;
+                        args_env[name] = {std::move(value), std::move(type)};
+                    }
+
+                }
+                // else for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(pos_params, args)) {
+                else for (size_t p{}, a{}, curr{}; p < args_size; ++p, ++a) {
+                    if (curr < expand_at.size() and a == expand_at[curr].first) {
+                        for (auto&& val : expand_at[curr++].second) {
+                            auto&& [name, type] = pos_params[p];
+
+                            if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                            ++p;
+                            args_env[name] = {std::move(val), std::move(type)};
+                        }
+                        --p;
+                    }
+                    else {
+                        auto&& [name, type] = pos_params[p];
+                        auto&& expr = args[a];
+                        Value value;
+
                         if (type->text() == "Syntax") {
                             value = expr->variant();
                         }
@@ -1040,26 +1115,9 @@ struct Visitor {
                             if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
                                 error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
                         }
+
                         args_env[name] = {std::move(value), std::move(type)};
                     }
-
-                }
-                else for(auto&& [param, expr] : std::views::zip(pos_params, call->args)) {
-                    auto&& [name, type] = param;
-
-                    Value value;
-                    if (type->text() == "Syntax") {
-                        value = expr->variant();
-                    }
-                    else {
-                        value = std::visit(*this, expr->variant());
-
-                        // if the param type not a super type of arg type, error out
-                        if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                    }
-
-                    args_env[name] = {std::move(value), std::move(type)};
                 }
 
 
@@ -1247,7 +1305,12 @@ struct Visitor {
 
 
     // the gate into the META operators!
-    Value evaluateBuiltin(const expr::Call* call, std::string name) {
+    Value evaluateBuiltin(
+        const std::vector<expr::ExprPtr>& args,
+        const std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
+        const std::__1::unordered_map<std::__1::string, expr::ExprPtr>& named_args,
+        std::string name
+    ) {
         //* ============================ FUNCTIONS ============================
         const auto functions = stdx::make_indexed_tuple<KeyFor>(
             //* NULLARY FUNCTIONS
@@ -1456,9 +1519,6 @@ struct Visitor {
 
                         if (std::holds_alternative<std::string>(a) and std::holds_alternative<std::string>(b)) return get<std::string>(a) == get<std::string>(b); // ADL
 
-                        // will be caught down
-                        // if (std::holds_alternative<std::string>(a)  or std::holds_alternative<std::string>(b)) return false;
-
                         if (std::holds_alternative<int>(a) and std::holds_alternative<int>(b))       return get<int>(a) == get<int>(b);
                         if (std::holds_alternative<int>(a) and std::holds_alternative<double>(b))    return get<int>(a) == get<double>(b);
                         if (std::holds_alternative<double>(a) and std::holds_alternative<int>(b))    return get<double>(a) == get<int>(b);
@@ -1496,44 +1556,14 @@ struct Visitor {
                     TypeList<double, double>
                 >
             >{}
-
-            // // * BOOLEAN FUNCTIONS
-            // MapEntry<
-            //     S<"or">,
-            //     Func<
-            //         decltype([](auto&& a, auto&& b, const auto&) { return a or b; }),
-            //         TypeList<bool, bool>
-            //     >
-            // >{},
-
-            // MapEntry<
-            //     S<"and">,
-            //     Func<
-            //         decltype([](auto&& a, auto&& b, const auto&) { return a and b; }),
-            //         TypeList<bool, bool>
-            //     >
-            // >{}
-
-            // // * TRINARY FUNCTIONS
-            // MapEntry<
-            //     S<"conditional">,
-            //     Func<
-            //         decltype([](auto&& cond, auto&& then, auto&& otherwise, const auto&) -> Value {
-            //             if (std::holds_alternative<bool>(cond) and get<bool>(cond)) return then;
-
-            //             return otherwise;
-            //         }),
-            //         TypeList<Node, Node, Node>
-            //     >
-            // >{}
         );
 
 
 
         name = name.substr(10); // cutout the "__builtin_"
 
-        const auto arity_check = [&name, call] (const size_t arity) {
-            if (call->args.size() != arity) error("Wrong arity with call to \"__builtin_" + name + "\"");
+        const auto arity_check = [&name, &args] (const size_t arity) {
+            if (args.size() != arity) error("Wrong arity with call to \"__builtin_" + name + "\"");
         };
 
         // const auto int_check = [&name] (const Value& val) {
@@ -1550,10 +1580,10 @@ struct Visitor {
 
         // for now, can only implement variadic functions inlined in this function
         if (name == "print") {
-            if (call->args.empty()) error("'print' requires at least 1 argument passed!");
+            if (args.empty()) error("'print' requires at least 1 argument passed!");
 
             Value ret;
-            for(const auto& arg : call->args) {
+            for(const auto& arg : args) {
                 constexpr bool no_newline = false;
                 ret = std::visit(*this, arg->variant());
                 print(ret, no_newline);
@@ -1563,10 +1593,10 @@ struct Visitor {
         }
 
         if (name == "concat") {
-            if (call->args.size() < 2) error("'concat' requires at least 2 argument passed!");
+            if (args.size() < 2) error("'concat' requires at least 2 argument passed!");
 
             std::string s;
-            for(const auto& arg : call->args) {
+            for(const auto& arg : args) {
                 const Value& v = std::visit(*this, arg->variant());
                 if (not std::holds_alternative<std::string>(v)) error("'concat' only accepts strings as arguments: " + stringify(v));
 
@@ -1583,12 +1613,12 @@ struct Visitor {
 
         // evaluating arguments from left to right as needed
         // first argument is always evaluated
-        const auto& value1 = std::visit(*this, call->args[0]->variant());
+        const auto& value1 = std::visit(*this, args[0]->variant());
 
         // Since this is a meta function that operates on AST nodes rather than values
         // it gets its special treatment here..
         if (name == "reset") {
-            const std::string& s = call->args[0]->stringify();
+            const std::string& s = args[0]->stringify();
             if (const auto& v = getVar(s); not v) error("Reseting an unset value: " + s);
             else removeVar(s);
 
@@ -1610,7 +1640,7 @@ struct Visitor {
         const auto eager = {"add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
         if (std::ranges::find(eager, name) != eager.end()) {
             arity_check(2);
-            const auto& value2 = std::visit(*this, call->args[1]->variant());
+            const auto& value2 = std::visit(*this, args[1]->variant());
 
             // this is disgusting..I know
             if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
@@ -1637,23 +1667,23 @@ struct Visitor {
             if (not get<bool>(value1)) return value1; // first falsey value
 
 
-            return std::visit(*this, call->args[1]->variant()); // last truthy value
+            return std::visit(*this, args[1]->variant()); // last truthy value
         }
 
         if (name == "or" ) {
             arity_check(2);
-            if (not std::holds_alternative<bool>(value1)) return std::visit(*this, call->args[1]->variant()); // last falsey value
+            if (not std::holds_alternative<bool>(value1)) return std::visit(*this, args[1]->variant()); // last falsey value
 
 
             if(get<bool>(value1)) return value1; // first truthy value
-            return std::visit(*this, call->args[1]->variant()); // last falsey value
+            return std::visit(*this, args[1]->variant()); // last falsey value
         }
 
 
         if (name == "conditional") {
             arity_check(3);
-            const auto& then      = call->args[1]->variant();
-            const auto& otherwise = call->args[2]->variant();
+            const auto& then      = args[1]->variant();
+            const auto& otherwise = args[2]->variant();
 
             if (not std::holds_alternative<bool>(value1)) return std::visit(*this, otherwise);
 
@@ -1790,6 +1820,24 @@ struct Visitor {
             return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<Object>(value).first));
             // return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
             // return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
+        }
+
+        if (std::holds_alternative<PackList>(value)) {
+            auto values = std::ranges::fold_left(
+                get<PackList>(value)->values,
+                std::vector<type::TypePtr>{},
+                [this] (auto&& acc, auto&& elt) {
+                    acc.push_back(typeOf(elt));
+                    return acc;
+                }
+            );
+
+            auto any_pack = std::make_shared<type::VariadicType>(type::builtins::Any());
+            if (values.empty()) return any_pack;
+
+            const bool same = std::ranges::all_of(values, [tp = values[0]] (auto&& t) { return t == tp; });
+
+            return same ? std::make_shared<type::VariadicType>(values[0]) : any_pack;
         }
 
 
