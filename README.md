@@ -371,6 +371,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
 - [ ] Use Big Int instead of `int32_t`;
+- [ ] Make `=` and `=>` overloadable
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL
