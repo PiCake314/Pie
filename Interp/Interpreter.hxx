@@ -1741,7 +1741,7 @@ struct Visitor {
             return;
 
         }
-        else if (const auto var_type = dynamic_cast<type::LiteralType*>(type.get())) {
+        else if (dynamic_cast<type::LiteralType*>(type.get())) {
             return; // I guess I can just return 
         }
         else if (type::isFunction(type)) {
