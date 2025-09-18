@@ -1563,18 +1563,39 @@ struct Visitor {
         // for now, can only implement variadic functions inlined in this function
         if (name == "print") {
             if (args.empty()) error("'print' requires at least 1 argument passed!");
-            if (named_args.size() > 1 and not named_args.contains("end")) error("Can only have the named argument 'end' in call to '__builtin_print'");
 
-            Value ret;
+            using std::operator""sv;
+            const auto allowed_params = {"sep"sv, "end"sv};
+
+            for (auto&& [name, _] : named_args)
+                if (not std::ranges::find(allowed_params, name))
+                    error("Can only have the named argument 'end'/'sep' in call to '__builtin_print'");
+
+
+            const Value sep = named_args.contains("sep") ? std::visit(*this, named_args.at("sep")->variant()) : " ";
+
             constexpr bool no_newline = false;
 
+            std::optional<Value> separator;
+            Value ret;
             for(size_t i{}, curr{}; auto& arg : args) {
+
                 if (curr < expand_at.size() and i++ == expand_at[curr].first) {
-                    for (auto&& e : expand_at[curr++].second) print(e, no_newline);
+                    for (auto&& e : expand_at[curr++].second) {
+                        if (separator) print(*separator, no_newline);
+
+                        print(e, no_newline);
+
+                        if (not separator) separator = sep;
+                    }
                 }
                 else {
+                    if (separator) print(*separator, no_newline);
+
                     ret = std::visit(*this, arg->variant());
                     print(ret, no_newline);
+
+                    if (not separator) separator = sep;
                 }
             }
 
