@@ -336,12 +336,11 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] Fix builin reset
-- [ ] Add variadic arguments
+- [ ] add named parameters to some builtin functions
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
-- [ ] Add named arguments
 - [ ] Use Big Int instead of `int32_t`;
+- [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL
 - [ ] Remove depedency on stdx and boost
@@ -352,6 +351,8 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
+- [x] Add variadic arguments
+- [x] Add named arguments
 - [x] Change __builtin_{true|false} to true/false;
 - [x] Fix operator return type checking..?
 - [x] Add overloading operators

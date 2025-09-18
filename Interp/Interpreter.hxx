@@ -886,7 +886,7 @@ struct Visitor {
                             auto&& [name, type] = param;
                             Value value;
 
-                            if (curr < expand_at.size() and i == expand_at[curr].first) {
+                            if (curr < expand_at.size() and i++ == expand_at[curr].first) {
                                 for (auto&& val : expand_at[curr++].second) {
                                     if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
                                         error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
@@ -905,7 +905,6 @@ struct Visitor {
                             }
 
 
-                            ++i;
                             argument_capture_list[name] = {std::move(value), std::move(type)};
                         }
                     }
@@ -916,7 +915,7 @@ struct Visitor {
                     auto&& [name, type] = param;
                     Value value;
 
-                    if (i == expand_at[curr].first) {
+                    if (curr < expand_at.size() and i++ == expand_at[curr].first) {
                         for (auto&& val : expand_at[curr++].second) {
                             if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
                                 error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
@@ -935,7 +934,6 @@ struct Visitor {
                         }
                     }
 
-                    ++i;
                     argument_capture_list[name] = {std::move(value), std::move(type)};
                 }
 
@@ -977,22 +975,6 @@ struct Visitor {
                 std::erase_if(pos_params, [&named_args = call->named_args] (auto&& p) {
                     return std::ranges::find_if(named_args, [&p] (auto&& n) { return n.first == p.first; }) != named_args.cend();
                 });
-
-
-                // std::vector<std::string> new_params;
-                // for (auto&& [name, _] : pos_params | std::views::drop(args_size)) new_params.push_back(name);
-
-                // std::vector<type::TypePtr> new_types;
-                // for (auto&& name : new_params) {
-                //     type::TypePtr type;
-                //     for (auto&& [n, t] : std::views::zip(func.params, func.type.params)) {
-                //         if (n == name) {
-                //             type = t;
-                //             break;
-                //         }
-                //     }
-                //     new_types.push_back(std::move(type));
-                // }
 
 
                 if (is_variadic) {
@@ -1062,7 +1044,7 @@ struct Visitor {
                         auto&& [name, type] = param;
                         Value value;
 
-                        if (curr < expand_at.size() and i == expand_at[curr].first) {
+                        if (curr < expand_at.size() and i++ == expand_at[curr].first) {
                             for (auto&& val : expand_at[curr++].second) {
                                 if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
                                     error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
@@ -1081,14 +1063,14 @@ struct Visitor {
                             }
                         }
 
-                        ++i;
                         args_env[name] = {std::move(value), std::move(type)};
                     }
 
                 }
                 // else for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(pos_params, args)) {
-                else for (size_t p{}, a{}, curr{}; p < args_size; ++p, ++a) {
-                    if (curr < expand_at.size() and a == expand_at[curr].first) {
+                else for (size_t i{}, p{}, curr{}; p < args_size; ++p) {
+
+                    if (curr < expand_at.size() and i++ == expand_at[curr].first) {
                         for (auto&& val : expand_at[curr++].second) {
                             auto&& [name, type] = pos_params[p];
 
@@ -1102,7 +1084,7 @@ struct Visitor {
                     }
                     else {
                         auto&& [name, type] = pos_params[p];
-                        auto&& expr = args[a];
+                        auto&& expr = args[i];
                         Value value;
 
                         if (type->text() == "Syntax") {
@@ -1581,14 +1563,25 @@ struct Visitor {
         // for now, can only implement variadic functions inlined in this function
         if (name == "print") {
             if (args.empty()) error("'print' requires at least 1 argument passed!");
+            if (named_args.size() > 1 and not named_args.contains("end")) error("Can only have the named argument 'end' in call to '__builtin_print'");
 
             Value ret;
-            for(const auto& arg : args) {
-                constexpr bool no_newline = false;
-                ret = std::visit(*this, arg->variant());
-                print(ret, no_newline);
+            constexpr bool no_newline = false;
+
+            for(size_t i{}, curr{}; auto& arg : args) {
+                if (curr < expand_at.size() and i++ == expand_at[curr].first) {
+                    for (auto&& e : expand_at[curr++].second) print(e, no_newline);
+                }
+                else {
+                    ret = std::visit(*this, arg->variant());
+                    print(ret, no_newline);
+                }
             }
-            puts(""); // print the new line in the end.
+
+            if (named_args.contains("end"))
+                 print(std::visit(*this, named_args.at("end")->variant()), no_newline);
+            else puts(""); // print the new line in the end.
+
             return ret;
         }
 
