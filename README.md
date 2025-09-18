@@ -55,6 +55,38 @@ Closures can be assigned to variables:
 func = (x) => "yay";
 ```
 
+### Named Arguments
+
+Any parameter can be named in the argument list in any order:
+
+```pie
+func = (one, two) => one;
+
+func(two=2, one=1);
+func(two=1, 1);
+```
+
+### Variadic Functions
+
+A function can have at most **one** variadic parameter. The variadic paramater can be anywhere in the parameter list.
+
+The variadic argument has to be annotated with a type with leading ellipsis `...<type>`:
+
+```pie
+getLast = (all: ...Any, last) => last;
+
+x = getLast(1, 2, 3);
+```
+
+`x` will be 3.
+
+Use the trailing `...` to expand a pack:
+```pie
+getFirst = (first, rest: ...Any) => first;
+
+forward = (args: ...Any) => getFirst(args...);
+```
+
 ## Classes
 
 A class is a block (scope) preceded by the `class` keyword. The block must consist of **ONLY** assignments:
@@ -336,7 +368,6 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] add named parameters to some builtin functions
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
 - [ ] Use Big Int instead of `int32_t`;
@@ -351,6 +382,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
+- [x] add named parameters to some builtin functions
 - [x] Add variadic arguments
 - [x] Add named arguments
 - [x] Change __builtin_{true|false} to true/false;
