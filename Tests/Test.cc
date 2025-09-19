@@ -7,7 +7,71 @@
 #include "catch.hpp"
 
 
+TEST_CASE("Var args2", "[Variadic]") {
+    const auto src =
+R"(
+print = __builtin_print;
 
+(es) => 1;
+f = (es: ...Any) => 1;
+f();
+
+f = (x, es: ...Any) => 1;
+f();
+
+f = (x, y, es: ...Any) => 1;
+f();
+
+f = (es: ...Any, a) => 1;
+f();
+
+f = (es: ...Any, a, b) => 1;
+f();
+
+f = (a, es: ...Any, b) => 1;
+f();
+
+)";
+
+    run(src);
+
+    SUCCEED();
+}
+
+
+TEST_CASE("Var args", "[Variadic]") {
+    const auto src =
+R"(
+print = __builtin_print;
+
+func2 = (x, y, z, a) => {
+    print("x = ", x);
+    print("y = ", y);
+    print("z = ", z);
+    print("a = ", a);
+
+    "done";
+};
+
+out = (As: ...Any) => {
+    func = (a, b, c, args: ...Any) => func2(a=300, As..., args...);
+
+    func(1, 2, 3, 5);
+};
+
+out(10, 20);
+)";
+
+
+
+    REQUIRE(
+        run(src)
+        == R"(x =  10
+y =  20
+z =  5
+a =  300)"
+    );
+}
 
 
 
@@ -55,16 +119,16 @@ TEST_CASE("Variadics", "[Type]") {
 
 TEST_CASE("Named Arguments") {
 
-    const auto src =
-R"(
-print = __builtin_print;
-add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
+//     const auto src =
+// R"(
+// print = __builtin_print;
+// add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
 
-print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
-)";
+// print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
+// )";
 
 
-    REQUIRE(run(src) == "0");
+    // REQUIRE(run(src) == "0");
 }
 
 

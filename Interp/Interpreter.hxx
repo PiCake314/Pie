@@ -886,7 +886,7 @@ struct Visitor {
                             auto&& [name, type] = param;
                             Value value;
 
-                            if (curr < expand_at.size() and i++ == expand_at[curr].first) {
+                            if (curr < expand_at.size() and i == expand_at[curr].first) {
                                 for (auto&& val : expand_at[curr++].second) {
                                     if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
                                         error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
@@ -904,7 +904,7 @@ struct Visitor {
                                 }
                             }
 
-
+                            ++i;
                             argument_capture_list[name] = {std::move(value), std::move(type)};
                         }
                     }
@@ -915,7 +915,7 @@ struct Visitor {
                     auto&& [name, type] = param;
                     Value value;
 
-                    if (curr < expand_at.size() and i++ == expand_at[curr].first) {
+                    if (curr < expand_at.size() and i == expand_at[curr].first) {
                         for (auto&& val : expand_at[curr++].second) {
                             if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
                                 error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
@@ -934,6 +934,7 @@ struct Visitor {
                         }
                     }
 
+                    ++i;
                     argument_capture_list[name] = {std::move(value), std::move(type)};
                 }
 
@@ -953,7 +954,7 @@ struct Visitor {
                         }
                     }
 
-                    if (not type) error(); // should never happen anyway
+                    if (not type) error(); //* should never happen anyway
 
                     Value value;
                     if (type->text() == "Syntax") value = expr->variant();
@@ -986,91 +987,118 @@ struct Visitor {
 
                     const size_t pre_variadic_size = std::ranges::size(pre_variadic);
                     const size_t post_variadic_size = std::ranges::size(post_variadic);
-                    const size_t pack_size = args_size - pre_variadic_size - post_variadic_size;
+                    const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
 
-                    const auto pre_pack = std::ranges::subrange(args, std::ranges::size(pre_variadic));
+                    // const auto pre_pack = std::ranges::subrange(args, std::ranges::size(pre_variadic));
 
-                    const auto pack = std::ranges::subrange{
-                        std::next(args.begin(), pre_variadic_size),
-                        std::prev(args.end(), post_variadic_size)
-                    };
-                    assert(pack_size == std::ranges::size(pack));
+                    // const auto variadic = std::ranges::subrange{
+                    //     std::next(args.begin(), pre_variadic_size),
+                    //     std::prev(args.end(), post_variadic_size)
+                    // };
 
-                    const auto post_pack = std::ranges::subrange{
-                        std::prev(args.end(), post_variadic_size),
-                        args.end()
-                    };
+                    // if (variadic_size != std::ranges::size(variadic)) {
+                    //     std::clog << "variadic_size: " << variadic_size << std::endl;
+                    //     std::clog << "size(variadic): " << std::ranges::size(variadic) << std::endl;
+                    // }
+                    // assert(variadic_size == std::ranges::size(variadic));
 
-                    // *
-                    for(auto&& [param, expr] : std::views::zip(pre_variadic, pre_pack)) {
-                        auto&& [name, type] = param;
-
-                        Value value;
-                        if (type->text() == "Syntax") {
-                            value = expr->variant();
-                        }
-                        else {
-                            value = std::visit(*this, expr->variant());
-
-                            // if the param type not a super type of arg type, error out
-                            if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                        }
-                        args_env[name] = {std::move(value), std::move(type)};
-                    }
-
-                    // * evaluating the pack
-                    PackList pack_expr = makePack();
-
-                    for (const type::TypePtr type = func.type.params[variadic_index];auto&& expr : pack) {
-
-                        Value value;
-                        if (type->text() == "Syntax") {
-                            value = expr->variant();
-                        }
-                        else {
-                            value = std::visit(*this, expr->variant());
-
-                            if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error("Type mis-match! Parameter '" + func.params[variadic_index] + "' expected type: " + type->text() + ", got a: " + type_of_value->text());
-                        }
-
-                        pack_expr->values.push_back(std::move(value));
-                    }
-                    args_env[func.params[variadic_index]] = {std::move(pack_expr), func.type.params[variadic_index]};
+                    // const auto post_pack = std::ranges::subrange{
+                    //     std::prev(args.end(), post_variadic_size),
+                    //     args.end()
+                    // };
 
                     // *
-                    for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(post_variadic, post_pack)) {
-                        auto&& [name, type] = param;
+                    auto pack = makePack();
+                    for (
+                        size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
+                        arg_index < args.size(); // can't be args_size since arg_index is only used to index into args
+                    ) {
+                        auto&& [name, type] = pos_params[param_index];
                         Value value;
 
-                        if (curr < expand_at.size() and i++ == expand_at[curr].first) {
-                            for (auto&& val : expand_at[curr++].second) {
-                                if (auto&& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        if (param_index == variadic_index){
+                            for (size_t i{}; i < variadic_size; ++i) {
+
+                                if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
+                                    value = std::move(expand_at[curr_expansion].second[pack_index++]);
+
+                                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                        error("Type mis-match! Parameter '" + name
+                                            + "' expected type: "+ type->text() 
+                                            + ", got: " + type_of_value->text()
+                                        );
+
+                                    if (pack_index >= expand_at[curr_expansion].second.size()) {
+                                        ++arg_index;
+                                        ++curr_expansion;
+                                        pack_index = 0;
+                                    }
+                                }
+                                else {
+                                    auto&& expr = args[arg_index];
+
+                                    if (type->text() == "Syntax") {
+                                        error(); //* remove!
+                                        // value = expr->variant();
+                                    }
+                                    else {
+                                        value = std::visit(*this, expr->variant());
+
+                                        // if the param type not a super type of arg type, error out
+                                        if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                            error("Type mis-match! Parameter '" + name
+                                                + "' expected type: "+ type->text() 
+                                                + ", got: " + type_of_value->text()
+                                            );
+                                    }
+
+                                    ++arg_index;
+                                }
+
+                                pack->values.push_back(std::move(value));
                             }
+
+                            ++param_index;
+                            args_env[name] = {std::move(pack), std::move(type)};
                         }
                         else {
-                            if (type->text() == "Syntax") {
-                                value = expr->variant();
-                            }
-                            else {
-                                value = std::visit(*this, expr->variant());
+                            if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
+                                value = expand_at[curr_expansion].second[pack_index++];
 
-                                // if the param type not a super type of arg type, error out
                                 if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
                                     error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                                if (pack_index >= expand_at[curr_expansion].second.size()) {
+                                    ++arg_index;
+                                    ++curr_expansion;
+                                    pack_index = 0;
+                                }
                             }
+                            else {
+                                auto&& expr = args[arg_index];
+
+                                if (type->text() == "Syntax") {
+                                    value = expr->variant();
+                                }
+                                else {
+                                    value = std::visit(*this, expr->variant());
+
+                                    if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                }
+
+                                ++arg_index;
+                            }
+
+                            ++param_index;
+                            args_env[name] = {std::move(value), std::move(type)};
                         }
-
-                        args_env[name] = {std::move(value), std::move(type)};
                     }
-
                 }
                 // else for(size_t i{}, curr{}; auto&& [param, expr] : std::views::zip(pos_params, args)) {
-                else for (size_t i{}, p{}, curr{}; p < args_size; ++p) {
+                else for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
 
-                    if (curr < expand_at.size() and i++ == expand_at[curr].first) {
+                    if (curr < expand_at.size() and i == expand_at[curr].first) {
                         for (auto&& val : expand_at[curr++].second) {
                             auto&& [name, type] = pos_params[p];
 
@@ -1568,8 +1596,8 @@ struct Visitor {
             const auto allowed_params = {"sep"sv, "end"sv};
 
             for (auto&& [name, _] : named_args)
-                if (not std::ranges::find(allowed_params, name))
-                    error("Can only have the named argument 'end'/'sep' in call to '__builtin_print'");
+                if (std::ranges::find(allowed_params, name) == allowed_params.end())
+                    error("Can only have the named argument 'end'/'sep' in call to '__builtin_print': found '" + name + "'!");
 
 
             const Value sep = named_args.contains("sep") ? std::visit(*this, named_args.at("sep")->variant()) : " ";
@@ -1579,7 +1607,6 @@ struct Visitor {
             std::optional<Value> separator;
             Value ret;
             for(size_t i{}, curr{}; auto& arg : args) {
-
                 if (curr < expand_at.size() and i++ == expand_at[curr].first) {
                     for (auto&& e : expand_at[curr++].second) {
                         if (separator) print(*separator, no_newline);
