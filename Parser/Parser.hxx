@@ -526,15 +526,6 @@ public:
             case ASSIGN: return prec::ASSIGNMENT;
             case DOT   : return prec::HIGH;
 
-            // case TokenKind::NUM: return precedence::SUM;
-
-            // case PLUS:
-            // case DASH:    return precedence::SUM;
-
-            // case STAR:
-            // case SLASH:   return precedence::PRODUCT;
-
-
             case NAME: {
                 // Probably in the middle of an operator() with :: or more
                 if (not ops.contains(token.text)) {
@@ -548,8 +539,6 @@ public:
 
 
                 return token.text == op->name ? prec +1 : prec; // for OPERATORs!!!
-
-
             }
 
             case L_PAREN: return prec::CALL;

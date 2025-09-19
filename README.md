@@ -368,11 +368,13 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] Add namespaces
-- [ ] Add an import system (modules)
 - [ ] Use Big Int instead of `int32_t`;
-- [ ] Add fold expressions (like C++)
+- [ ] Add input method (file & console)
+- [ ] Add namespaces
 - [ ] Make `=` and `=>` overloadable
+- [ ] Add an import system (modules)
+- [ ] Add fold expressions (like C++)
+- [ ] Add match expression (like scala)
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL

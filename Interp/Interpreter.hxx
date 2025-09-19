@@ -30,7 +30,7 @@ using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
 struct List;
 
-using Value = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
+using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 struct List { std::vector<Value> values; };
@@ -47,8 +47,9 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         return v ? "true" : "false";
     }
 
-    else if (std::holds_alternative<int>(value)) {
-        const auto& v = std::get<int>(value);
+    else if (std::holds_alternative<ssize_t>(value)) {
+        const auto& v = std::get<ssize_t>(value);
+        
         s = std::to_string(v);
     }
 
@@ -175,7 +176,7 @@ struct Visitor {
 
         // have to do an if rather than ternary so the return value isn't always coerced into doubles
         if (n->num.find('.') != std::string::npos) return std::stod(n->num);
-        else return std::stoi(n->num);
+        else return std::stoll(n->num);
     }
 
     Value operator()(const expr::Bool *b) {
@@ -1357,7 +1358,7 @@ struct Visitor {
                         std::getline(std::cin, out);
                         if (not std::ranges::all_of(out, isdigit)) error("'__builtin_input_int' recieved a non-int \"" + out + "\"!");
 
-                        return std::stoi(out); 
+                        return std::stoll(out);
                     }),
                     void
                 >
@@ -1368,7 +1369,7 @@ struct Visitor {
                 S<"neg">,
                 Func<"neg",
                     decltype([](auto&& x, const auto&) { return -x; }),
-                    TypeList<int>,
+                    TypeList<ssize_t>,
                     TypeList<double>
                 >
             >{},
@@ -1377,8 +1378,8 @@ struct Visitor {
                 S<"not">,
                 Func<"not",
                     decltype([](auto&& x, const auto&) { return not x; }),
-                    TypeList<int>,
-                    TypeList<double>,
+                    // TypeList<ssize_t>,
+                    // TypeList<double>,
                     TypeList<bool>
                 >
             >{},
@@ -1436,9 +1437,9 @@ struct Visitor {
                 S<"add">,
                 Func<"add",
                     decltype([](auto&& a, auto&& b, const auto&) { return a + b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1447,9 +1448,9 @@ struct Visitor {
                 S<"sub">,
                 Func<"sub",
                     decltype([](auto&& a, auto&& b, const auto&) { return a - b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1458,9 +1459,9 @@ struct Visitor {
                 S<"mul">,
                 Func<"mul",
                     decltype([](auto&& a, auto&& b, const auto&) { return a * b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1469,9 +1470,9 @@ struct Visitor {
                 S<"div">,
                 Func<"div",
                     decltype([](auto&& a, auto&& b, const auto&) { return a / b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1480,7 +1481,7 @@ struct Visitor {
                 S<"mod">,
                 Func<"mod",
                     decltype([](auto&& a, auto&& b, const auto&) { return a % b; }),
-                    TypeList<int, int>
+                    TypeList<ssize_t, ssize_t>
                 >
             >{},
 
@@ -1490,9 +1491,9 @@ struct Visitor {
                     decltype(
                         [](auto&& a, auto&& b, const auto&) -> std::common_type_t<decltype(a), decltype(b)> { return std::pow(a, b); }
                     ),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1501,9 +1502,9 @@ struct Visitor {
                 S<"gt">,
                 Func<"gt",
                     decltype([](auto&& a, auto&& b, const auto&) { return a > b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1512,9 +1513,9 @@ struct Visitor {
                 S<"geq">,
                 Func<"geq",
                     decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1529,19 +1530,14 @@ struct Visitor {
 
                         if (std::holds_alternative<std::string>(a) and std::holds_alternative<std::string>(b)) return get<std::string>(a) == get<std::string>(b); // ADL
 
-                        if (std::holds_alternative<int>(a) and std::holds_alternative<int>(b))       return get<int>(a) == get<int>(b);
-                        if (std::holds_alternative<int>(a) and std::holds_alternative<double>(b))    return get<int>(a) == get<double>(b);
-                        if (std::holds_alternative<double>(a) and std::holds_alternative<int>(b))    return get<double>(a) == get<int>(b);
-                        if (std::holds_alternative<double>(a) and std::holds_alternative<double>(b)) return get<double>(a) == get<double>(b);
+                        if (std::holds_alternative<ssize_t>(a) and std::holds_alternative<ssize_t>(b)) return get<ssize_t>(a) == get<ssize_t>(b);
+                        if (std::holds_alternative<ssize_t>(a) and std::holds_alternative<double>(b))  return get<ssize_t>(a) == get<double>(b);
+                        if (std::holds_alternative<double>(a) and std::holds_alternative<ssize_t>(b))  return get<ssize_t>(b) == get<double>(a);
+                        if (std::holds_alternative<double>(a) and std::holds_alternative<double>(b))   return get<double>(a) == get<double>(b);
 
                         return false;
                     }),
                     TypeList<Any, Any>
-                    // TypeList<int, int>,
-                    // TypeList<int, double>,
-                    // TypeList<double, int>,
-                    // TypeList<double, double>,
-                    // TypeList<std::string, std::string>
                 >
             >{},
 
@@ -1549,9 +1545,9 @@ struct Visitor {
                 S<"leq">,
                 Func<"leq",
                     decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{},
@@ -1560,9 +1556,9 @@ struct Visitor {
                 S<"lt">,
                 Func<"lt",
                     decltype([](auto&& a, auto&& b, const auto&) { return a < b; }),
-                    TypeList<int, int>,
-                    TypeList<int, double>,
-                    TypeList<double, int>,
+                    TypeList<ssize_t, ssize_t>,
+                    TypeList<ssize_t, double>,
+                    TypeList<double, ssize_t>,
                     TypeList<double, double>
                 >
             >{}
@@ -1577,7 +1573,7 @@ struct Visitor {
         };
 
         // const auto int_check = [&name] (const Value& val) {
-        //     if (not std::holds_alternative<int>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
+        //     if (not std::holds_alternative<ssize_t>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
         // };
 
         if (name == "true" or name == "false") arity_check(0);
@@ -1663,7 +1659,7 @@ struct Visitor {
             if (const auto& v = getVar(s); not v) error("Reseting an unset value: " + s);
             else removeVar(s);
 
-            // return std::stoi(num->num);
+            // return to_bigint(num->num);
             return value1;
         }
 
@@ -1834,7 +1830,7 @@ struct Visitor {
 
     type::TypePtr typeOf(const Value& value) noexcept {
         if (std::holds_alternative<expr::Node>(value))   return type::builtins::Syntax();
-        if (std::holds_alternative<int>(value))          return type::builtins::Int();
+        if (std::holds_alternative<ssize_t>(value))          return type::builtins::Int();
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
         if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
         if (std::holds_alternative<std::string>(value))  return type::builtins::String();

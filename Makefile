@@ -8,13 +8,19 @@ ARGS = -Wall -Wextra -Wimplicit-fallthrough -Wpedantic -Wno-gnu-case-range -Wno-
 CPP = Type/*.cxx
 SAN = -fsanitize=address -fsanitize=undefined
 
-# Library directories
-INCLUDE_DIR = includes
-MP11_DIR = $(INCLUDE_DIR)/mp11
-CPP_STD_EXT_DIR = $(INCLUDE_DIR)/cpp-std-extensions
+## Library directories
+
+# Pulled from GitHub
+REMOTE_INCLUDE_DIR = remote_includes
+MP11_DIR = $(REMOTE_INCLUDE_DIR)/mp11
+CPP_STD_EXT_DIR = $(REMOTE_INCLUDE_DIR)/cpp-std-extensions
+
+# Saved locally
+LOCAL_INCLUDE_DIR = includes
+BIGINT_DIR = $(LOCAL_INCLUDE_DIR)/BigInt
 
 # Include paths
-INCLUDE = -I$(MP11_DIR)/include/ -I$(CPP_STD_EXT_DIR)/include/
+INCLUDE = -I$(MP11_DIR)/include/ -I$(CPP_STD_EXT_DIR)/include/ -I$(BIGINT_DIR)/include/
 
 # Main target
 main: checklibs main.cc
@@ -26,7 +32,7 @@ test: checklibs Tests/Test.cc
 
 # Check and clone libraries if they don't exist
 checklibs:
-	@mkdir -p $(INCLUDE_DIR)
+	@mkdir -p $(REMOTE_INCLUDE_DIR)
 	@if [ ! -d "$(MP11_DIR)" ]; then \
         echo "Cloning Boost.MP11..."; \
         git clone https://github.com/boostorg/mp11 $(MP11_DIR); \

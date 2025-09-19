@@ -19,10 +19,9 @@
 #include "../Type/Type.hxx"
 #include "../Utils/utils.hxx"
 
-
 struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<int, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
+using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 namespace expr { struct Fix; }
