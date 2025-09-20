@@ -386,6 +386,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
+- [x] Fixed infix operators parsing right to left!
 - [x] Implemnted `__builtin_eq` for all values!
 - [x] Add named parameters to some builtin functions
 - [x] Add variadic arguments

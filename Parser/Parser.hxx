@@ -137,15 +137,9 @@ public:
                             error("[in/suf]fix operator used as [pre/ex]fix");
                     }
                 }
-                // if (lookAhead().kind == NAME || lookAhead().kind == NUM)
-                //     return std::make_shared<UnaryOp>(token, parseExpr(precedence::PREFIX));
-                // else
-                {
-                // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
-                // if (type->text() != "Any")
-                //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
+                {
+                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
                 return std::make_shared<expr::Name>(token.text, std::move(type));
                 }
             // case DASH: return std::make_shared<UnaryOp>(token.kind, parse(precedence::SUM));
@@ -177,14 +171,12 @@ public:
                 return std::make_shared<expr::Class>(std::move(fields));
             }
 
-
             case MIXFIX:
             case PREFIX:
             case INFIX :
             case SUFFIX:
             case EXFIX :
                 return fixOperator(token);
-
 
 
             case L_BRACE: {
@@ -201,9 +193,7 @@ public:
 
             case L_PAREN: {
                 if (match(R_PAREN)) { // nullary closure
-
                     type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
-                    // type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::_();
 
                     consume(FAT_ARROW);
                     // It's a closure
@@ -220,39 +210,20 @@ public:
                     );
 
                 if (is_closure) {
+                    std::vector<std::string> params;
+                    std::vector<type::TypePtr> params_types;
 
-                    Token name = consume(NAME);
-                    type::TypePtr type;
+                    do {
+                        type::TypePtr type;
+                        Token name = consume(NAME);
 
-                    if (match(COLON)) {
-                        // variadic = match(ELLIPSIS);
-                        // type = variadic ? std::make_shared<type::VariadicType>(parseType()) : parseType();
-                        type = parseType();
-                    }
-                    else type = type::builtins::Any();
-
-
-                    std::vector<std::string> params = {std::move(name).text};
-                    std::vector<type::TypePtr> params_types = {std::move(type)};
-
-                    while(match(COMMA)) {
-                        name = consume(NAME);
-
-                        // type = match(COLON) ? parseType() : type::builtins::Any();
-                        if (match(COLON)) {
-                            // const bool ellipsis = match(ELLIPSIS);
-                            // if(ellipsis and variadic) error("Variadic parameters can only appear once in parameter list!");
-                            // else variadic = true;
-                            // type = ellipsis ? std::make_shared<type::VariadicType>(parseType()) : parseType();
-
-                            type = parseType();
-                        }
-                        else type = type::builtins::Any();
-
+                        if (match(COLON)) type = parseType();
+                        else              type = type::builtins::Any();
 
                         params.push_back(std::move(name).text);
                         params_types.push_back(std::move(type));
                     }
+                    while(match(COMMA));
 
                     consume(R_PAREN);
 
@@ -263,18 +234,14 @@ public:
                         }
                     }
 
-                    // type = match(COLON) ? parseType() : type::builtins::Any();
-                    if (match(COLON)) {
-                        type = match(ELLIPSIS) ? std::make_shared<type::VariadicType>(parseType()) : parseType();
-                    }
-                    else type = type::builtins::Any();
 
+                    type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
 
                     consume(FAT_ARROW);
 
                     auto body = parseExpr();
                     return std::make_shared<expr::Closure>(
-                        std::move(params), type::FuncType{std::move(params_types), std::move(type)}, std::move(body)
+                        std::move(params), type::FuncType{std::move(params_types), std::move(return_type)}, std::move(body)
                     );
                 }
                 else { // tt's just grouping,
@@ -357,15 +324,6 @@ public:
 
                             return std::make_shared<expr::OpCall>(op->name, op->rest, std::move(exprs), op->op_pos);
                         }
-
-                        // case TokenKind::OPERATOR: {
-                        //     // const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
-                        //     // not always the case tho. I need to test it
-                        //     // if (not op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
-
-                        //     return left;
-                        // }
-
 
                         default: error("prefix operator used as [inf/suf]fix");
                     }
@@ -527,11 +485,6 @@ public:
     [[nodiscard]] bool check(const std::string_view exp, const size_t i = {}) { return lookAhead(i).text == exp; }
 
     [[nodiscard]] size_t getPrecedence() {
-        // assuming only for infix (duh, if it's a prefix, then no precedence is needed)
-        // if (atEnd()) {
-        //     puts("ENDING!");
-        //     return 0; 
-        // }
 
         const Token& token = lookAhead();
         switch (token.kind) {
@@ -551,8 +504,11 @@ public:
                 const auto op = ops[token.text];
                 const int prec = prec::calculate(op->high, op->low, ops);
 
+                // mix fix operators should be parsed right to left.......I think ;-;
+                if (token.text == op->name and op->type() == TokenKind::MIXFIX)
+                    return prec + 1;
 
-                return token.text == op->name ? prec +1 : prec; // for OPERATORs!!!
+                return  prec;
             }
 
             case L_PAREN: return prec::CALL;
@@ -735,17 +691,6 @@ public:
             op_pos.push_back(not match(COLON));
             if (op_pos.back()) rest.push_back(consume(NAME).text);
         }
-
-        // // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
-        // if (high.kind == low.kind and (precedence::fromToken(high, ops) == precedence::HIGH or precedence::fromToken(low, ops) == precedence::LOW)) {
-        //     const std::string& op_name = (begins_with_expr ? ':' : '\0')
-        //         + first
-        //         + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
-        //         + (ends_with_expr ? ':' : '\0');
-
-        //     error("Can't have set operator precedence to only LOW/HIGH: " + op_name);
-        // }
-
 
         consume(ASSIGN);
 
