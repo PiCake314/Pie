@@ -1469,7 +1469,7 @@ struct Visitor {
                 S<"pack_len">,
                 Func<"pack_len",
                     decltype([](auto&& pack, const auto&) {
-                        return static_cast<ssize_t>(pack->values.ssize()); // have to narrow to `int` since I don't support any other integer type (nor big int)
+                        return static_cast<ssize_t>(pack->values.size()); // have to narrow to `int` since I don't support any other integer type (nor big int)
                     }),
                     TypeList<PackList>
                 >
