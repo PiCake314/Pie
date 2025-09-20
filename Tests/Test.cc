@@ -7,6 +7,24 @@
 #include "catch.hpp"
 
 
+
+TEST_CASE("Var args3", "[Variadic]") {
+    const auto src =
+R"(
+print = __builtin_print;
+
+func1 = (a: String, args: ...Any, b: String): ...Int => args;
+
+x: ...Int = func1("first", "last");
+y: ...Int = func1("first", 1, 2, 3, "last");
+print(x);
+print(x...);
+)";
+
+    REQUIRE(run(src) == ""); // not sure why it's not "\n\n" :)!
+}
+
+
 TEST_CASE("Var args2", "[Variadic]") {
     const auto src =
 R"(
