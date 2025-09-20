@@ -14,23 +14,22 @@ namespace type {
     }
 
     bool VarType::operator>(const Type& other) const {
-        // if (not dynamic_cast<const VarType*>(&other)) return false;
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
+
         const auto& type = text();
         return type == "Syntax" or (type == "Any" and other.text() != "Any");
     }
 
 
     bool VarType::operator>=(const Type& other) const {
-        // if (not dynamic_cast<const VarType*>(&other)) return false;
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
+
         const auto& type = text();
         return type == "Syntax" or type == "Any" or type == other.text();
     }
 
 
-
     std::string BuiltinType::text(const size_t) const { return t; }
-
-
 
     std::string LiteralType::text(const size_t indent) const {
         // return t.empty() ? "Any" : t;
@@ -39,6 +38,7 @@ namespace type {
     }
 
     bool LiteralType::operator>(const Type& other) const {
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
         if (not dynamic_cast<const LiteralType*>(&other)) return false;
 
         const auto& type = text();
@@ -46,6 +46,7 @@ namespace type {
     }
 
     bool LiteralType::operator>=(const Type& other) const {
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
         if (not dynamic_cast<const LiteralType*>(&other)) return false;
 
         const auto& type = text();
@@ -55,10 +56,7 @@ namespace type {
 
 
 
-
-
     std::string FuncType::text(const size_t) const {
-
         std::string t = params.empty() ? "" : params[0]->text();
         for (size_t i = 1uz; i < params.size(); ++i)
             t += ", " + params[i]->text();
@@ -67,6 +65,7 @@ namespace type {
     }
 
     bool FuncType::operator>(const Type& other) const {
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
         if (not dynamic_cast<const FuncType*>(&other)) return false;
 
         // this might throw, but it technically shouldn't
@@ -80,6 +79,7 @@ namespace type {
     }
 
     bool FuncType::operator>=(const Type& other) const {
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
         if (not dynamic_cast<const FuncType*>(&other)) return false;
 
         // this might throw, but it technically shouldn't

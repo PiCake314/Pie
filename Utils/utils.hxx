@@ -14,7 +14,8 @@
 
 [[noreturn]] inline void error(
     const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
-    const std::source_location& location = std::source_location::current()) noexcept {
+    const std::source_location& location = std::source_location::current()
+) noexcept {
 
     std::println(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m {}", location.file_name(), location.line(), location.column(), msg);
 

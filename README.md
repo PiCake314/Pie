@@ -368,13 +368,13 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] Use Big Int instead of `int32_t`;
 - [ ] Add input method (file & console)
 - [ ] Add namespaces
-- [ ] Make `=` and `=>` overloadable
 - [ ] Add an import system (modules)
-- [ ] Add fold expressions (like C++)
 - [ ] Add match expression (like scala)
+- [ ] Make `=` and `=>` overloadable
+- [ ] Add fold expressions (like C++)
+- [ ] Use Big Int instead of `int32_t`;
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL
@@ -386,7 +386,8 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
-- [x] add named parameters to some builtin functions
+- [x] Implemnted `__builtin_eq` for all values!
+- [x] Add named parameters to some builtin functions
 - [x] Add variadic arguments
 - [x] Add named arguments
 - [x] Change __builtin_{true|false} to true/false;

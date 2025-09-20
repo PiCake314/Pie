@@ -156,6 +156,62 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
 }
 
 
+[[nodiscard]] inline bool operator==(const Value& lhs, const Value& rhs) noexcept {
+    if (std::holds_alternative<ssize_t>(lhs) and std::holds_alternative<ssize_t>(rhs))
+        return get<ssize_t>(lhs) == get<ssize_t>(rhs);
+
+    if (std::holds_alternative<double>(lhs) and std::holds_alternative<double>(rhs))
+        return get<double>(lhs) == get<double>(rhs);
+
+    if (std::holds_alternative<bool>(lhs) and std::holds_alternative<bool>(rhs))
+        return get<bool>(lhs) == get<bool>(rhs);
+
+    if (std::holds_alternative<std::string>(lhs) and std::holds_alternative<std::string>(rhs))
+        return get<std::string>(lhs) == get<std::string>(rhs);
+
+    if (std::holds_alternative<expr::Closure>(lhs) and std::holds_alternative<expr::Closure>(rhs))
+        return get<expr::Closure>(lhs).stringify() == get<expr::Closure>(rhs).stringify();
+
+    if (std::holds_alternative<ClassValue>(lhs) and std::holds_alternative<ClassValue>(rhs)) {
+        return std::ranges::all_of(
+            std::views::zip(
+                get<ClassValue>(lhs).blueprint->members,
+                get<ClassValue>(rhs).blueprint->members
+            ),
+
+            [] (auto&& pair) {
+                return pair.first.first.stringify() == pair.second.first.stringify()
+                  and pair.first.second == pair.second.second;
+            }
+        );
+    }
+
+    if (std::holds_alternative<Object>(lhs) and std::holds_alternative<Object>(rhs)) {
+        const auto& a = get<Object>(lhs), b = get<Object>(rhs);
+        return a.first == b.first and 
+            std::ranges::all_of(
+                std::views::zip(
+                    a.second->members,
+                    b.second->members
+                ),
+
+                [] (auto&& pair) {
+                    return pair.first.first.stringify() == pair.second.first.stringify()
+                    and pair.first.second == pair.second.second;
+                }
+            );
+    }
+
+    if (std::holds_alternative<expr::Node>(lhs) and std::holds_alternative<expr::Node>(rhs))
+        error("Can't check equality of a Syntax!");
+
+    if (std::holds_alternative<PackList>(lhs) and std::holds_alternative<PackList>(rhs))
+        return get<PackList>(lhs)->values == get<PackList>(rhs)->values;
+
+
+    error();
+}
+
 
 struct Visitor {
     // struct Builtin { std::string name; }; // for later
@@ -442,7 +498,7 @@ struct Visitor {
     }
 
 
-    const Value& checkReturnType(const Value& ret, type::TypePtr return_type) {
+    const Value& checkReturnType(const Value& ret, type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
         validateType(return_type);
 
         const auto& type_of_return_value = typeOf(ret);
@@ -455,7 +511,8 @@ struct Visitor {
         if (not (*return_type >= *type_of_return_value))
             error(
                 "Type mis-match! Function return type expected: " +
-                return_type->text() + ", got: " + type_of_return_value->text()
+                return_type->text() + ", got: " + type_of_return_value->text(),
+                location
             );
 
         return ret;
@@ -1305,7 +1362,7 @@ struct Visitor {
         for(const auto& builtin : {
             "print", "concat", //* variadic
             "true", "false", "input_str", "input_int", //* nullary
-            "reset", "eval","neg", "not",     //* unary
+            "pack_len", "reset", "eval","neg", "not",     //* unary
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
             "conditional" //* trinary
         })
@@ -1405,6 +1462,16 @@ struct Visitor {
                         return std::visit(*that, x);
                     }),
                     TypeList<expr::Node>
+                >
+            >{},
+
+            MapEntry<
+                S<"pack_len">,
+                Func<"pack_len",
+                    decltype([](auto&& pack, const auto&) {
+                        return static_cast<ssize_t>(pack->values.ssize()); // have to narrow to `int` since I don't support any other integer type (nor big int)
+                    }),
+                    TypeList<PackList>
                 >
             >{},
 
@@ -1523,20 +1590,7 @@ struct Visitor {
             MapEntry<
                 S<"eq">,
                 Func<"eq",
-                    decltype([](auto a, auto b, const auto& that) {
-                        if (std::holds_alternative<expr::Node>(a)) a = std::visit(*that, get<expr::Node>(a));
-
-                        if (std::holds_alternative<expr::Node>(b)) b = std::visit(*that, get<expr::Node>(b));
-
-                        if (std::holds_alternative<std::string>(a) and std::holds_alternative<std::string>(b)) return get<std::string>(a) == get<std::string>(b); // ADL
-
-                        if (std::holds_alternative<ssize_t>(a) and std::holds_alternative<ssize_t>(b)) return get<ssize_t>(a) == get<ssize_t>(b);
-                        if (std::holds_alternative<ssize_t>(a) and std::holds_alternative<double>(b))  return get<ssize_t>(a) == get<double>(b);
-                        if (std::holds_alternative<double>(a) and std::holds_alternative<ssize_t>(b))  return get<ssize_t>(b) == get<double>(a);
-                        if (std::holds_alternative<double>(a) and std::holds_alternative<double>(b))   return get<double>(a) == get<double>(b);
-
-                        return false;
-                    }),
+                    decltype([](auto a, auto b, const auto&) { return a == b; }),
                     TypeList<Any, Any>
                 >
             >{},
@@ -1665,9 +1719,10 @@ struct Visitor {
 
 
 
-        if (name == "eval" ) return execute<1>(stdx::get<S<"eval" >>(functions).value, {value1}, this);
-        if (name == "neg"  ) return execute<1>(stdx::get<S<"neg"  >>(functions).value, {value1}, this);
-        if (name == "not"  ) return execute<1>(stdx::get<S<"not"  >>(functions).value, {value1}, this);
+        if (name == "eval" )    return execute<1>(stdx::get<S<"eval"     >>(functions).value, {value1}, this);
+        if (name == "neg"  )    return execute<1>(stdx::get<S<"neg"      >>(functions).value, {value1}, this);
+        if (name == "not"  )    return execute<1>(stdx::get<S<"not"      >>(functions).value, {value1}, this);
+        if (name == "pack_len") return execute<1>(stdx::get<S<"pack_len" >>(functions).value, {value1}, this);
 
 
         // all the rest of those funcs expect 2 arguments
@@ -1830,7 +1885,7 @@ struct Visitor {
 
     type::TypePtr typeOf(const Value& value) noexcept {
         if (std::holds_alternative<expr::Node>(value))   return type::builtins::Syntax();
-        if (std::holds_alternative<ssize_t>(value))          return type::builtins::Int();
+        if (std::holds_alternative<ssize_t>(value))      return type::builtins::Int();
         if (std::holds_alternative<double>(value))       return type::builtins::Double();
         if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
         if (std::holds_alternative<std::string>(value))  return type::builtins::String();
@@ -1869,12 +1924,15 @@ struct Visitor {
                 }
             );
 
-            auto any_pack = std::make_shared<type::VariadicType>(type::builtins::Any());
-            if (values.empty()) return any_pack;
+            auto non_typed_pack = std::make_shared<type::VariadicType>(type::builtins::_());
+            if (values.empty()) return non_typed_pack;
 
             const bool same = std::ranges::all_of(values, [tp = values[0]] (auto&& t) { return *t == *tp; });
 
-            return same ? std::make_shared<type::VariadicType>(values[0]) : any_pack;
+            if (same) return std::make_shared<type::VariadicType>(values[0]);
+            else return non_typed_pack;
+
+            // return same ? std::make_shared<type::VariadicType>(values[0]) : non_typed_pack;
         }
 
 

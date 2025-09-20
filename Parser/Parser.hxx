@@ -142,7 +142,7 @@ public:
                 // else
                 {
                 // type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-                type::TypePtr type = match(COLON) ? parseType() : type::_();
+                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
                 // if (type->text() != "Any")
                 //     std::clog << "Assigning to " << token.text << " with type" << type->text() << '\n';
 
