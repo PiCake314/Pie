@@ -13,6 +13,7 @@
 
 struct Capture {
     int oldfd{-1}; FILE* tmp{nullptr}; std::string s; bool stopped{false};
+
     Capture() {
         tmp = std::tmpfile();
 
@@ -42,7 +43,6 @@ struct Capture {
     void clean () {
         s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
         s.erase(std::remove(s.begin(), s.end(), '\0'), s.end());
-
 
         for (size_t i=0;i<s.size();) {
             if (s[i] == 0x1B && i+1 < s.size() && s[i+1] == '[') {

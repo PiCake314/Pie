@@ -97,10 +97,16 @@ namespace type {
     std::string VariadicType::text(const size_t indent) const { return "..." + type->text(indent); }
 
     bool VariadicType::operator>(const Type& other) const {
+        if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type >= *that->type;
+
         // variadic type of a type is a superset of that type
         return *type == other or *type > other;
     }
 
-    bool VariadicType::operator>=(const Type& other) const { return *type >= other; }
+    bool VariadicType::operator>=(const Type& other) const {
+        if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type >= *that->type;
+
+        return *type >= other;
+    }
 
 } // namespace type

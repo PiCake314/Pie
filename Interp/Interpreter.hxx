@@ -454,7 +454,7 @@ struct Visitor {
 
         if (not (*return_type >= *type_of_return_value))
             error(
-                "Type mis-match! Function return type Expected: " +
+                "Type mis-match! Function return type expected: " +
                 return_type->text() + ", got: " + type_of_return_value->text()
             );
 
@@ -1872,7 +1872,7 @@ struct Visitor {
             auto any_pack = std::make_shared<type::VariadicType>(type::builtins::Any());
             if (values.empty()) return any_pack;
 
-            const bool same = std::ranges::all_of(values, [tp = values[0]] (auto&& t) { return t == tp; });
+            const bool same = std::ranges::all_of(values, [tp = values[0]] (auto&& t) { return *t == *tp; });
 
             return same ? std::make_shared<type::VariadicType>(values[0]) : any_pack;
         }

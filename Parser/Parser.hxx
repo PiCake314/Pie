@@ -223,11 +223,11 @@ public:
 
                     Token name = consume(NAME);
                     type::TypePtr type;
-                    bool variadic = false;
 
                     if (match(COLON)) {
-                        variadic = match(ELLIPSIS);
-                        type = variadic ? std::make_shared<type::VariadicType>(parseType()) : parseType();
+                        // variadic = match(ELLIPSIS);
+                        // type = variadic ? std::make_shared<type::VariadicType>(parseType()) : parseType();
+                        type = parseType();
                     }
                     else type = type::builtins::Any();
 
@@ -240,11 +240,12 @@ public:
 
                         // type = match(COLON) ? parseType() : type::builtins::Any();
                         if (match(COLON)) {
-                            const bool ellipsis = match(ELLIPSIS);
-                            if(ellipsis and variadic) error("Variadic parameters can only appear once in parameter list!");
-                            else variadic = true;
+                            // const bool ellipsis = match(ELLIPSIS);
+                            // if(ellipsis and variadic) error("Variadic parameters can only appear once in parameter list!");
+                            // else variadic = true;
+                            // type = ellipsis ? std::make_shared<type::VariadicType>(parseType()) : parseType();
 
-                            type = ellipsis ? std::make_shared<type::VariadicType>(parseType()) : parseType();
+                            type = parseType();
                         }
                         else type = type::builtins::Any();
 
@@ -254,6 +255,13 @@ public:
                     }
 
                     consume(R_PAREN);
+
+                    for (bool found{}; auto&& type : params_types) {
+                        if (type::isVariadic(type)) {
+                            if (found) error("Variadic parameters can only appear once in parameter list!");
+                            else found = true;
+                        }
+                    }
 
                     // type = match(COLON) ? parseType() : type::builtins::Any();
                     if (match(COLON)) {
@@ -424,8 +432,14 @@ public:
     }
 
 
-    type::TypePtr parseType() {
+    type::TypePtr parseType(const bool allow_variadic = true) {
         using enum TokenKind;
+
+        if (match(ELLIPSIS)) {
+            if (not allow_variadic) error("Can't have a variadic of a variadic type!");
+
+            return std::make_shared<type::VariadicType>(parseType(false));
+        }
 
         // either a function type
         if (match(L_PAREN)) {
