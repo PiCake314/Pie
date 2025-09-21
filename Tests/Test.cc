@@ -8,6 +8,24 @@
 
 
 
+
+
+TEST_CASE("Infix operators", "[Parsing]") {
+    const auto src =
+R"(
+print = __builtin_print;
+infix(SUM) + = (a, b) => __builtin_add(a, b);
+infix(SUM) - = (a, b) => __builtin_sub(a, b);
+x = 1 + 2 + 3 + 4;
+y = 4 - 3 - 2 - 1;
+print(x);
+print(y);
+)";
+
+    REQUIRE(run(src) == "10\n-2");
+}
+
+
 TEST_CASE("Var args3", "[Variadic]") {
     const auto src =
 R"(
@@ -21,7 +39,7 @@ print(x);
 print(x...);
 )";
 
-    REQUIRE(run(src) == ""); // not sure why it's not "\n\n" :)!
+    REQUIRE(run(src) == ""); // not sure why it's not "\n\n" :)! I think Catch2 strips it
 }
 
 
