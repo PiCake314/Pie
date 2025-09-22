@@ -9,6 +9,26 @@
 
 
 
+TEST_CASE("Var args4", "[Variadic]") {
+    const auto src = R"(
+print = __builtin_print;
+f = (a, b, c, es: ...String, x, y, z) => {
+    print(a);
+    print(b);
+    print(c);
+    print(es);
+    print(x);
+    print(y);
+    print(z);
+};
+
+print(f(4, 2, 0, "Hi", "there", 1, 0, 1));
+)";
+
+
+    REQUIRE(run(src) == "4\n2\n0\nHi, there\n1\n0\n1\n1");
+}
+
 
 TEST_CASE("Infix operators", "[Parsing]") {
     const auto src =

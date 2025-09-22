@@ -12,7 +12,8 @@
 
 
 
-[[noreturn]] inline void error(
+[[noreturn]]
+inline void error(
     const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
     const std::source_location& location = std::source_location::current()
 ) noexcept {

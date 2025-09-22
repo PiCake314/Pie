@@ -445,6 +445,12 @@ struct Visitor {
         return found->second;
     }
 
+
+    Value operator()(const expr::Namespace *n) {
+        error();
+    }
+
+
     // only added to differentiate between expressions such as: 1 + 2 and (1 + 2)
     Value operator()(const expr::Grouping *g) {
         if (auto&& var = getVar(g->stringify()); var) return var->first;
@@ -522,7 +528,7 @@ struct Visitor {
         if (auto&& var = getVar(up->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(up->op);
+        const auto& op = ops.at(up->op);
         const expr::Closure* func;
         Environment args_env;
 
@@ -576,7 +582,7 @@ struct Visitor {
         if (auto&& var = getVar(bp->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(bp->op);
+        const auto& op = ops.at(bp->op);
         const expr::Closure* func;
         Environment args_env;
 
@@ -655,7 +661,7 @@ struct Visitor {
         if (auto&& var = getVar(pp->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(pp->op);
+        const auto& op = ops.at(pp->op);
         const expr::Closure* func;
         Environment args_env;
 
@@ -708,7 +714,7 @@ struct Visitor {
 
         // ScopeGuard sg{this};
 
-        const expr::Fix* op = ops.at(cp->op1);
+        const auto& op = ops.at(cp->op1);
         const expr::Closure* func;
         Environment args_env;
 
@@ -759,7 +765,7 @@ struct Visitor {
         if (auto&& var = getVar(oc->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(oc->first);
+        const auto& op = ops.at(oc->first);
         const expr::Closure* func;
         Environment args_env;
 
@@ -1303,7 +1309,10 @@ struct Visitor {
     Value operator()(const expr::Fix *fix) {
         if (auto&& var = getVar(fix->stringify()); var) return var->first;
         // return std::visit(*this, fix->func->variant());
-        return "What should I return?!";
+
+        ops.at(fix->name)->funcs.push_back(fix->funcs[0]); // assuming each fix expression has a single func in it
+
+        return std::visit(*this, fix->funcs[0]->variant());
     }
 
     // // split so I can param check at definition time instead of call time..
@@ -1598,7 +1607,7 @@ struct Visitor {
             MapEntry<
                 S<"leq">,
                 Func<"leq",
-                    decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
+                    decltype([](auto&& a, auto&& b, const auto&) { return a <= b; }),
                     TypeList<ssize_t, ssize_t>,
                     TypeList<ssize_t, double>,
                     TypeList<double, ssize_t>,

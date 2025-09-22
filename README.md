@@ -323,7 +323,12 @@ this isn't
 - `suffix`
 - `exfix`
 - `mixfix`
+
 - `class`
+- `union`
+- `space`
+
+<!-- Phantom keyword -->
 - `true`
 - `false`
 
@@ -368,16 +373,18 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] Add input method (file & console)
-- [ ] Add namespaces
-- [ ] Add an import system (modules)
 - [ ] Add match expression (like scala)
-- [ ] Make `=` and `=>` overloadable
+- [ ] Add namespaces
+- [ ] Add add overloaded operators at runtime (instead of parse-time)
+- [ ] Add an import system (modules)
+- [ ] un-keyword the precedence levels
 - [ ] Add fold expressions (like C++)
+- [ ] Make `=` and `=>` overloadable
 - [ ] Use Big Int instead of `int32_t`;
-- [ ] Fix builin reset (value-rest, reset/name-reset) 
+- [ ] Fix builin reset (value-rest, reset/name-reset)
 - [ ] World domination
 - [ ] Add REPL
+- [ ] Compile to WASM & a web interface
 - [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
 - [ ] Add LLVM backend
@@ -395,6 +402,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [x] Fix operator return type checking..?
 - [x] Add overloading operators
 - [x] Change comments to `.::` and `::.`
+- [x] Added `input_{str|int}`
 - [x] Add Arbitrary Operators!!!
 - [x] Add circumfix operators
 - [x] Add lazy evaluation
