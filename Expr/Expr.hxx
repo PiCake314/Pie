@@ -180,10 +180,11 @@ struct Access : Expr {
 
 
 struct Namespace : Expr {
-    std::vector<std::pair<Name, ExprPtr>> fields;
+    std::string spacename;
+    std::vector<ExprPtr> fields;
 
-    explicit Namespace(std::vector<std::pair<Name, ExprPtr>> f) noexcept
-    : fields{std::move(f)} {}
+    Namespace(std::string space, std::vector<ExprPtr> f) noexcept
+    : spacename{std::move(space)}, fields{std::move(f)} {}
 
 
     std::string stringify(const size_t indent = 0) const override {
@@ -191,13 +192,26 @@ struct Namespace : Expr {
         std::string s = "namespace {\n";
 
         const std::string space(indent + 4, ' ');
-        for (const auto& field : fields) {
-            s += space + field.first.name + ": " + field.first.type->text(indent + 4)
-            + " = " + field.second->stringify(indent + 4) + ";\n";
-        }
+        for (const auto& field : fields)
+            s += space + field->stringify(indent + 4) + ";\n";
 
 
         return s + std::string(indent, ' ') + "}";
+    }
+
+    Node variant() const override { return this; }
+};
+
+struct ScopeAccess : Expr {
+    std::string space;
+    std::string member;
+
+    ScopeAccess(std::string s, std::string m) noexcept
+    : space{std::move(s)}, member{std::move(m)} {}
+
+
+    std::string stringify(const size_t = 0) const override {
+        return space + "::" + member;
     }
 
     Node variant() const override { return this; }
@@ -475,14 +489,7 @@ struct Prefix : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-
-        std::string s;
-
-        for (const auto& func : funcs)
-            s += "prefix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-
-        // return "prefix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-        return s;
+        return "prefix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
 
@@ -504,15 +511,7 @@ struct Infix : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-
-        std::string s;
-
-        for (const auto& func : funcs)
-            s += "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-
-        // return "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-
-        return s;
+        return "infix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
     std::unique_ptr<Fix> clone() const override { return std::make_unique<Infix>(*this); }
@@ -535,14 +534,7 @@ struct Suffix : Fix {
 
         //! FIX THIS
 
-        std::string s;
-
-        for (const auto& func : funcs)
-            s += "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-
-        // return "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-
-        return s;
+        return "suffix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
     std::unique_ptr<Fix> clone() const override { return std::make_unique<Suffix>(*this); }
@@ -565,13 +557,7 @@ struct Exfix : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-        std::string s;
-
-        for (const auto& func : funcs)
-            s += "exfix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
-
-
-        return s;
+        return "exfix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
     std::unique_ptr<Fix> clone() const override { return std::make_unique<Exfix>(*this); }
@@ -617,21 +603,7 @@ struct Operator : Fix {
 
         const std::string shifts(size_t(std::abs(shift)), c);
 
-
-        // const std::string& op_name = (begin_expr ? ':' : '\0')
-        //     + name
-        //     + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
-        //     + (end_expr ? ':' : '\0');
-
-
-        std::string s;
-
-        for (const auto& func : funcs)
-            s += "operator(" + token.text + shifts + ") " + OpName() + " = " + func->stringify(indent);
-
-        // return "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
-
-        return s;
+        return "operator(" + token.text + shifts + ") " + OpName() + " = " + funcs[0]->stringify(indent);
     }
 
 

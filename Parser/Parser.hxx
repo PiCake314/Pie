@@ -140,8 +140,11 @@ public:
                 }
 
                 {
-                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
-                return std::make_shared<expr::Name>(token.text, std::move(type));
+                    if (match(COLON)) { // either "x: Int" or "x::"
+                        if (check(COLON)) return std::make_shared<expr::Name>(token.text); // namespace name!
+                        else return std::make_shared<expr::Name>(token.text, parseType());
+                    }
+                    else return std::make_shared<expr::Name>(token.text, type::builtins::_());
                 }
             // case DASH: return std::make_shared<UnaryOp>(token.kind, parse(precedence::SUM));
 
@@ -157,19 +160,42 @@ public:
                     const auto& ass = dynamic_cast<const expr::Assignment*>(expr.get());
                     if (not ass) error("Can only have assignments in class definition!");
 
-                    const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
-                    if (not n) error("Can only assign to names in class definition!");
-                    auto name = *n; // copy so I can modify
+                    const auto& name = dynamic_cast<expr::Name*>(ass->lhs.get());
+                    if (not name) error("Can only assign to names in class definition!");
 
                     // Can't reassign variables in a class definition
                     // This just means the type was not annotated. Default to "Any"
-                    if (type::shouldReassign(name.type)) name.type = type::builtins::Any();
+                    if (type::shouldReassign(name->type)) name->type = type::builtins::Any();
 
 
-                    fields.push_back({name, std::move(ass->rhs)});
+                    fields.push_back({*name, std::move(ass->rhs)});
                 }
 
                 return std::make_shared<expr::Class>(std::move(fields));
+            }
+
+            case NAMESPACE: {
+
+                std::string spacename = consume(NAME).text;
+                std::vector<expr::ExprPtr> fields;
+
+                consume(L_BRACE);
+                while (not match(R_BRACE)) {
+                    auto expr = parseExpr();
+                    consume(SEMI);
+
+                    if (auto ass = dynamic_cast<const expr::Assignment*>(expr.get())) {
+                        if (auto* name = dynamic_cast<expr::Name*>(ass->lhs.get())) {
+                            // Can't reassign variables in a namespace definition
+                            // This just means the type was not annotated. Default to "Any"
+                            if (type::shouldReassign(name->type)) name->type = type::builtins::Any();
+                        }
+                    }
+
+                    fields.push_back(std::move(expr));
+                }
+
+                return std::make_shared<expr::Namespace>(std::move(spacename), std::move(fields));
             }
 
             case MIXFIX:
@@ -332,14 +358,26 @@ public:
 
                 return std::make_shared<expr::Name>(token.text);
 
-            case DOT:{
-                const auto& accessee = parseExpr(prec::HIGH);
+            case DOT: {
+                const auto accessee = parseExpr(prec::HIGH);
 
                 //* maybe this could change and i can allow object.1 + 2. :). Just a thought
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
-                if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify(0));
+                if (accessee_ptr == nullptr) error("Can only follow a '.' with a name: " + accessee->stringify());
 
                 return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr->name));
+            }
+
+            case COLON: {
+
+                const auto ns = dynamic_cast<expr::Name*>(left.get());
+                if (not ns) error("Scope resolution operator '::' must be applied on a name: " + ns->stringify());
+
+                const auto accessee = parseExpr(prec::HIGH);
+                const auto member = dynamic_cast<expr::Name*>(accessee.get());
+                if (not member) error("Scope resolution operator '::' must be followed by a name: " + member->stringify());
+
+                return std::make_shared<expr::ScopeAccess>(std::move(ns)->name, std::move(member)->name);
             }
 
             case ASSIGN: 
@@ -470,7 +508,7 @@ public:
 
     Token lookAhead(const size_t distance = 0) {
         while (distance >= red.size()) {
-            if (atEnd()) error("out of token!");
+            if (atEnd()) error("out of tokens!");
             red.push_back(*token_iterator++);
         }
 
@@ -488,6 +526,8 @@ public:
             using enum TokenKind;
 
             case ASSIGN: return prec::ASSIGNMENT;
+
+            case COLON : // for ::
             case DOT   : return prec::HIGH;
 
             case NAME: {

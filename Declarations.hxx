@@ -29,7 +29,7 @@ using Node = std::variant<
     const struct Class      *,
     const struct Access     *,
     const struct Namespace  *,
-    
+    const struct ScopeAccess*,
     const struct Grouping   *,
     const struct UnaryOp    *,
     const struct BinOp      *,

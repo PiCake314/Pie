@@ -49,7 +49,6 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
 
     else if (std::holds_alternative<ssize_t>(value)) {
         const auto& v = std::get<ssize_t>(value);
-        
         s = std::to_string(v);
     }
 
@@ -218,6 +217,7 @@ struct Visitor {
 
     std::vector<Environment> env;
     const Operators ops;
+    std::unordered_map<std::string, std::vector<Environment>> namespaces;
 
 
     // inline static const std::unordered_map<const char*, 
@@ -447,7 +447,47 @@ struct Visitor {
 
 
     Value operator()(const expr::Namespace *n) {
-        error();
+
+        namespaces[n->spacename]; // this inserts the namespace if it wasn't already there!
+
+        ScopeGuard sg{this, {}, n->spacename};
+
+        Value ret;
+        for (auto&& expr : n->fields) {
+            // auto name = std::visit(*this, n.variant());
+            // auto value = std::visit(*this, expr->variant());
+            // auto type = typeOf(value);
+            // ns[(name)] = {std::move(value), std::move(type)};
+
+            ret = std::visit(*this, expr->variant());
+        }
+
+        return ret; // namespace has the value of the last expression in it. Stupid, IK, but consistent!
+    }
+
+
+    Value operator()(const expr::ScopeAccess *acc) {
+
+        if (not namespaces.contains(acc->space)) error("Scope resolution operator '::' applied on a non-namespace: " + acc->stringify());
+
+
+        std::clog << "Size: " << namespaces[acc->space].size() << std::endl;
+        // assert(namespaces[acc->space].size() == 1);
+
+        if (not namespaces[acc->space][0].contains(acc->member)) error("Member '" + acc->member + "' not found inside namespace: " + acc->space);
+
+
+        Value value = namespaces[acc->space][0][acc->member].first;
+
+        if (std::holds_alternative<expr::Closure>(value)) {
+            const auto& closure = get<expr::Closure>(value);
+
+            closure.capture(namespaces[acc->space][0]); // capture the env inside the namespace it came from
+
+            return closure; // line may not be needed
+        }
+
+        return value;
     }
 
 
@@ -554,7 +594,6 @@ struct Visitor {
                     );
 
                 // addVar(func->params.front(), arg);
-                //* maybe should use Syntax() instead of Any();
                 args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
             }
 
@@ -1315,55 +1354,6 @@ struct Visitor {
         return std::visit(*this, fix->funcs[0]->variant());
     }
 
-    // // split so I can param check at definition time instead of call time..
-    // Value operator()(const expr::Prefix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // // I know it's a function, otherwise parser woulda been mad
-    //     // Maybe I don't need to check if param count is valid since the parser already checks that?
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-    // Value operator()(const expr::Infix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-    // Value operator()(const expr::Suffix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-    // Value operator()(const expr::Exfix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-    //     //     error("Exfix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-
-    // Value operator()(const expr::Operator *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
 
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
@@ -1953,7 +1943,10 @@ private:
 
     struct ScopeGuard {
         Visitor* v;
-        ScopeGuard(Visitor* t, const Environment& e = {}) noexcept : v{t} {
+        std::string ns;
+        ScopeGuard(Visitor* t, const Environment& e = {}, std::string s = "") noexcept : v{t}, ns{std::move(s)} {
+            if (not ns.empty()) v->namespace_stack.push_back(s);
+
             v->scope();
 
             if (not e.empty())
@@ -1963,23 +1956,51 @@ private:
                 }
         }
 
-        ~ScopeGuard() { v->unscope(); }
+        ~ScopeGuard() {
+            v->unscope();
+
+            if (not ns.empty()) v->namespace_stack.pop_back();
+        }
     };
 
 
-    void scope() { env.emplace_back(); }
-    void unscope() { env.pop_back(); }
+    std::vector<std::string> namespace_stack;
+
+    void scope() {
+        if (not namespace_stack.empty()) namespaces[namespace_stack.back()].emplace_back();
+        else env.emplace_back();
+    }
+
+    void unscope() {
+        if (not namespace_stack.empty());// namespaces[namespace_stack.back()].pop_back();
+        else
+            env.pop_back();
+    }
 
     const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
-        env.back()[name] = {v, t}; //* might cause issues
+        if (not namespace_stack.empty()) 
+            namespaces[namespace_stack.back()].back()[name] = {v, t}; // this looks ugly as fuck
+
+        else env.back()[name] = {v, t};
+
         return v;
     }
 
     std::optional<std::pair<Value, type::TypePtr>> getVar(const std::string& name) const {
+        // look inside most inner namespaces first
+        for (auto space = namespace_stack.crbegin(); space != namespace_stack.crend(); ++space) {
+            auto&& ns = namespaces.at(*space);
+            for (auto curr_env = ns.crbegin(); curr_env != ns.crend(); ++curr_env) {
+                if (curr_env->contains(name)) return curr_env->at(name);
+            }
+        }
+
+        // if that fails, only then look in the global namespace
         for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
             if (rev_it->contains(name)) return rev_it->at(name);
 
-        return {};
+
+        return {}; // failure
     }
 
     bool changeVar(const std::string& name, const Value& v) {

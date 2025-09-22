@@ -24,7 +24,6 @@
 
 
 int main(int argc, char *argv[]) {
-    using std::operator""sv;
     if (argc < 2) error("Please pass a file name!");
 
 
@@ -33,6 +32,7 @@ int main(int argc, char *argv[]) {
     bool run = true;
 
     // this would leave file name at argv[1]
+    using std::operator""sv;
     for(; argc > 2; --argc, ++argv) {
         if (argv[1] == "-t"sv) print_tokens = true;
         if (argv[1] == "-p"sv) print_parsed = true;
