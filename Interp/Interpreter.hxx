@@ -217,7 +217,7 @@ struct Visitor {
 
     std::vector<Environment> env;
     const Operators ops;
-    std::unordered_map<std::string, std::vector<Environment>> namespaces;
+    std::unordered_map<std::string, Environment> namespaces;
 
 
     // inline static const std::unordered_map<const char*, 
@@ -472,17 +472,20 @@ struct Visitor {
 
 
         std::clog << "Size: " << namespaces[acc->space].size() << std::endl;
+        for (auto&& [ns, env] : namespaces) {
+            std::clog << "ns: " << ns << std::endl << env << std::endl;
+        }
         // assert(namespaces[acc->space].size() == 1);
 
-        if (not namespaces[acc->space][0].contains(acc->member)) error("Member '" + acc->member + "' not found inside namespace: " + acc->space);
+        if (not namespaces[acc->space].contains(acc->member)) error("Member '" + acc->member + "' not found inside namespace: " + acc->space);
 
 
-        Value value = namespaces[acc->space][0][acc->member].first;
+        Value value = namespaces[acc->space][acc->member].first;
 
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& closure = get<expr::Closure>(value);
 
-            closure.capture(namespaces[acc->space][0]); // capture the env inside the namespace it came from
+            closure.capture(namespaces[acc->space]); // capture the env inside the namespace it came from
 
             return closure; // line may not be needed
         }
@@ -1944,8 +1947,9 @@ private:
     struct ScopeGuard {
         Visitor* v;
         std::string ns;
+
         ScopeGuard(Visitor* t, const Environment& e = {}, std::string s = "") noexcept : v{t}, ns{std::move(s)} {
-            if (not ns.empty()) v->namespace_stack.push_back(s);
+            if (not ns.empty()) v->namespace_stack.push_back(ns);
 
             v->scope();
 
@@ -1967,19 +1971,18 @@ private:
     std::vector<std::string> namespace_stack;
 
     void scope() {
-        if (not namespace_stack.empty()) namespaces[namespace_stack.back()].emplace_back();
+        if (not namespace_stack.empty());
         else env.emplace_back();
     }
 
     void unscope() {
-        if (not namespace_stack.empty());// namespaces[namespace_stack.back()].pop_back();
-        else
-            env.pop_back();
+        if (not namespace_stack.empty());
+        else env.pop_back();
     }
 
     const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
         if (not namespace_stack.empty()) 
-            namespaces[namespace_stack.back()].back()[name] = {v, t}; // this looks ugly as fuck
+            namespaces[namespace_stack.back()][name] = {v, t}; // this looks ugly as fuck
 
         else env.back()[name] = {v, t};
 
@@ -1990,9 +1993,11 @@ private:
         // look inside most inner namespaces first
         for (auto space = namespace_stack.crbegin(); space != namespace_stack.crend(); ++space) {
             auto&& ns = namespaces.at(*space);
-            for (auto curr_env = ns.crbegin(); curr_env != ns.crend(); ++curr_env) {
-                if (curr_env->contains(name)) return curr_env->at(name);
-            }
+            if (ns.contains(name)) return ns.at(name);
+
+            // for (auto curr_env = ns.crbegin(); curr_env != ns.crend(); ++curr_env) {
+            //     if (curr_env->contains(name)) return curr_env->at(name);
+            // }
         }
 
         // if that fails, only then look in the global namespace
