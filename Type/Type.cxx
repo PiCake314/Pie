@@ -32,7 +32,6 @@ namespace type {
     std::string BuiltinType::text(const size_t) const { return t; }
 
     std::string LiteralType::text(const size_t indent) const {
-        // return t.empty() ? "Any" : t;
         const auto& type = stringify(*cls, indent);
         return type.empty() ? "Any" : type;
     }

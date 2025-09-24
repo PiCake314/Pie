@@ -127,7 +127,7 @@ struct Assignment : Expr {
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and type::shouldReassign(name->type)) {
+        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and not type::shouldReassign(name->type)) {
             return name->stringify() + ": " + name->type->text() + " = " + rhs->stringify(indent);
         }
 
@@ -204,14 +204,14 @@ struct Namespace : Expr {
 
 struct ScopeAccess : Expr {
     std::string space;
-    std::string member;
+    ExprPtr member;
 
-    ScopeAccess(std::string s, std::string m) noexcept
+    ScopeAccess(std::string s, ExprPtr m) noexcept
     : space{std::move(s)}, member{std::move(m)} {}
 
 
     std::string stringify(const size_t = 0) const override {
-        return space + "::" + member;
+        return space + "::" + member->stringify();
     }
 
     Node variant() const override { return this; }
@@ -361,8 +361,7 @@ struct Call : Expr {
     : func{std::move(function)}, named_args{std::move(named)}, args{std::move(pos)} { }
 
     std::string stringify(const size_t indent = 0) const override {
-        std::string s;
-        s = func->stringify(indent) + '(';
+        std::string s = func->stringify(indent) + '(';
 
 
         std::string_view comma = "";

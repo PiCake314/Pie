@@ -49,7 +49,6 @@ namespace type {
 
     struct LiteralType : Type {
         std::shared_ptr<ClassValue> cls;
-        // std::string t;
 
         LiteralType(std::shared_ptr<ClassValue> c) noexcept : cls{std::move(c)} {}
 

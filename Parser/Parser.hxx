@@ -30,8 +30,10 @@ class Parser {
 
     Operators ops;
 
-
     std::deque<Token> red; // past tense of read lol
+
+    std::vector<std::string> namespace_stack;
+
 public:
     Parser(Tokens t) : tokens{std::move(t)}, token_iterator{tokens.begin()} {
         // if (__lines.empty()) [[unlikely]] error("Empty File!");
@@ -177,6 +179,8 @@ public:
             case NAMESPACE: {
 
                 std::string spacename = consume(NAME).text;
+                namespace_stack.push_back(spacename);
+
                 std::vector<expr::ExprPtr> fields;
 
                 consume(L_BRACE);
@@ -185,11 +189,17 @@ public:
                     consume(SEMI);
 
                     if (auto ass = dynamic_cast<const expr::Assignment*>(expr.get())) {
-                        if (auto* name = dynamic_cast<expr::Name*>(ass->lhs.get())) {
+                        if (auto name = dynamic_cast<expr::Name*>(ass->lhs.get())) {
                             // Can't reassign variables in a namespace definition
                             // This just means the type was not annotated. Default to "Any"
                             if (type::shouldReassign(name->type)) name->type = type::builtins::Any();
                         }
+
+                        // if (auto rhs = dynamic_cast<const expr::Closure*>(ass->rhs.get())) {
+                        //     for (auto& types : rhs->type.params) {
+
+                        //     }
+                        // }
                     }
 
                     fields.push_back(std::move(expr));
@@ -370,14 +380,18 @@ public:
 
             case COLON: {
 
-                const auto ns = dynamic_cast<expr::Name*>(left.get());
-                if (not ns) error("Scope resolution operator '::' must be applied on a name: " + ns->stringify());
+                auto name = dynamic_cast<expr::Name*>(left.get());
+                if (not name)
+                    error("Scope resolution operator '::' must be applied on a name: " + left->stringify());
 
                 const auto accessee = parseExpr(prec::HIGH);
-                const auto member = dynamic_cast<expr::Name*>(accessee.get());
-                if (not member) error("Scope resolution operator '::' must be followed by a name: " + member->stringify());
+                if (
+                    not dynamic_cast<expr::Name*>(accessee.get()) and
+                    not dynamic_cast<expr::ScopeAccess*>(accessee.get())
+                ) error("Scope resolution operator '::' must be followed by a name or another namespace access: " + accessee->stringify());
 
-                return std::make_shared<expr::ScopeAccess>(std::move(ns)->name, std::move(member)->name);
+
+                return std::make_shared<expr::ScopeAccess>(std::move(name)->name, std::move(accessee));
             }
 
             case ASSIGN: 
@@ -461,9 +475,11 @@ public:
             if (match("Syntax")) return type::builtins::Syntax();
             if (match("Type"  )) return type::builtins::Type();
         }
+        // else if (check(CLASS)) {
+        //     return std::make_shared<type::LiteralType>();
+        // }
         // or an expression
         return std::make_shared<type::VarType>(parseExpr(prec::ASSIGNMENT));
-        // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
 
         // log();
         error("Invalid type!");
@@ -527,7 +543,8 @@ public:
 
             case ASSIGN: return prec::ASSIGNMENT;
 
-            case COLON : // for ::
+            // for ::
+            case COLON : return prec::HIGH + 1; // + 1 so it parses as (x::(y::z)) rather than ((x::y)::z)
             case DOT   : return prec::HIGH;
 
             case NAME: {

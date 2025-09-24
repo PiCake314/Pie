@@ -3,16 +3,15 @@
 #include <memory>
 
 
+
 struct Dict;
 struct ClassValue { std::shared_ptr<Dict> blueprint; };
 
 struct List;
 using PackList = std::shared_ptr<List>;
 
-template <typename ...Ts>
-[[nodiscard]] inline std::shared_ptr<List> makePack(Ts... args) {
-    return std::make_shared<List>(std::forward<Ts>(args)...);
-}
+
+
 
 namespace expr {
 

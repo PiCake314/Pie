@@ -22,194 +22,8 @@
 #include "../Utils/ConstexprLookup.hxx"
 #include "../Expr/Expr.hxx"
 #include "../Parser/Parser.hxx"
-#include "../Declarations.hxx"
 
-
-struct Dict;
-using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
-
-struct List;
-
-using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
-
-struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
-struct List { std::vector<Value> values; };
-
-using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
-
-
-inline std::string stringify(const Value& value, const size_t indent = {}) {
-    std::string s;
-
-    if (std::holds_alternative<bool>(value)) {
-        const auto& v = std::get<bool>(value);
-        // s = std::to_string(v); // reason I did this in the first place is to allow for copy-ellision to happen
-        return v ? "true" : "false";
-    }
-
-    else if (std::holds_alternative<ssize_t>(value)) {
-        const auto& v = std::get<ssize_t>(value);
-        s = std::to_string(v);
-    }
-
-    else if (std::holds_alternative<double>(value)) {
-        const auto& v = std::get<double>(value);
-        s = std::to_string(v);
-    }
-
-    else if (std::holds_alternative<std::string>(value)) {
-        s = std::get<std::string>(value);
-    }
-
-    else if (std::holds_alternative<expr::Closure>(value)) {
-        const auto& v = std::get<expr::Closure>(value);
-
-        s = v.stringify(indent);
-    }
-
-    else if (std::holds_alternative<ClassValue>(value)) {
-        const auto& v = std::get<ClassValue>(value);
-
-        if (v.blueprint->members.empty())
-            s = "class { }";
-        else {
-            s = "class {\n";
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.blueprint->members) {
-                s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
-
-                s += stringify(value, indent + 4);
-
-                if (is_string) s += '\"';
-
-                s += ";\n";
-            }
-
-            s += std::string(indent, ' ') + '}';
-        }
-    }
-
-    else if (std::holds_alternative<Object>(value)) {
-        const auto& v = std::get<Object>(value);
-
-        if (v.second->members.empty()) {
-            s = "Object { }";
-        }
-        else {
-            s = "Object {\n";
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.second->members) {
-                s += space + name.stringify() + " = ";
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
-
-                s += stringify(value, indent + 4);
-
-                if (is_string) s += '\"';
-
-                s += ";\n";
-            }
-
-            s += std::string(indent, ' ') + '}';
-        }
-
-
-    }
-
-    else if(std::holds_alternative<expr::Node>(value)) {
-        const std::string space(indent + 4, ' ');
-
-        s = "ASTNode {\n" + space + std::visit(
-            [indent] (auto&& v)-> std::string { return v->stringify(indent + 4); },
-            get<expr::Node>(value)
-        ) + '\n' + std::string(indent, ' ') + '}';
-    }
-
-    else if (std::holds_alternative<PackList>(value)) {
-        std::string comma = "";
-        for (auto&& v : get<PackList>(value)->values) {
-            s += comma + stringify(v);
-            comma = ", ";
-        }
-    }
-
-    else error("Type not found!");
-
-    return s;
-}
-
-
-inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
-    for (const auto& [name, expr] : env){
-        const auto& [value, type] = expr;
-        os << name << ": " << type->text() << " = " << stringify(value) << std::endl;
-    }
-
-    return os;
-}
-
-
-[[nodiscard]] inline bool operator==(const Value& lhs, const Value& rhs) noexcept {
-    if (std::holds_alternative<ssize_t>(lhs) and std::holds_alternative<ssize_t>(rhs))
-        return get<ssize_t>(lhs) == get<ssize_t>(rhs);
-
-    if (std::holds_alternative<double>(lhs) and std::holds_alternative<double>(rhs))
-        return get<double>(lhs) == get<double>(rhs);
-
-    if (std::holds_alternative<bool>(lhs) and std::holds_alternative<bool>(rhs))
-        return get<bool>(lhs) == get<bool>(rhs);
-
-    if (std::holds_alternative<std::string>(lhs) and std::holds_alternative<std::string>(rhs))
-        return get<std::string>(lhs) == get<std::string>(rhs);
-
-    if (std::holds_alternative<expr::Closure>(lhs) and std::holds_alternative<expr::Closure>(rhs))
-        return get<expr::Closure>(lhs).stringify() == get<expr::Closure>(rhs).stringify();
-
-    if (std::holds_alternative<ClassValue>(lhs) and std::holds_alternative<ClassValue>(rhs)) {
-        return std::ranges::all_of(
-            std::views::zip(
-                get<ClassValue>(lhs).blueprint->members,
-                get<ClassValue>(rhs).blueprint->members
-            ),
-
-            [] (auto&& pair) {
-                return pair.first.first.stringify() == pair.second.first.stringify()
-                  and pair.first.second == pair.second.second;
-            }
-        );
-    }
-
-    if (std::holds_alternative<Object>(lhs) and std::holds_alternative<Object>(rhs)) {
-        const auto& a = get<Object>(lhs), b = get<Object>(rhs);
-        return a.first == b.first and 
-            std::ranges::all_of(
-                std::views::zip(
-                    a.second->members,
-                    b.second->members
-                ),
-
-                [] (auto&& pair) {
-                    return pair.first.first.stringify() == pair.second.first.stringify()
-                    and pair.first.second == pair.second.second;
-                }
-            );
-    }
-
-    if (std::holds_alternative<expr::Node>(lhs) and std::holds_alternative<expr::Node>(rhs))
-        error("Can't check equality of a Syntax!");
-
-    if (std::holds_alternative<PackList>(lhs) and std::holds_alternative<PackList>(rhs))
-        return get<PackList>(lhs)->values == get<PackList>(rhs)->values;
-
-
-    error();
-}
+#include "Value.hxx"
 
 
 struct Visitor {
@@ -217,8 +31,13 @@ struct Visitor {
 
     std::vector<Environment> env;
     const Operators ops;
-    std::unordered_map<std::string, Environment> namespaces;
 
+    struct NameSpace {
+        Environment decls;
+        std::unique_ptr<std::unordered_map<std::string, NameSpace>> nested;
+    };
+
+    std::unordered_map<std::string, NameSpace> namespaces;
 
     // inline static const std::unordered_map<const char*, 
 
@@ -301,6 +120,14 @@ struct Visitor {
             return value;
         }
 
+        if (const auto acc = dynamic_cast<expr::ScopeAccess*>(ass->lhs.get())) {
+            namespace_stack.push_back(acc->space);
+            const Value value = std::visit(*this, acc->member->variant());
+            namespace_stack.pop_back();
+
+            return value;
+        }
+
         if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
             // type::TypePtr type = type::builtins::Any();
             type::TypePtr type = name->type;
@@ -319,10 +146,11 @@ struct Visitor {
                 // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
                 if (type::shouldReassign(type))
                     type = type::builtins::Any();
-                else validateType(type);
+                else type = validateType(type);
 
-                if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                // if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                //     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                // else if () ;
             }
 
 
@@ -331,8 +159,7 @@ struct Visitor {
 
 
             auto value = std::visit(*this, ass->rhs->variant());
-            // if (type->text() != "Any") // only enforce type checking when
-            if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
+            if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) {
                 std::println(std::cerr, "In assignment: {}", ass->stringify());
                 error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
             }
@@ -382,11 +209,11 @@ struct Visitor {
                 v = field.second->variant();
             }
             else {
-                validateType(type);
+                type = validateType(type);
 
 
-                if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                // if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                //     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
 
                 v = std::visit(*this, field.second->variant());
@@ -445,12 +272,25 @@ struct Visitor {
         return found->second;
     }
 
+    void addNamespace(std::unordered_map<std::string, NameSpace> *ns) {
+
+        for (size_t i{}; i < namespace_stack.size() - 1; ++i) {
+            if (not ns->contains(namespace_stack[i])) error(); //* remove
+
+            ns = ns->at(namespace_stack[i]).nested.get();
+        }
+
+        // ns->at(namespace_stack.back())
+        if (not ns->contains(namespace_stack.back()))
+            ns->emplace(namespace_stack.back(), NameSpace{{}, std::make_unique<std::unordered_map<std::string, NameSpace>>()});
+    }
 
     Value operator()(const expr::Namespace *n) {
 
-        namespaces[n->spacename]; // this inserts the namespace if it wasn't already there!
-
         ScopeGuard sg{this, {}, n->spacename};
+
+        addNamespace(&namespaces);
+
 
         Value ret;
         for (auto&& expr : n->fields) {
@@ -466,31 +306,45 @@ struct Visitor {
     }
 
 
+    Value handleScopeAccess(const std::unordered_map<std::string, NameSpace> *ns, const expr::ScopeAccess *acc) {
+        if (not acc) error();
+        if (not ns->contains(acc->space)) error("Scope resolution operator '::' applied on a non-namespace: " + acc->space);
+
+        if (auto member = dynamic_cast<const expr::Name*>(acc->member.get())) {
+            // if (not ns->at(acc->space).decls.contains(member->name)) error("Name '" + member->name + "' not found in namespace '" + acc->space + '\'');
+
+            // Value value = ns->at(acc->space).decls.at(member->name).first;
+
+            Value value;
+            if (auto var = getVar(member->name); var) value = var->first;
+            else error("Name '" + member->name + "' not found in namespace '" + acc->space + '\'');
+
+            if (std::holds_alternative<expr::Closure>(value)) {
+                const auto& closure = get<expr::Closure>(value);
+                closure.capture(ns->at(acc->space).decls); // capture the env inside the namespace it came from
+                // return closure; // line may not be needed
+            }
+
+            return value;
+        }
+
+        // if the accessee is not a name, it has to be a nested namespace access
+        const auto nested_acc = dynamic_cast<const expr::ScopeAccess*>(acc->member.get());
+        namespace_stack.push_back(acc->space);
+        auto v = handleScopeAccess(ns->at(acc->space).nested.get(), nested_acc);
+        namespace_stack.pop_back();
+
+        return v;
+    }
+
     Value operator()(const expr::ScopeAccess *acc) {
+        const std::unordered_map<std::string, NameSpace> *ns = &namespaces;
 
-        if (not namespaces.contains(acc->space)) error("Scope resolution operator '::' applied on a non-namespace: " + acc->stringify());
-
-
-        std::clog << "Size: " << namespaces[acc->space].size() << std::endl;
-        for (auto&& [ns, env] : namespaces) {
-            std::clog << "ns: " << ns << std::endl << env << std::endl;
-        }
-        // assert(namespaces[acc->space].size() == 1);
-
-        if (not namespaces[acc->space].contains(acc->member)) error("Member '" + acc->member + "' not found inside namespace: " + acc->space);
-
-
-        Value value = namespaces[acc->space][acc->member].first;
-
-        if (std::holds_alternative<expr::Closure>(value)) {
-            const auto& closure = get<expr::Closure>(value);
-
-            closure.capture(namespaces[acc->space]); // capture the env inside the namespace it came from
-
-            return closure; // line may not be needed
+        for (auto&& space : namespace_stack) {
+            ns = ns->at(space).nested.get();
         }
 
-        return value;
+        return handleScopeAccess(ns, acc);
     }
 
 
@@ -1311,7 +1165,6 @@ struct Visitor {
 
             // replacing expressions that represnt types
             if (auto&& cls = getVar(type->text()); cls and std::holds_alternative<ClassValue>(cls->first))
-                // type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(clos->first))));
                 type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(cls->first)));
         }
 
@@ -1319,7 +1172,6 @@ struct Visitor {
             return_type and std::holds_alternative<ClassValue>(return_type->first)
         )
         closure.type.ret =
-            // std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(return_type->first))));
             std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(return_type->first)));
 
 
@@ -1802,87 +1654,50 @@ struct Visitor {
     }
 
 
-    void validateType(type::TypePtr type) noexcept {
+    type::TypePtr validateType(type::TypePtr type) noexcept {
 
         //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (auto&& var = getVar(type->text()); var) {
             if (typeOf(var->first)->text() != "Type") error("'" + stringify(var->first) + "' does not name a type!");
 
-            type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
+            // type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
+            return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
         }
 
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
-            if (type::isBuiltin(type)) return;
+            if (type::isBuiltin(type)) return type;
 
             if (
                 auto&& value = std::visit(*this, var_type->t->variant());
                 std::holds_alternative<ClassValue>(value)
             )
-            return;
+            return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(value)));
 
         }
         else if (dynamic_cast<type::LiteralType*>(type.get())) {
-            return; // I guess I can just return 
+            return type;
         }
         else if (type::isFunction(type)) {
             const auto func_type = dynamic_cast<type::FuncType*>(type.get());
 
-            for (const auto& t : func_type->params) validateType(t);
+            for (auto& t : func_type->params) t = validateType(t);
 
 
             // all param types are valid. Only thing left to check is return type
-            return validateType(func_type->ret);
+            func_type->ret = validateType(func_type->ret);
+            return std::make_shared<type::FuncType>(*func_type);
         }
         else if (type::isVariadic(type)) {
-            const auto variadic_type = dynamic_cast<type::VariadicType*>(type.get());
+            auto variadic_type = dynamic_cast<type::VariadicType*>(type.get());
 
-            return validateType(variadic_type->type);
+            variadic_type->type = validateType(variadic_type->type);
+
+            return std::make_shared<type::VariadicType>(*variadic_type);
         }
 
 
         error("'" + type->text() + "' does not name a type!");
     }
-
-
-    // std::string getTypeValue(const type::TypePtr& type) noexcept {
-    //     validateType(type);
-
-    //     if (type::isBuiltin(type) or type::isFunction(type)) return type->text();
-
-    //     // has to be class value now.
-    //     const type::VarType* var_type = dynamic_cast<const type::VarType*>(type.get());
-    //     if (not var_type) error();
-
-    //     const Value& value = std::visit(*this, var_type->t->variant());
-    //     if(not std::holds_alternative<ClassValue>(value)) error();
-    //     return typeStringify(get<ClassValue>(value));
-    // }
-
-
-    // static std::string typeStringify(const Object& o) {
-    //     std::string s = "class {\n";
-
-    //     // should I use '\t' or "    "
-    //     for (const auto& [name, value] : o.second->members)
-    //         s += "    " + name.stringify() + ": " + name.type->text() + " = " + stringify(value) + ";\n";
-    //         // s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
-
-    //     s += "}\n";
-
-    //     return s;
-    // }
-
-
-    // static std::string typeStringify(const ClassValue& c) {
-    //     std::string s = "class {\n";
-
-    //     for (const auto& [name, value] : c.blueprint->members)
-    //     s += "    " + name.stringify() + ": " + name.type->text() + " = " + stringify(value) + ";\n";
-    //         // s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
-    //     s += "}\n";
-
-    //     return s;
-    // }
 
 
     type::TypePtr typeOf(const Value& value) noexcept {
@@ -1906,15 +1721,8 @@ struct Visitor {
             return std::make_shared<type::FuncType>(std::move(type));
         }
 
-        if (std::holds_alternative<Object>(value)) {
-            // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
-
-            // std::string s = stringify(get<Object>(value).first);
-
+        if (std::holds_alternative<Object>(value))
             return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<Object>(value).first));
-            // return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
-            // return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
-        }
 
         if (std::holds_alternative<PackList>(value)) {
             auto values = std::ranges::fold_left(
@@ -1980,10 +1788,53 @@ private:
         else env.pop_back();
     }
 
-    const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
-        if (not namespace_stack.empty()) 
-            namespaces[namespace_stack.back()][name] = {v, t}; // this looks ugly as fuck
 
+    void traverseNamespace(
+        std::unordered_map<std::string, NameSpace> *ns, // pointers are fast
+        const std::string name, const Value& v, const type::TypePtr& t
+    ) {
+
+        for (size_t i{}; i < namespace_stack.size() - 1; ++i) {
+            if (not ns->contains(namespace_stack[i])) error();
+
+            ns = ns->at(namespace_stack[i]).nested.get();
+        }
+
+        if (not ns->contains(namespace_stack.back())) error();
+
+        ns->at(namespace_stack.back()).decls[name] = {v, t};
+    }
+
+    std::optional<std::pair<Value, type::TypePtr>> traverseNamespace(
+        const std::unordered_map<std::string, NameSpace> *ns, // pointers are fast
+        const std::string name
+    ) const {
+
+        for (size_t i{}; i < namespace_stack.size() - 1; ++i) {
+            if (not ns->contains(namespace_stack[i])) error();
+
+            ns = ns->at(namespace_stack[i]).nested.get();
+        }
+
+
+        if (ns->contains(namespace_stack.back()))
+            if (ns->at(namespace_stack.back()).decls.contains(name))
+                return ns->at(namespace_stack.back()).decls.at(name);
+
+        return {};
+    }
+
+    const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
+        if (not namespace_stack.empty()) {
+            // if (not namespaces.at(namespace_stack.back()).nested)
+            //     namespaces.at(namespace_stack.back()).nested =
+            //         std::make_unique<std::unordered_map<std::string, NameSpace>>();
+
+            // std::clog << "adding: " << name << " which is " << stringify(v) << " to namespace: " << namespace_stack.back() << std::endl;
+            // namespaces.at(namespace_stack.back()).decls[name] = {v, t}; // this looks ugly as fuck
+
+            traverseNamespace(&namespaces, name, v, t);
+        }
         else env.back()[name] = {v, t};
 
         return v;
@@ -1991,14 +1842,19 @@ private:
 
     std::optional<std::pair<Value, type::TypePtr>> getVar(const std::string& name) const {
         // look inside most inner namespaces first
-        for (auto space = namespace_stack.crbegin(); space != namespace_stack.crend(); ++space) {
-            auto&& ns = namespaces.at(*space);
-            if (ns.contains(name)) return ns.at(name);
+        // for (auto space = namespace_stack.crbegin(); space != namespace_stack.crend(); ++space) {
 
-            // for (auto curr_env = ns.crbegin(); curr_env != ns.crend(); ++curr_env) {
-            //     if (curr_env->contains(name)) return curr_env->at(name);
-            // }
-        }
+        //     if (not namespaces.contains(*space)) error(); // *remove!
+
+        //     auto&& ns = namespaces.at(*space);
+        //     if (ns.decls.contains(name)) return ns.decls.at(name);
+
+        //     // for (auto curr_env = ns.crbegin(); curr_env != ns.crend(); ++curr_env) {
+        //     //     if (curr_env->contains(name)) return curr_env->at(name);
+        //     // }
+        // }
+
+        if (not namespace_stack.empty()) if (auto ret = traverseNamespace(&namespaces, name); ret) return ret;
 
         // if that fails, only then look in the global namespace
         for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
