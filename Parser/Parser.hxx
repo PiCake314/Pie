@@ -59,7 +59,7 @@ public:
         }
 
 
-        return {expressions, ops};
+        return {expressions, std::move(ops)};
 
         // std::vector<ExprPtr> expressions;
         // expressions.push_back(parseExpr());
@@ -92,14 +92,14 @@ public:
 
             case NAME:
                 if (ops.contains(token.text)) {
-                    switch (const auto op = ops[token.text]; op->type()) {
+                    switch (const auto& op = ops[token.text]; op->type()) {
                         case TokenKind::PREFIX:{
                             const int prec = prec::calculate(op->high, op->low, ops);
                             return std::make_shared<expr::UnaryOp>(token.text, parseExpr(prec));
                         }
 
                         case TokenKind::EXFIX:{
-                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text]);
+                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
                             // if (not op) error("This should never happen!!");
 
                             auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
@@ -110,7 +110,7 @@ public:
                         }
 
                         case TokenKind::MIXFIX: {
-                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
+                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
                             if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
 
 
@@ -273,7 +273,7 @@ public:
 
             case NAME:
                 if (ops.contains(token.text)) {
-                    switch (const auto op = ops[token.text]; op->type()) {
+                    switch (const auto& op = ops[token.text]; op->type()) {
                         // case TokenKind::PREFIX:
                         //     return std::make_shared<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :{
@@ -286,7 +286,7 @@ public:
 
                         //* I can fix this. Check if the name is the first or not and error accordingly!
                         case TokenKind::EXFIX: {
-                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text]);
+                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
                             if (token.text != op->name2) error("Open exfix operator found where closing one was expected!");
 
                             return left;
@@ -296,7 +296,7 @@ public:
                         // some other part of Operator. 
                         case TokenKind::MIXFIX:
                         {
-                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text]);
+                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
 
                             // error("Beginning operator '" + token.text  + "' found where it shouldn't be!");
                             // in the middle of parsing a OpCall. Do nothing.
@@ -380,10 +380,6 @@ public:
                 return std::make_shared<expr::Call>(std::move(left), std::move(named_args), std::move(args));
             }
 
-
-            // case SEMI:
-            //     puts("SEMI!!!");
-            //     return nullptr;
 
             default: error("Couldn't parse \"" + token.text + "\"!!");
         }
@@ -501,7 +497,7 @@ public:
                     return 0;
                 }
 
-                const auto op = ops[token.text];
+                const auto& op = ops[token.text];
                 const int prec = prec::calculate(op->high, op->low, ops);
 
                 // mix fix operators should be parsed right to left.......I think ;-;
@@ -558,7 +554,7 @@ public:
         // plus, I don't like that I made "Fix" take a "ExprPtr" rather than closure but I'll leave it for now
 
         if (ops.contains(name)) {
-            auto op = ops[name];
+            const auto& op = ops[name];
             op->funcs.push_back(std::move(func));
 
             if (op->type() != token.kind) {
@@ -572,14 +568,14 @@ public:
 
             // this feels like double checking the fix operator
             // but it also seems like I need to get the derived type to create a shared_ptr anyway..so IDK
-            if (auto p = dynamic_cast<const expr::Prefix*>(ops[name]))
-                return std::make_shared<expr::Prefix>(*p);
+            // if (auto p = dynamic_cast<const expr::Prefix*>(ops[name]))
+            //     return std::make_shared<expr::Prefix>(*p);
 
-            if (auto p = dynamic_cast<const expr::Infix*>(ops[name]))
-                return std::make_shared<expr::Infix>(*p);
+            // if (auto p = dynamic_cast<const expr::Infix*>(ops[name]))
+            //     return std::make_shared<expr::Infix>(*p);
 
-            if (auto p = dynamic_cast<const expr::Suffix*>(ops[name]))
-                return std::make_shared<expr::Suffix>(*p);
+            // if (auto p = dynamic_cast<const expr::Suffix*>(ops[name]))
+            //     return std::make_shared<expr::Suffix>(*p);
 
 
             error();
@@ -589,20 +585,22 @@ public:
         std::shared_ptr<expr::Fix> p;
         if (token.kind == PREFIX) {
             if (c->params.size() != 1) error("Prefix operator must be assigned to a unary closure!");
-            p = std::make_shared<expr::Prefix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{std::move(func)});
+            p = std::make_shared<expr::Prefix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{/*std::move(func)*/});
         }
         else if (token.kind == INFIX) {
             if (c->params.size() != 2) error("Infix operator must be assigned to a binary closure!");
-            p = std::make_shared<expr::Infix> (name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{std::move(func)});
+            p = std::make_shared<expr::Infix> (name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{/*std::move(func)*/});
         }
         else /* if (token.kind == SUFFIX) */ {
             if (c->params.size() != 1) error("Suffix operator must be assigned to a unary closure!");
-            p = std::make_shared<expr::Suffix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{std::move(func)});
+            p = std::make_shared<expr::Suffix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{/*std::move(func)*/});
         }
 
 
-        ops[name] = p.get();
+        // ops[name] = p.get();
+        if (not ops.contains(name)) ops[name] = p->clone();
 
+        p->funcs.push_back(std::move(func));
         return p;
     }
 
@@ -629,7 +627,7 @@ public:
 
 
         if (ops.contains(name1)) {
-            auto op = ops[name1];
+            const auto& op = ops[name1];
             op->funcs.push_back(std::move(func));
 
             if (op->type() != TokenKind::EXFIX) {
@@ -637,7 +635,7 @@ public:
                 expected(op->type(), TokenKind::EXFIX);
             }
 
-            auto ex = dynamic_cast<const expr::Exfix*>(op);
+            auto ex = dynamic_cast<const expr::Exfix*>(op.get());
 
             if (ex->name != name1 or ex->name2 != name2) {
                 error("Overload set of exfix operator must all have the same operator name '" + ex->name + ':' + ex->name2 + '\'');
@@ -647,8 +645,8 @@ public:
             return std::make_shared<expr::Exfix>(*ex);
         }
 
-        ops[name1] = p.get();
-        ops[name2] = p.get(); //* maybe? //* maybe not...? idk
+        ops[name1] = p->clone();
+        ops[name2] = p->clone(); //* maybe? //* maybe not...? idk
 
         return p;
     };
@@ -731,12 +729,12 @@ public:
 
 
         if (ops.contains(first)) {
-            auto op = ops[first];
+            const auto& op = ops[first];
             op->funcs.push_back(std::move(func));
 
             if (op->type() != TokenKind::MIXFIX) error(); // ! ADD ERR MSG
 
-            auto arb = dynamic_cast<const expr::Operator*>(op);
+            auto arb = dynamic_cast<const expr::Operator*>(op.get());
 
             bool same = first == arb->name;
             for (auto&& [n1, n2] : std::views::zip(rest, arb->rest))
@@ -750,8 +748,8 @@ public:
             return std::make_shared<expr::Operator>(*arb);
         }
 
-        ops[p->name] = p.get();
-        for (const auto& name : rest) ops[name] = p.get(); //* double "maybe?"??
+        ops[p->name] = p->clone();
+        for (const auto& name : rest) ops[name] = p->clone();
 
         return p;
     }

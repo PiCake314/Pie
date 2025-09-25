@@ -73,10 +73,10 @@ std::string run(const char* src) {
 
     Parser p{v};
 
-    const auto [exprs, ops] = p.parse();
+    auto [exprs, ops] = p.parse();
 
 
-    Visitor visitor{ops};
+    Visitor visitor{std::move(ops)};
     for (const auto& expr : exprs)
         std::visit(visitor, expr->variant());
 

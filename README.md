@@ -368,16 +368,17 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 #### in order of priority
 
-- [ ] Add input method (file & console)
+- [ ] Add match expression (like scala)
 - [ ] Add namespaces
 - [ ] Add an import system (modules)
-- [ ] Add match expression (like scala)
+- [ ] File IO
 - [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
 - [ ] Use Big Int instead of `int32_t`;
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL
+- [ ] Compile to WASM & a web interface
 - [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
 - [ ] Add LLVM backend
@@ -386,6 +387,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 
 ### Done
 
+- [x] Add add overloaded operators at runtime (instead of parse-time)
 - [x] Fixed infix operators parsing right to left!
 - [x] Implemnted `__builtin_eq` for all values!
 - [x] Add named parameters to some builtin functions
@@ -395,6 +397,7 @@ g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ 
 - [x] Fix operator return type checking..?
 - [x] Add overloading operators
 - [x] Change comments to `.::` and `::.`
+- [x] Added `input_{str|int}`
 - [x] Add Arbitrary Operators!!!
 - [x] Add circumfix operators
 - [x] Add lazy evaluation

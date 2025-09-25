@@ -50,7 +50,7 @@ int main(int argc, char *argv[]) {
     Parser p{v};
     if (print_tokens) std::println("{}", v);
 
-    const auto [exprs, ops] = p.parse();
+    auto [exprs, ops] = p.parse();
 
 
     if (print_parsed) {
@@ -61,7 +61,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (run) {
-        Visitor visitor{ops};
+        Visitor visitor{std::move(ops)};
         for (const auto& expr : exprs)
             std::visit(visitor, expr->variant());
     }

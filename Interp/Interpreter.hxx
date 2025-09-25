@@ -315,11 +315,7 @@ struct Visitor {
                 }
             }
             else { // New var
-                // type = name->type;
-                // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
-                if (type::shouldReassign(type))
-                    type = type::builtins::Any();
-                else validateType(type);
+                type = type::shouldReassign(type) ? type::builtins::Any() : validateType(type);
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
@@ -382,7 +378,7 @@ struct Visitor {
                 v = field.second->variant();
             }
             else {
-                validateType(type);
+                type = validateType(type);
 
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
@@ -464,15 +460,15 @@ struct Visitor {
         return;
     }
 
-    static const expr::Closure* resolveOverloadSet(
+    static expr::Closure* resolveOverloadSet(
         const std::string& name,
         const std::vector<expr::ExprPtr>& funcs,
         const std::vector<type::TypePtr>& types
     ) {
-        std::vector<const expr::Closure*> set;
+        std::vector<expr::Closure*> set;
 
         for (auto&& func : funcs) {
-            const auto& closure = dynamic_cast<const expr::Closure*>(func.get());
+            auto closure = dynamic_cast<expr::Closure*>(func.get());
 
             bool found = true;
             for (auto&& [arg_type, param_type] : std::views::zip(types, closure->type.params)) {
@@ -499,7 +495,7 @@ struct Visitor {
 
 
     const Value& checkReturnType(const Value& ret, type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
-        validateType(return_type);
+        return_type = validateType(return_type);
 
         const auto& type_of_return_value = typeOf(ret);
 
@@ -515,6 +511,7 @@ struct Visitor {
                 location
             );
 
+
         return ret;
     }
 
@@ -522,8 +519,8 @@ struct Visitor {
         if (auto&& var = getVar(up->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(up->op);
-        const expr::Closure* func;
+        const auto& op = ops.at(up->op);
+        expr::Closure* func;
         Environment args_env;
 
         if (op->funcs.size() == 1) {
@@ -536,7 +533,7 @@ struct Visitor {
                 args_env[func->params[0]] = {up->expr->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                validateType(func->type.params[0]);
+                func->type.params[0] = validateType(func->type.params[0]);
 
                 const auto& arg = std::visit(*this, up->expr->variant());
                 if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -551,15 +548,13 @@ struct Visitor {
                 //* maybe should use Syntax() instead of Any();
                 args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
             }
-
-
         }
         else { // do selection based on type
             checkNoSyntaxType(op->funcs);
 
-            const auto& arg  = std::visit(*this, up->expr->variant());
-            const auto& type = typeOf(arg);
-            validateType(type);
+            const auto arg  = std::visit(*this, up->expr->variant());
+            auto type = typeOf(arg);
+            type = validateType(type);
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -576,8 +571,8 @@ struct Visitor {
         if (auto&& var = getVar(bp->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(bp->op);
-        const expr::Closure* func;
+        const auto& op = ops.at(bp->op);
+        expr::Closure* func;
         Environment args_env;
 
         if (op->funcs.size() == 1) {
@@ -589,7 +584,7 @@ struct Visitor {
                 args_env[func->params[0]] = {bp->lhs->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                validateType(func->type.params[0]);
+                func->type.params[0] = validateType(func->type.params[0]);
 
                 const auto& arg1 = std::visit(*this, bp->lhs->variant());
                 if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
@@ -610,7 +605,7 @@ struct Visitor {
                 args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]};
             }
             else {
-                validateType(func->type.params[1]);
+                func->type.params[1] = validateType(func->type.params[1]);
 
                 const auto& arg2 = std::visit(*this, bp->rhs->variant());
                 if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
@@ -630,13 +625,13 @@ struct Visitor {
         else {
             checkNoSyntaxType(op->funcs);
 
-            const auto& arg1  = std::visit(*this, bp->lhs->variant());
-            const auto& type1 = typeOf(arg1);
-            validateType(type1);
+            const auto arg1  = std::visit(*this, bp->lhs->variant());
+            auto type1 = typeOf(arg1);
+            type1 = validateType(type1);
 
-            const auto& arg2  = std::visit(*this, bp->rhs->variant());
-            const auto& type2 = typeOf(arg2);
-            validateType(type2);
+            const auto arg2  = std::visit(*this, bp->rhs->variant());
+            auto type2 = typeOf(arg2);
+            type2 = validateType(type2);
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type1, type2});
 
@@ -655,8 +650,8 @@ struct Visitor {
         if (auto&& var = getVar(pp->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(pp->op);
-        const expr::Closure* func;
+        const auto& op = ops.at(pp->op);
+        expr::Closure* func;
         Environment args_env;
 
         if (op->funcs.size() == 1) {
@@ -669,7 +664,7 @@ struct Visitor {
                 args_env[func->params[0]] = {pp->expr->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                validateType(func->type.params[0]);
+                func->type.params[0] = validateType(func->type.params[0]);
 
                 const auto& arg = std::visit(*this, pp->expr->variant());
                 if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -688,9 +683,9 @@ struct Visitor {
         else {
             checkNoSyntaxType(op->funcs);
 
-            const auto& arg  = std::visit(*this, pp->expr->variant());
-            const auto& type = typeOf(arg);
-            validateType(type);
+            const auto arg  = std::visit(*this, pp->expr->variant());
+            auto type = typeOf(arg);
+            type = validateType(type);
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -708,8 +703,8 @@ struct Visitor {
 
         // ScopeGuard sg{this};
 
-        const expr::Fix* op = ops.at(cp->op1);
-        const expr::Closure* func;
+        const auto& op = ops.at(cp->op1);
+        expr::Closure* func;
         Environment args_env;
 
         if (op->funcs.size() == 1) {
@@ -722,7 +717,7 @@ struct Visitor {
                 args_env[func->params[0]] = {cp->expr->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                validateType(func->type.params[0]);
+                func->type.params[0] = validateType(func->type.params[0]);
 
                 const auto& arg = std::visit(*this, cp->expr->variant());
                 if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -741,9 +736,9 @@ struct Visitor {
         else {
             checkNoSyntaxType(op->funcs);
 
-            const auto& arg  = std::visit(*this, cp->expr->variant());
-            const auto& type = typeOf(arg);
-            validateType(type);
+            const auto arg  = std::visit(*this, cp->expr->variant());
+            auto type = typeOf(arg);
+            type = validateType(type);
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -759,8 +754,8 @@ struct Visitor {
         if (auto&& var = getVar(oc->stringify()); var) return var->first;
 
 
-        const expr::Fix* op = ops.at(oc->first);
-        const expr::Closure* func;
+        const auto& op = ops.at(oc->first);
+        expr::Closure* func;
         Environment args_env;
 
         if (op->funcs.size() == 1) {
@@ -770,12 +765,12 @@ struct Visitor {
             // this may be not needed
             // if (oc->exprs.size() != func->params.size()) error();
 
-            for (const auto& [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
+            for (auto [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
                 if (param_type->text() == "Syntax") {
                     args_env[param] = {arg_expr->variant(), param_type}; //?
                 }
                 else {
-                    validateType(param_type);
+                    param_type = validateType(param_type);
 
                     const auto& arg = std::visit(*this, arg_expr->variant());
                     if (auto&& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
@@ -802,7 +797,7 @@ struct Visitor {
             for (auto&& expr : oc->exprs) {
                 args .push_back(std::visit(*this, expr->variant()));
                 types.push_back(typeOf(args.back()));
-                validateType(types.back());
+                types.back() = validateType(types.back());
             }
 
             func = resolveOverloadSet(op->OpName(), op->funcs, std::move(types));
@@ -1258,7 +1253,7 @@ struct Visitor {
 
 
         for (auto& type : closure.type.params) {
-            validateType(type);
+            type = validateType(type);
             // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
 
             // replacing expressions that represnt types
@@ -1303,57 +1298,10 @@ struct Visitor {
     Value operator()(const expr::Fix *fix) {
         if (auto&& var = getVar(fix->stringify()); var) return var->first;
         // return std::visit(*this, fix->func->variant());
-        return "What should I return?!";
+        ops.at(fix->name)->funcs.push_back(fix->funcs[0]); // assuming each fix expression has a single func in it
+
+        return std::visit(*this, fix->funcs[0]->variant());
     }
-
-    // // split so I can param check at definition time instead of call time..
-    // Value operator()(const expr::Prefix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // // I know it's a function, otherwise parser woulda been mad
-    //     // Maybe I don't need to check if param count is valid since the parser already checks that?
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-    // Value operator()(const expr::Infix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-    // Value operator()(const expr::Suffix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-    // Value operator()(const expr::Exfix *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 1)
-    //     //     error("Exfix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
-
-
-    // Value operator()(const expr::Operator *fix) {
-    //     if (auto&& var = getVar(fix->stringify()); var) return var->first;
-
-    //     // if (dynamic_cast<expr::Closure*>(fix->func.get())->params.size() != 2)
-    //     //     error("Prefix operator '" + fix->name + "' was assigned to a function with the wrong arity!");
-
-    //     return std::visit(*this, fix->func->variant());
-    // }
 
 
     [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
@@ -1598,7 +1546,7 @@ struct Visitor {
             MapEntry<
                 S<"leq">,
                 Func<"leq",
-                    decltype([](auto&& a, auto&& b, const auto&) { return a >= b; }),
+                    decltype([](auto&& a, auto&& b, const auto&) { return a <= b; }),
                     TypeList<ssize_t, ssize_t>,
                     TypeList<ssize_t, double>,
                     TypeList<double, ssize_t>,
@@ -1800,87 +1748,48 @@ struct Visitor {
     }
 
 
-    void validateType(type::TypePtr type) noexcept {
+    type::TypePtr validateType(type::TypePtr type) noexcept {
 
         //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (auto&& var = getVar(type->text()); var) {
             if (typeOf(var->first)->text() != "Type") error("'" + stringify(var->first) + "' does not name a type!");
 
-            type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
+            return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
         }
 
         if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
-            if (type::isBuiltin(type)) return;
+            if (type::isBuiltin(type)) return type;
 
-            if (
-                auto&& value = std::visit(*this, var_type->t->variant());
-                std::holds_alternative<ClassValue>(value)
-            )
-            return;
+            auto&& value = std::visit(*this, var_type->t->variant());
 
+            if (std::holds_alternative<ClassValue>(value))
+                return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(value)));
         }
-        else if (dynamic_cast<type::LiteralType*>(type.get())) {
-            return; // I guess I can just return 
-        }
+
+        else if (dynamic_cast<type::LiteralType*>(type.get())) return type;
+
         else if (type::isFunction(type)) {
             const auto func_type = dynamic_cast<type::FuncType*>(type.get());
 
-            for (const auto& t : func_type->params) validateType(t);
+            for (auto& t : func_type->params) t = validateType(t);
 
 
             // all param types are valid. Only thing left to check is return type
-            return validateType(func_type->ret);
+            func_type->ret = validateType(func_type->ret);
+
+            return type;
         }
         else if (type::isVariadic(type)) {
             const auto variadic_type = dynamic_cast<type::VariadicType*>(type.get());
 
-            return validateType(variadic_type->type);
+            variadic_type->type = validateType(variadic_type->type);
+
+            return type;
         }
 
 
         error("'" + type->text() + "' does not name a type!");
     }
-
-
-    // std::string getTypeValue(const type::TypePtr& type) noexcept {
-    //     validateType(type);
-
-    //     if (type::isBuiltin(type) or type::isFunction(type)) return type->text();
-
-    //     // has to be class value now.
-    //     const type::VarType* var_type = dynamic_cast<const type::VarType*>(type.get());
-    //     if (not var_type) error();
-
-    //     const Value& value = std::visit(*this, var_type->t->variant());
-    //     if(not std::holds_alternative<ClassValue>(value)) error();
-    //     return typeStringify(get<ClassValue>(value));
-    // }
-
-
-    // static std::string typeStringify(const Object& o) {
-    //     std::string s = "class {\n";
-
-    //     // should I use '\t' or "    "
-    //     for (const auto& [name, value] : o.second->members)
-    //         s += "    " + name.stringify() + ": " + name.type->text() + " = " + stringify(value) + ";\n";
-    //         // s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
-
-    //     s += "}\n";
-
-    //     return s;
-    // }
-
-
-    // static std::string typeStringify(const ClassValue& c) {
-    //     std::string s = "class {\n";
-
-    //     for (const auto& [name, value] : c.blueprint->members)
-    //     s += "    " + name.stringify() + ": " + name.type->text() + " = " + stringify(value) + ";\n";
-    //         // s += "    " + name.stringify() + ": " + name.type->text() + ";\n";
-    //     s += "}\n";
-
-    //     return s;
-    // }
 
 
     type::TypePtr typeOf(const Value& value) noexcept {

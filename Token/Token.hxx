@@ -91,9 +91,8 @@ inline const char* stringify(const TokenKind token) noexcept {
         case PR_INFIX:      return "PR_INFIX"; 
         case PR_SUM:        return "SUM"; 
         case PR_PROD:       return "PROD"; 
-        case PR_PREFIX:     return "PREFIX"; 
-        case PR_POSTFIX:    return "POSTFIX"; 
-        // case PR_CIRCUMFIX:  return "CIRCUMFIX"; 
+        case PR_PREFIX:     return "PR_PREFIX"; 
+        case PR_POSTFIX:    return "PR_POSTFIX"; 
         case PR_CALL:       return "CALL"; 
         case PR_HIGH:       return "HIGH"; 
     }

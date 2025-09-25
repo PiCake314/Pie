@@ -26,7 +26,7 @@ using Environment = std::unordered_map<std::string, std::pair<Value, type::TypeP
 
 namespace expr { struct Fix; }
 
-using Operators  = std::unordered_map<std::string, expr::Fix*>;
+using Operators  = std::unordered_map<std::string, std::unique_ptr<expr::Fix>>;
 
 
 namespace expr {
@@ -427,6 +427,7 @@ struct Fix : Expr {
     // : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
 
 
+    virtual std::unique_ptr<Fix> clone() const = 0;
     virtual std::string OpName() const = 0;
     virtual TokenKind type() const = 0;
 };
@@ -449,14 +450,14 @@ struct Prefix : Fix {
 
         std::string s;
 
-        for (const auto& func : funcs)
-            s += "prefix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
+        // for (const auto& func : funcs)
+        s += "prefix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
 
-        // return "prefix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
         return s;
     }
 
 
+    std::unique_ptr<Fix> clone() const override { return std::make_unique<Prefix>(*this); }
     std::string OpName() const override { return name; }
     TokenKind type() const override { return TokenKind::PREFIX; }
     Node variant() const override { return this; }
@@ -476,15 +477,14 @@ struct Infix : Fix {
 
 
         std::string s;
-
-        for (const auto& func : funcs)
-            s += "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
-
-        // return "infix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+        // for (const auto& func : funcs)
+        s += "infix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
 
         return s;
     }
 
+
+    std::unique_ptr<Fix> clone() const override { return std::make_unique<Infix>(*this); }
     std::string OpName() const override { return name; }
     TokenKind type() const override { return TokenKind::INFIX; }
     Node variant() const override { return this; }
@@ -506,14 +506,14 @@ struct Suffix : Fix {
 
         std::string s;
 
-        for (const auto& func : funcs)
-            s += "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
-
-        // return "suffix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent);
+        // for (const auto& func : funcs)
+        s += "suffix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
 
         return s;
     }
 
+
+    std::unique_ptr<Fix> clone() const override { return std::make_unique<Suffix>(*this); }
     std::string OpName() const override { return name; }
     TokenKind type() const override { return TokenKind::SUFFIX; }
     Node variant() const override { return this; }
@@ -535,17 +535,15 @@ struct Exfix : Fix {
 
         std::string s;
 
-        for (const auto& func : funcs)
-            s += "exfix(" + token.text + shifts + ") " + name + " = " + func->stringify(indent) + '\n';
-
-
-        // //! FIX THIS
-        // return "exfix(" + token.text + shifts + ") " + name + ':' + name2 + " = " + func->stringify(indent);
+        // for (const auto& func : funcs)
+        s += "exfix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
 
         return s;
 
     }
 
+
+    std::unique_ptr<Fix> clone() const override { return std::make_unique<Exfix>(*this); }
     std::string OpName() const override { return name + ':' + name2; }
     TokenKind type() const override { return TokenKind::EXFIX; }
     Node variant() const override { return this; }
@@ -597,10 +595,8 @@ struct Operator : Fix {
 
         std::string s;
 
-        for (const auto& func : funcs)
-            s += "operator(" + token.text + shifts + ") " + OpName() + " = " + func->stringify(indent) + '\n';
-
-        // return "operator(" + token.text + shifts + ") " + op_name + " = " + func->stringify(indent);
+        // for (const auto& func : funcs)
+        s += "operator(" + token.text + shifts + ") " + OpName() + " = " + funcs[0]->stringify(indent);
 
         return s;
     }
@@ -617,6 +613,7 @@ struct Operator : Fix {
         }
         return op_name;
     }
+    std::unique_ptr<Fix> clone() const override { return std::make_unique<Operator>(*this); }
     TokenKind type() const override { return TokenKind::MIXFIX; }
     Node variant() const override { return this; }
 };
