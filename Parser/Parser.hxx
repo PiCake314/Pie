@@ -96,6 +96,52 @@ public:
 
                 consume(L_BRACE);
 
+                std::vector<expr::Match::Case> cases;
+                size_t so_far{};
+
+                do {
+                    constexpr auto IF = "&";
+                    constexpr auto OR = "|";
+                    constexpr auto EMPTY_BODY = nullptr;
+                    do {
+                        std::string name = consume(NAME).text;
+
+                        if (not match(L_PAREN)) {
+                            cases.push_back({std::move(name), match(IF) ? parseExpr() : nullptr, EMPTY_BODY});
+                            continue;
+                        }
+                        else {
+                            expr::Match::Case::Pattern pattern{.name = std::move(name), .structure = {}};
+                            do {
+                                // expr::Match::Case::Pattern::Single singles; // "a: Int = 5" is a single
+                                std::string name = consume(NAME).text;
+                                type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+                                expr::ExprPtr def = match(ASSIGN) ? parseExpr() : nullptr;
+    
+                                pattern.structure.push_back({std::move(name), std::move(type), std::move(def)});
+                            }
+                            while (match(COMMA));
+                            consume(R_PAREN);
+                                                                // guard!
+                            cases.push_back({std::move(pattern), match(IF) ? parseExpr() : nullptr, EMPTY_BODY});
+                        }
+
+                    }
+                    while (match(OR));
+
+                    consume(FAT_ARROW);
+
+                    auto body = parseExpr();
+
+                    for (auto& kase : cases | std::views::drop(so_far)) {
+                        kase.body = body; ++so_far;
+                    }
+
+                    consume(SEMI);
+                }
+                while (not match(R_BRACE));
+
+                return std::make_shared<expr::Match>(std::move(expr), std::move(cases));
             }
 
             // block / scope
@@ -431,11 +477,9 @@ public:
         std::vector<type::TypePtr> params_types;
 
         do {
-            type::TypePtr type;
             Token name = consume(NAME);
 
-            if (match(COLON)) type = parseType();
-            else              type = type::builtins::Any();
+            type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
 
             params.push_back(std::move(name).text);
             params_types.push_back(std::move(type));

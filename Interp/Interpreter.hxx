@@ -213,19 +213,14 @@ struct Visitor {
             members.push_back({{field.first.name, type}, v});
         }
 
-
-        // for (auto&& [name, value] : members) {
-        //     if (std::holds_alternative<Closure>(value)) {
-        //         const auto& c = get<Closure>(value);
-        //         c.capture(members);
-
-        //         members[name] = c;
-        //     }
-        // }
-
         return ClassValue{std::make_shared<Dict>(std::move(members))};
     }
 
+
+
+    Value operator()(const expr::Match *) {
+        error();
+    }
 
     Value operator()(const expr::Access *acc) {
 

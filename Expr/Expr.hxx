@@ -6,6 +6,7 @@
 #include <vector>
 #include <unordered_map>
 #include <utility>
+#include <tuple>
 #include <algorithm>
 #include <ranges>
 #include <numeric>
@@ -127,7 +128,7 @@ struct Assignment : Expr {
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and type::shouldReassign(name->type)) {
+        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and not type::shouldReassign(name->type)) {
             return name->stringify() + ": " + name->type->text() + " = " + rhs->stringify(indent);
         }
 
@@ -165,8 +166,62 @@ struct Class : Expr {
 
 struct Match : Expr {
     struct Case {
-        
+        struct Pattern {
+            struct Single {
+                std::string name;
+                type::TypePtr type;
+                ExprPtr default_value;
+            };
+
+            std::string name;
+            std::vector<Single> structure;
+        };
+
+        std::variant<std::string, Pattern> pattern;
+        ExprPtr guard;
+        ExprPtr body;
     };
+
+    ExprPtr expr;
+    std::vector<Case> cases;
+
+    Match(ExprPtr e, std::vector<Case> cs) noexcept
+    : expr{std::move(e)}, cases{std::move(cs)}
+    {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        std::string s = "match " + expr->stringify(indent) + " {\n";
+
+        std::string space(indent + 4, ' ');
+        for (auto&& kase : cases) {
+        s += space;
+
+            if (std::holds_alternative<Case::Pattern>(kase.pattern)) {
+                const auto& pattern = get<Case::Pattern>(kase.pattern);
+                s += pattern.name + '(';
+
+                for (std::string comma = ""; auto&& [name, type, def] : pattern.structure) {
+                    s += comma + name + ": " + type->text(indent + 4) + (def ? def->stringify(indent + 4) : "");
+                    comma = ", ";
+                }
+
+                s += ") ";
+            }
+            else {
+                s += get<std::string>(kase.pattern) + ' ';
+            }
+
+
+            if (kase.guard) s += "& " + kase.guard->stringify(indent + 4);
+            s += " => " + kase.body->stringify(indent + 4) + ";\n";
+        }
+
+
+        return s + "}";
+    }
+
+    Node variant() const override { return this; }
 };
 
 

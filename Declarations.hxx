@@ -27,6 +27,7 @@ using Node = std::variant<
     const struct Expansion *,
     const struct Assignment*,
     const struct Class     *,
+    const struct Match     *,
     const struct Access    *,
     const struct Grouping  *,
     const struct UnaryOp   *,
