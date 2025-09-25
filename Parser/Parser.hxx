@@ -29,18 +29,12 @@ class Parser {
 
     Operators ops;
 
-
     std::deque<Token> red; // past tense of read lol
+
 public:
-    Parser(Tokens t) : tokens{std::move(t)}, token_iterator{tokens.begin()} {
-        // if (__lines.empty()) [[unlikely]] error("Empty File!");
-        // token_iterator = lines->begin();
-    }
+    Parser(Tokens t) : tokens{std::move(t)}, token_iterator{tokens.begin()} { }
 
     [[nodiscard]] bool atEnd() const noexcept { return token_iterator == tokens.end() or token_iterator->kind == TokenKind::END; }
-
-    // Parser(Tokens l) : tokens{std::move(l)}, token{tokens.begin()} { }
-    // [[nodiscard]] bool atEnd() const noexcept { return token == tokens.end(); }
 
 
     std::pair<std::vector<expr::ExprPtr>, Operators> parse() {
@@ -58,12 +52,7 @@ public:
             }
         }
 
-
         return {expressions, std::move(ops)};
-
-        // std::vector<ExprPtr> expressions;
-        // expressions.push_back(parseExpr());
-        // return expressions;
     }
 
     expr::ExprPtr parseExpr(const size_t precedence = {}) {
@@ -90,86 +79,9 @@ public:
             case BOOL  : return std::make_shared<expr::Bool>(token.text == "true" ? true : false);
             case STRING: return std::make_shared<expr::String>(token.text);
 
-            case NAME:
-                if (ops.contains(token.text)) {
-                    switch (const auto& op = ops[token.text]; op->type()) {
-                        case TokenKind::PREFIX:{
-                            const int prec = prec::calculate(op->high, op->low, ops);
-                            return std::make_shared<expr::UnaryOp>(token.text, parseExpr(prec));
-                        }
+            case NAME  : return name(token);
 
-                        case TokenKind::EXFIX:{
-                            const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
-                            // if (not op) error("This should never happen!!");
-
-                            auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
-
-                            if (not match(op->name2)) error("Exfix operator not closed!");
-
-                            return ret;
-                        }
-
-                        case TokenKind::MIXFIX: {
-                            const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
-                            if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
-
-
-                            const int prec = prec::calculate(op->high, op->low, ops);
-
-                            std::vector<expr::ExprPtr> exprs;
-                            for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(1)) {
-                                // match will consume the op
-                                if (is_op) {
-                                    if (not match(op->rest[i++]))
-                                        error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
-                                }
-                                else exprs.push_back(parseExpr(prec));
-                            }
-
-                            return std::make_shared<expr::OpCall>(
-                                op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
-                            );
-                        }
-                        //     return std::make_shared<BinOp>(token, parseExpr(precFromToken(op->prec)));
-
-                        default:
-                            // log();
-                            error("[in/suf]fix operator used as [pre/ex]fix");
-                    }
-                }
-
-                {
-                type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
-                return std::make_shared<expr::Name>(token.text, std::move(type));
-                }
-            // case DASH: return std::make_shared<UnaryOp>(token.kind, parse(precedence::SUM));
-
-            case CLASS:{
-                consume(L_BRACE);
-
-                std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
-
-                while (not match(R_BRACE)) {
-                    auto expr = parseExpr();
-                    consume(SEMI);
-
-                    const auto& ass = dynamic_cast<const expr::Assignment*>(expr.get());
-                    if (not ass) error("Can only have assignments in class definition!");
-
-                    const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
-                    if (not n) error("Can only assign to names in class definition!");
-                    auto name = *n; // copy so I can modify
-
-                    // Can't reassign variables in a class definition
-                    // This just means the type was not annotated. Default to "Any"
-                    if (type::shouldReassign(name.type)) name.type = type::builtins::Any();
-
-
-                    fields.push_back({name, std::move(ass->rhs)});
-                }
-
-                return std::make_shared<expr::Class>(std::move(fields));
-            }
+            case CLASS : return klass();
 
             case MIXFIX:
             case PREFIX:
@@ -179,6 +91,14 @@ public:
                 return fixOperator(token);
 
 
+            case MATCH: {
+                auto expr = parseExpr();
+
+                consume(L_BRACE);
+
+            }
+
+            // block / scope
             case L_BRACE: {
                 std::vector<expr::ExprPtr> lines;
                 do {
@@ -190,7 +110,7 @@ public:
                 return std::make_shared<expr::Block>(std::move(lines));
             }
 
-
+            // either a grouping or a closure
             case L_PAREN: {
                 if (match(R_PAREN)) { // nullary closure
                     type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
@@ -209,53 +129,13 @@ public:
                         (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2)))  // (a) =>
                     );
 
-                if (is_closure) {
-                    std::vector<std::string> params;
-                    std::vector<type::TypePtr> params_types;
+                if (is_closure) return closure();
 
-                    do {
-                        type::TypePtr type;
-                        Token name = consume(NAME);
-
-                        if (match(COLON)) type = parseType();
-                        else              type = type::builtins::Any();
-
-                        params.push_back(std::move(name).text);
-                        params_types.push_back(std::move(type));
-                    }
-                    while(match(COMMA));
-
-                    consume(R_PAREN);
-
-                    for (bool found{}; auto&& type : params_types) {
-                        if (type::isVariadic(type)) {
-                            if (found) error("Variadic parameters can only appear once in parameter list!");
-                            else found = true;
-                        }
-                    }
-
-
-                    type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
-
-                    consume(FAT_ARROW);
-
-                    auto body = parseExpr();
-                    return std::make_shared<expr::Closure>(
-                        std::move(params), type::FuncType{std::move(params_types), std::move(return_type)}, std::move(body)
-                    );
-                }
-                else { // tt's just grouping,
-                    // log(); 
-                    // error("");
-                    // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
-
-
-                    auto expr = parseExpr();
-                    consume(R_PAREN);
-
-                    return expr;
-                    // return std::make_shared<expr::Grouping>(std::move(expr));
-                }
+                // tt's just grouping,
+                // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
+                auto expr = parseExpr();
+                consume(R_PAREN);
+                return expr;
             }
 
             case R_BRACE: error("Can't have empty block!");
@@ -514,6 +394,128 @@ public:
         }
     }
 
+    expr::ExprPtr klass() {
+        using enum TokenKind;
+
+        consume(L_BRACE);
+
+        std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
+
+        while (not match(R_BRACE)) {
+            auto expr = parseExpr();
+            consume(SEMI);
+
+            const auto& ass = dynamic_cast<const expr::Assignment*>(expr.get());
+            if (not ass) error("Can only have assignments in class definition!");
+
+            const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
+            if (not n) error("Can only assign to names in class definition!");
+            auto name = *n; // copy so I can modify
+
+            // Can't reassign variables in a class definition
+            // This just means the type was not annotated. Default to "Any"
+            if (type::shouldReassign(name.type)) name.type = type::builtins::Any();
+
+
+            fields.push_back({name, std::move(ass->rhs)});
+        }
+
+        return std::make_shared<expr::Class>(std::move(fields));
+    }
+
+    expr::ExprPtr closure() {
+        using enum TokenKind;
+
+
+        std::vector<std::string> params;
+        std::vector<type::TypePtr> params_types;
+
+        do {
+            type::TypePtr type;
+            Token name = consume(NAME);
+
+            if (match(COLON)) type = parseType();
+            else              type = type::builtins::Any();
+
+            params.push_back(std::move(name).text);
+            params_types.push_back(std::move(type));
+        }
+        while(match(COMMA));
+
+        consume(R_PAREN);
+
+        for (bool found{}; auto&& type : params_types) {
+            if (type::isVariadic(type)) {
+                if (found) error("Variadic parameters can only appear once in parameter list!");
+                else found = true;
+            }
+        }
+
+
+        type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
+
+        consume(FAT_ARROW);
+
+        auto body = parseExpr();
+        return std::make_shared<expr::Closure>(
+            std::move(params), type::FuncType{std::move(params_types), std::move(return_type)}, std::move(body)
+        );
+    }
+
+    expr::ExprPtr name(const Token& token) {
+        using enum TokenKind;
+
+        if (ops.contains(token.text)) {
+            switch (const auto& op = ops[token.text]; op->type()) {
+                case TokenKind::PREFIX:{
+                    const int prec = prec::calculate(op->high, op->low, ops);
+                    return std::make_shared<expr::UnaryOp>(token.text, parseExpr(prec));
+                }
+
+                case TokenKind::EXFIX:{
+                    const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
+                    // if (not op) error("This should never happen!!");
+
+                    auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
+
+                    if (not match(op->name2)) error("Exfix operator not closed!");
+
+                    return ret;
+                }
+
+                case TokenKind::MIXFIX: {
+                    const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
+                    if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
+
+
+                    const int prec = prec::calculate(op->high, op->low, ops);
+
+                    std::vector<expr::ExprPtr> exprs;
+                    for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(1)) {
+                        // match will consume the op
+                        if (is_op) {
+                            if (not match(op->rest[i++]))
+                                error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
+                        }
+                        else exprs.push_back(parseExpr(prec));
+                    }
+
+                    return std::make_shared<expr::OpCall>(
+                        op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
+                    );
+                }
+                //     return std::make_shared<BinOp>(token, parseExpr(precFromToken(op->prec)));
+
+                default:
+                    // log();
+                    error("[in/suf]fix operator used as [pre/ex]fix");
+            }
+        }
+
+
+        type::TypePtr type = match(COLON) ? parseType() : type::builtins::_();
+        return std::make_shared<expr::Name>(token.text, std::move(type));
+    }
 
     expr::ExprPtr fixOperator(const Token& token) {
         using enum TokenKind;

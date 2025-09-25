@@ -24,8 +24,8 @@ using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
 using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
-namespace expr { struct Fix; }
 
+namespace expr { struct Fix; }
 using Operators  = std::unordered_map<std::string, std::unique_ptr<expr::Fix>>;
 
 
@@ -160,6 +160,13 @@ struct Class : Expr {
     }
 
     Node variant() const override { return this; }
+};
+
+
+struct Match : Expr {
+    struct Case {
+        
+    };
 };
 
 
