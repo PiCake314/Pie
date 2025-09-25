@@ -202,7 +202,7 @@ struct Match : Expr {
                 s += pattern.name + '(';
 
                 for (std::string comma = ""; auto&& [name, type, def] : pattern.structure) {
-                    s += comma + name + ": " + type->text(indent + 4) + (def ? def->stringify(indent + 4) : "");
+                    s += comma + name + ": " + type->text(indent + 4) + (def ? " = " + def->stringify(indent + 4) : "");
                     comma = ", ";
                 }
 
