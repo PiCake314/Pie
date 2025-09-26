@@ -1198,7 +1198,7 @@ struct Visitor {
     Value evaluateBuiltin(
         const std::vector<expr::ExprPtr>& args,
         const std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
-        const std::__1::unordered_map<std::__1::string, expr::ExprPtr>& named_args,
+        const std::unordered_map<std::string, expr::ExprPtr>& named_args,
         std::string name
     ) {
         //* ============================ FUNCTIONS ============================

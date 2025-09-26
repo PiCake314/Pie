@@ -168,8 +168,8 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
             ),
 
             [] (auto&& pair) {
-                return pair.first.first.stringify() == pair.second.first.stringify()
-                  and pair.first.second == pair.second.second;
+                return get<0>(pair).first.stringify() == get<1>(pair).first.stringify()
+                   and get<0>(pair).second == get<1>(pair).second;
             }
         );
     }
@@ -184,8 +184,8 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
                 ),
 
                 [] (auto&& pair) {
-                    return pair.first.first.stringify() == pair.second.first.stringify()
-                    and pair.first.second == pair.second.second;
+                    return get<0>(pair).first.stringify() == get<1>(pair).first.stringify()
+                    and get<0>(pair).second == get<1>(pair).second;
                 }
             );
     }
