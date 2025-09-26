@@ -17,6 +17,7 @@
 - [Scopes](#scopes)
 - [Operators](#operators)
 - [Overloading](#overloading)
+- [Match Expressions](#match-expressions)
 - [Built-in Functions](#builtins)
 - [Types](#types)
 - [Keywords List](#keywords-list)
@@ -202,7 +203,11 @@ infix(SUM) + = (a: String, b: String): String => __builtin_concat(a, b);
 1 + 2;
 "Hi" + "Bye";
 ```
-The  `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
+The `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
+
+## Match Expressions
+
+`.: TODO: add documentaion`
 
 
 ## Builtins
@@ -317,13 +322,19 @@ this isn't
 
 ## Keywords List
 
-<!-- - import -->
+<!-- - `import` -->
+<!-- - `use` -->
 - `prefix`
 - `infix`
 - `suffix`
 - `exfix`
 - `mixfix`
 - `class`
+<!-- - `union` -->
+- `match`
+<!-- - `space` -->
+
+###### Phantom keywords
 - `true`
 - `false`
 
@@ -349,7 +360,7 @@ git clone https://github.com/intel/cpp-std-extensions includes/cpp-std-extension
 git clone https://github.com/boostorg/mp11 includes/mp11
 git clone https://github.com/PiCake314/Pie
 
-g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
+g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
 
 ## Update
@@ -361,7 +372,7 @@ cd Pie
 git pull
 cd ..
 
-g++ -std=c++23  -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
+g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
 ```
 
 ### Todo
