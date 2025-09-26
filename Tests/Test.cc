@@ -7,6 +7,52 @@
 #include "catch.hpp"
 
 
+TEST_CASE("Trees", "[Match]") {
+    const auto src = R"(
+print = __builtin_print;
+Nil = "";
+Node = class {
+    v = 0;
+    l = Nil;
+    r = Nil;
+};
+Leaf = class { v = 0; };
+
+
+test = (x) => match x {
+    Leaf(k) & __builtin_geq(k, 0) => 1;
+    Leaf(k) & __builtin_leq(k, 0) => 2;
+    Leaf(k) & __builtin_eq (k, 0) => 3;
+    Node(k, Leaf(_), rChild) & __builtin_geq(k, 0) => 4;
+    Node(k, _, _) => 5;
+};
+
+
+x = Leaf(10);
+result = test(x);
+print(result);
+
+x = Leaf(0);
+result = test(x);
+print(result);
+
+x = Node(10, Leaf(20), Node(5, Leaf(10), Leaf(10)));
+result = test(x);
+print(result);
+
+x = Node(10, Node(5, Leaf(10), Leaf(10)), Leaf(20));
+result = test(x);
+print(result);
+
+x = Node(__builtin_neg(5), Leaf(__builtin_neg(5)), Node(5, Leaf(10), Leaf(10)));
+result = test(x);
+print(result);
+)";
+
+
+    REQUIRE(run(src) == "1\n1\n4\n5\n5");
+
+}
 
 
 

@@ -197,5 +197,6 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
         return get<PackList>(lhs)->values == get<PackList>(rhs)->values;
 
 
-    error();
+    // error();
+    return false;
 }

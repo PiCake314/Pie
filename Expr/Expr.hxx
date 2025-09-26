@@ -2,6 +2,7 @@
 
 #include <iostream>
 #include <print>
+#include <cmath>
 #include <string>
 #include <vector>
 #include <unordered_map>
@@ -9,10 +10,10 @@
 #include <tuple>
 #include <algorithm>
 #include <ranges>
+#include <variant>
+#include <optional>
 #include <numeric>
 #include <memory>
-#include <variant>
-#include <cmath>
 
 #include "../Utils/utils.hxx"
 #include "../Token/Token.hxx"
@@ -170,14 +171,29 @@ struct Match : Expr {
             struct Single {
                 std::string name;
                 type::TypePtr type;
-                ExprPtr default_value;
+                ExprPtr value;
             };
 
-            std::string name;
-            std::vector<Single> structure;
+            using Patterns  = std::vector<std::unique_ptr<Pattern>>;
+            // using Structure = std::pair<std::string, Patterns>;
+            struct Structure { std::string type_name; Patterns patterns; };
+
+
+            std::variant<
+                Single,
+                Structure
+            > pattern;
+
+            explicit Pattern(Single single) noexcept
+            : pattern{std::move(single)} {}
+
+            Pattern(std::string name, Patterns structure) noexcept
+            : pattern{Structure{std::move(name), std::move(structure)}}
+            {}
         };
 
-        std::variant<std::string, Pattern> pattern;
+        // Pattern pattern;
+        std::unique_ptr<Pattern> pattern;
         ExprPtr guard;
         ExprPtr body;
     };
@@ -195,25 +211,11 @@ struct Match : Expr {
 
         std::string space(indent + 4, ' ');
         for (auto&& kase : cases) {
-        s += space;
+            s += space;
 
-            if (std::holds_alternative<Case::Pattern>(kase.pattern)) {
-                const auto& pattern = get<Case::Pattern>(kase.pattern);
-                s += pattern.name + '(';
+            s += stringifyPattern(*kase.pattern, indent + 4);
 
-                for (std::string comma = ""; auto&& [name, type, def] : pattern.structure) {
-                    s += comma + name + ": " + type->text(indent + 4) + (def ? " = " + def->stringify(indent + 4) : "");
-                    comma = ", ";
-                }
-
-                s += ") ";
-            }
-            else {
-                s += get<std::string>(kase.pattern) + ' ';
-            }
-
-
-            if (kase.guard) s += "& " + kase.guard->stringify(indent + 4);
+            if (kase.guard) s += " & " + kase.guard->stringify(indent + 4);
             s += " => " + kase.body->stringify(indent + 4) + ";\n";
         }
 
@@ -222,6 +224,34 @@ struct Match : Expr {
     }
 
     Node variant() const override { return this; }
+
+
+private:
+    std::string stringifyPattern(const Case::Pattern& pattern, const size_t indent = 0) const {
+        if (std::holds_alternative<Case::Pattern::Single>(pattern.pattern)) {
+            const auto& pat = get<Case::Pattern::Single>(pattern.pattern);
+
+            std::string type = pat.type->text();
+            if (type == "Any") type = ""; else type = ": " + type;
+
+            std::string def = "";
+            if (pat.value) def = " = " + pat.value->stringify(indent);
+
+
+            return pat.name + type + def;
+        }
+
+        const auto& [name, patterns] = get<Case::Pattern::Structure>(pattern.pattern);
+
+        std::string s = name + '(';
+
+        for (std::string comma = ""; auto&& pat : patterns) {
+            s += comma + stringifyPattern(*pat, indent);
+            comma = ", ";
+        }
+
+        return s + ')';
+    }
 };
 
 

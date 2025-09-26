@@ -217,9 +217,75 @@ struct Visitor {
     }
 
 
+    bool match(const Value& value, const expr::Match::Case::Pattern& pattern) {
+        if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
+            const auto& [name, type, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
 
-    Value operator()(const expr::Match *) {
-        error();
+            if (not (*type >= *typeOf(value))) return false;
+
+            if (val_expr) {
+                const Value val = std::visit(*this, val_expr->variant());
+                if (value != val) return false;
+            }
+
+            addVar(name, value, type);
+            return true;
+        }
+
+        const auto& [type_name, patterns] = get<expr::Match::Case::Pattern::Structure>(pattern.pattern);
+
+        const auto var = getVar(type_name);
+        if (not var)
+            error("Pattern in match expression does not name a constructor: " + type_name);
+
+        const Value type_value = var->first;
+        if (not std::holds_alternative<ClassValue>(type_value))
+            error("Name '" + type_name + "' in match expression does not name a constructor: " + type_name);
+
+
+        const auto& cls = get<ClassValue>(type_value);
+        const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
+        if (not (*type >= *typeOf(value))) return false;
+
+        if (patterns.size() > cls.blueprint->members.size())
+            error("Number of singles is greater than number of fields in class " + stringify(cls));
+
+
+        const auto& obj = get<Object>(value);
+        if (obj.second->members.size() != obj.second->members.size()) error("idek what error message this should be..!");
+
+        for (auto&& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
+            if (not match(member.second, *pat)) return false;
+        }
+
+        return true;
+    }
+
+
+    Value operator()(const expr::Match *m) {
+        const Value value = std::visit(*this, m->expr->variant());
+
+        for (auto&& kase : m->cases) {
+            ScopeGuard sg{this};
+            if (match(value, *kase.pattern)) {
+                bool guard = true;
+                if (kase.guard) {
+                    const Value cond = std::visit(*this, kase.guard->variant());
+
+                    if (not std::holds_alternative<bool>(cond)) {
+                        std::println(std::cerr, "In guard: {}", kase.guard->stringify());
+                        error("Case guard must evaluate to a boolean. Got '" + typeOf(cond)->text() + "' instead!");
+                    }
+
+                    guard = get<bool>(cond);
+                }
+
+                if (guard) return std::visit(*this, kase.body->variant());
+            }
+        }
+
+
+        error("Match expression didn't match any pattern:\n" + m->stringify());
     }
 
     Value operator()(const expr::Access *acc) {
@@ -1197,20 +1263,6 @@ struct Visitor {
                 >
             >{},
 
-            // MapEntry<
-            //     S<"print">,
-            //     Func<"print",
-            //         decltype([](auto&& x, const auto& that) {
-            //             std::visit(
-            //                 [&that](const auto& v) { that->print(v); },
-            //                 x
-            //             );
-            //             return x;
-            //         }),
-            //         TypeList<Any>
-            //     >
-            // >{},
-
             MapEntry<
                 S<"eval">,
                 Func<"eval",
@@ -1231,29 +1283,6 @@ struct Visitor {
                 >
             >{},
 
-
-
-            // MapEntry<
-            //     S<"reset">,
-            //     Func<
-            //         decltype([](auto&& v, const auto& that)  {
-            //             // const auto num = dynamic_cast<const Num*>(call->args.front().get());
-
-            //             // if (not num) error("Can only reset numbers!");
-            //             std::visit(
-            //                 [that](const auto& value) {
-            //                     const std::string& s = value->stringify();
-            //                     if (const auto& v = that->getVar(s); not v) error("Reseting an unset value: " + s);
-            //                     else that->removeVar(s);
-
-            //                     return value;
-            //                 },
-            //                 v
-            //             );
-            //         }),
-            //         TypeList<Any>
-            //     >
-            // >{},
 
             //* BINARY FUNCTIONS
             MapEntry<

@@ -91,58 +91,7 @@ public:
                 return fixOperator(token);
 
 
-            case MATCH: {
-                auto expr = parseExpr();
-
-                consume(L_BRACE);
-
-                std::vector<expr::Match::Case> cases;
-                size_t so_far{};
-
-                do {
-                    constexpr auto IF = "&";
-                    constexpr auto OR = "|";
-                    constexpr auto EMPTY_BODY = nullptr;
-                    do {
-                        std::string name = consume(NAME).text;
-
-                        if (not match(L_PAREN)) {
-                            cases.push_back({std::move(name), match(IF) ? parseExpr() : nullptr, EMPTY_BODY});
-                            continue;
-                        }
-                        else {
-                            expr::Match::Case::Pattern pattern{.name = std::move(name), .structure = {}};
-                            do {
-                                // expr::Match::Case::Pattern::Single singles; // "a: Int = 5" is a single
-                                std::string name = consume(NAME).text;
-                                type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-                                expr::ExprPtr def = match(ASSIGN) ? parseExpr() : nullptr;
-    
-                                pattern.structure.push_back({std::move(name), std::move(type), std::move(def)});
-                            }
-                            while (match(COMMA));
-                            consume(R_PAREN);
-                                                                // guard!
-                            cases.push_back({std::move(pattern), match(IF) ? parseExpr() : nullptr, EMPTY_BODY});
-                        }
-
-                    }
-                    while (match(OR));
-
-                    consume(FAT_ARROW);
-
-                    auto body = parseExpr();
-
-                    for (auto& kase : cases | std::views::drop(so_far)) {
-                        kase.body = body; ++so_far;
-                    }
-
-                    consume(SEMI);
-                }
-                while (not match(R_BRACE));
-
-                return std::make_shared<expr::Match>(std::move(expr), std::move(cases));
-            }
+            case MATCH: return match();
 
             // block / scope
             case L_BRACE: {
@@ -440,6 +389,84 @@ public:
         }
     }
 
+
+    std::unique_ptr<expr::Match::Case::Pattern> parsePattern() {
+        using enum TokenKind;
+        using Pattern   = expr::Match::Case::Pattern;
+        using Single    = expr::Match::Case::Pattern::Single;
+        using Patterns = expr::Match::Case::Pattern::Patterns;
+
+        if (not check(NAME)) return nullptr;
+
+
+        std::string name = consume(NAME).text;
+
+        // base case
+        if (not match(L_PAREN)) {
+            // trying to write code that avoids move
+            return std::make_unique<Pattern>(
+                Single{
+                    std::move(name),
+                    match(COLON) ? parseType() : type::builtins::Any(),
+                    match(ASSIGN) ? parseExpr() : nullptr
+                }
+            );
+        }
+
+        Patterns patterns{};
+        if (match(R_PAREN)) return std::make_unique<Pattern>(std::move(name), std::move(patterns));
+
+        do patterns.push_back(parsePattern()); while (match(COMMA));
+
+
+        consume(R_PAREN);
+        return std::make_unique<Pattern>(std::move(name), std::move(patterns));
+    }
+
+    expr::ExprPtr match() {
+        using enum TokenKind;
+
+        auto expr = parseExpr();
+
+        consume(L_BRACE);
+
+        std::vector<expr::Match::Case> cases;
+        size_t so_far{};
+
+        do {
+            constexpr auto OR = "|";
+            constexpr auto IF = "&";
+            constexpr auto EMPTY_COND = nullptr;
+            constexpr auto EMPTY_BODY = nullptr;
+
+            std::vector<std::unique_ptr<expr::Match::Case::Pattern>> patterns;
+            std::vector<expr::ExprPtr> guards;
+
+            do {
+                cases.push_back({
+                    parsePattern(),
+                    match(IF) ? parseExpr() : EMPTY_COND,
+                    EMPTY_BODY
+                });
+
+            } while (match(OR));
+
+
+            consume(FAT_ARROW);
+
+            auto body = parseExpr();
+
+            for (auto& kase : cases | std::views::drop(so_far)) {
+                kase.body = body; ++so_far;
+            }
+
+            consume(SEMI);
+        }
+        while (not match(R_BRACE));
+
+        return std::make_shared<expr::Match>(std::move(expr), std::move(cases));
+    }
+
     expr::ExprPtr klass() {
         using enum TokenKind;
 
@@ -518,7 +545,6 @@ public:
 
                 case TokenKind::EXFIX:{
                     const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
-                    // if (not op) error("This should never happen!!");
 
                     auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
 
