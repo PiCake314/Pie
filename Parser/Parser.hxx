@@ -45,7 +45,7 @@ public:
 
             // consume(TokenKind::SEMI);
             if (not match(TokenKind::SEMI)) {
-                const auto t = lookAhead(0);
+                const auto t = lookAhead();
                 if (t.kind == TokenKind::NAME)
                     error("Operator '" + t.text + "' not found!");
                 expected(TokenKind::SEMI, t);
@@ -55,7 +55,7 @@ public:
         return {expressions, std::move(ops)};
     }
 
-    expr::ExprPtr parseExpr(const size_t precedence = {}) {
+    expr::ExprPtr parseExpr(const size_t precedence = 0) {
 
         expr::ExprPtr left = prefix(consume());
 
@@ -81,6 +81,15 @@ public:
 
             case CLASS : return klass();
             case NAMESPACE : return nameSpace();
+            case COLON: {
+
+                consume(COLON);
+                auto right = parseExpr(prec::HIGH);
+                auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
+                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right_name_ptr->stringify());
+
+                return std::make_shared<expr::SpaceAccess>(nullptr, std::move(right_name_ptr)->name);
+            }
 
             case MIXFIX:
             case PREFIX:
@@ -327,7 +336,8 @@ public:
             case DOT   : return prec::HIGH;
 
             case NAME: {
-                // Probably in the middle of an operator() with :: or more
+                // Probably in the middle of a mixfix() that takes 2 colons ': :' or more (2 expression arguments back to back)
+                // ex: mixfix(LOW +) if : : else : = (cond, thn, els) => ...;
                 if (not ops.contains(token.text)) {
                     // log();
                     // error("Operator '" + token.text + "' not found!");
@@ -670,7 +680,7 @@ public:
 
         if (ops.contains(name)) {
             const auto& op = ops[name];
-            op->funcs.push_back(std::move(func));
+            // op->funcs.push_back(std::move(func));
 
             if (op->type() != token.kind) {
                 std::println(std::cerr, "Overload set for operator '{}' must have the same operator type:", name);
@@ -693,7 +703,8 @@ public:
             //     return std::make_shared<expr::Suffix>(*p);
 
 
-            error();
+            // error();
+            // return std::make_shared<expr::Fix>(*op);
         }
 
 

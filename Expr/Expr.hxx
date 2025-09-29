@@ -301,7 +301,9 @@ struct SpaceAccess : Expr {
     : space{std::move(s)}, member{std::move(m)} {}
 
     std::string stringify(const size_t = 0) const override {
-        return space->stringify() + "::" + member;
+        if (space) return space->stringify() + "::" + member;
+
+        return "::" + member;
     }
 
     Node variant() const override { return this; }

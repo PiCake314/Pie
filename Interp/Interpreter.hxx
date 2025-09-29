@@ -177,7 +177,7 @@ struct Visitor {
                 }
             }
             else { // New var
-                type = type::shouldReassign(type) ? type::builtins::Any() : validateType(type);
+                type = type::shouldReassign(type) ? type::builtins::Any() : validateType(std::move(type));
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
                     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
@@ -251,7 +251,7 @@ struct Visitor {
                 v = field.second->variant();
             }
             else {
-                type = validateType(type);
+                type = validateType(std::move(type));
 
 
                 if (auto&& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
@@ -332,6 +332,14 @@ struct Visitor {
     }
 
     Value operator()(const expr::SpaceAccess* sa) {
+
+        // if (not sa->space)  if (auto&& var = globalLookup(sa->member); var) return var->first; 
+        // else error("Name '" + sa->member + "' not found in global namespace!"); else;
+        if (not sa->space) {
+            if (auto&& var = globalLookup(sa->member); var) return var->first; 
+            else error("Name '" + sa->member + "' not found in global namespace!");
+        }
+
         // const auto& var = getVar(sa->spacename);
         // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
 
@@ -489,7 +497,7 @@ struct Visitor {
 
 
     const Value& checkReturnType(const Value& ret, type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
-        return_type = validateType(return_type);
+        return_type = validateType(std::move(return_type));
 
         const auto& type_of_return_value = typeOf(ret);
 
@@ -527,7 +535,7 @@ struct Visitor {
                 args_env[func->params[0]] = {up->expr->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                func->type.params[0] = validateType(func->type.params[0]);
+                func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg = std::visit(*this, up->expr->variant());
                 if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -548,7 +556,7 @@ struct Visitor {
 
             const auto arg  = std::visit(*this, up->expr->variant());
             auto type = typeOf(arg);
-            type = validateType(type);
+            type = validateType(std::move(type));
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -578,7 +586,7 @@ struct Visitor {
                 args_env[func->params[0]] = {bp->lhs->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                func->type.params[0] = validateType(func->type.params[0]);
+                func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg1 = std::visit(*this, bp->lhs->variant());
                 if (auto&& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
@@ -599,7 +607,7 @@ struct Visitor {
                 args_env[func->params[1]] = {bp->rhs->variant(), func->type.params[1]};
             }
             else {
-                func->type.params[1] = validateType(func->type.params[1]);
+                func->type.params[1] = validateType(std::move(func)->type.params[1]);
 
                 const auto& arg2 = std::visit(*this, bp->rhs->variant());
                 if (auto&& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
@@ -621,11 +629,11 @@ struct Visitor {
 
             const auto arg1  = std::visit(*this, bp->lhs->variant());
             auto type1 = typeOf(arg1);
-            type1 = validateType(type1);
+            type1 = validateType(std::move(type1));
 
             const auto arg2  = std::visit(*this, bp->rhs->variant());
             auto type2 = typeOf(arg2);
-            type2 = validateType(type2);
+            type2 = validateType(std::move(type2));
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type1, type2});
 
@@ -658,7 +666,7 @@ struct Visitor {
                 args_env[func->params[0]] = {pp->expr->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                func->type.params[0] = validateType(func->type.params[0]);
+                func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg = std::visit(*this, pp->expr->variant());
                 if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -679,7 +687,7 @@ struct Visitor {
 
             const auto arg  = std::visit(*this, pp->expr->variant());
             auto type = typeOf(arg);
-            type = validateType(type);
+            type = validateType(std::move(type));
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -711,7 +719,7 @@ struct Visitor {
                 args_env[func->params[0]] = {cp->expr->variant(), func->type.params[0]}; //? fixed
             }
             else {
-                func->type.params[0] = validateType(func->type.params[0]);
+                func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg = std::visit(*this, cp->expr->variant());
                 if (auto&& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
@@ -732,7 +740,7 @@ struct Visitor {
 
             const auto arg  = std::visit(*this, cp->expr->variant());
             auto type = typeOf(arg);
-            type = validateType(type);
+            type = validateType(std::move(type));
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -764,7 +772,7 @@ struct Visitor {
                     args_env[param] = {arg_expr->variant(), param_type}; //?
                 }
                 else {
-                    param_type = validateType(param_type);
+                    param_type = validateType(std::move(param_type));
 
                     const auto& arg = std::visit(*this, arg_expr->variant());
                     if (auto&& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
@@ -791,7 +799,7 @@ struct Visitor {
             for (auto&& expr : oc->exprs) {
                 args .push_back(std::visit(*this, expr->variant()));
                 types.push_back(typeOf(args.back()));
-                types.back() = validateType(types.back());
+                types.back() = validateType(std::move(types).back());
             }
 
             func = resolveOverloadSet(op->OpName(), op->funcs, std::move(types));
@@ -1247,7 +1255,7 @@ struct Visitor {
 
 
         for (auto& type : closure.type.params) {
-            type = validateType(type);
+            type = validateType(std::move(type));
             // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
 
             // replacing expressions that represnt types
@@ -1292,9 +1300,18 @@ struct Visitor {
     Value operator()(const expr::Fix *fix) {
         if (auto&& var = getVar(fix->stringify()); var) return var->first;
         // return std::visit(*this, fix->func->variant());
+
+        auto func = dynamic_cast<expr::Closure*>(fix->funcs[0].get());
+
+        for (auto& t : func->type.params)
+            t = validateType(std::move(t));
+
+        func->type.ret = validateType(std::move(func)->type.ret);
+
         ops.at(fix->name)->funcs.push_back(fix->funcs[0]); // assuming each fix expression has a single func in it
 
-        return std::visit(*this, fix->funcs[0]->variant());
+        return *func;
+        // return std::visit(*this, fix->funcs[0]->variant());
     }
 
 
@@ -1728,17 +1745,17 @@ struct Visitor {
         else if (type::isFunction(type)) {
             const auto func_type = dynamic_cast<type::FuncType*>(type.get());
 
-            for (auto& t : func_type->params) t = validateType(t);
+            for (auto& t : func_type->params) t = validateType(std::move(t));
 
             // all param types are valid. Only thing left to check is return type
-            func_type->ret = validateType(func_type->ret);
+            func_type->ret = validateType(std::move(func_type)->ret);
 
             return type;
         }
         else if (type::isVariadic(type)) {
             const auto variadic_type = dynamic_cast<type::VariadicType*>(type.get());
 
-            variadic_type->type = validateType(variadic_type->type);
+            variadic_type->type = validateType(std::move(variadic_type)->type);
 
             return type;
         }
@@ -1842,6 +1859,12 @@ private:
             }
 
         return false;
+    }
+
+    std::optional<std::pair<Value, type::TypePtr>> globalLookup(const std::string& name) const {
+        if (env[0].contains(name)) return env[0].at(name);
+
+        return {};
     }
 
     void removeVar(const std::string& name) {

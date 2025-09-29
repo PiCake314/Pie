@@ -9,8 +9,45 @@
 
 
 
+TEST_CASE("operator overloading", "[Type]") {
+    const auto src = R"(
+print = __builtin_print;
 
-TEST_CASE("Class member", "[Type]") {
+cls = class { woof: String = ""; };
+
+infix(SUM) + = (a: cls, b: cls) => 1;
+infix(SUM) + = (a: Int, b: Int) => 2;
+
+a = cls();
+b: cls = cls();
+print(cls() + cls());
+print(a + b);
+print(1 + 1);
+)";
+
+    REQUIRE(run(src) == "1\n1\n2");
+}
+
+
+TEST_CASE("recursive namespaces", "[Namespace]") {
+    const auto src = R"(
+print = __builtin_print;
+
+x = namespace {
+    a = 1;
+    y = 1;
+};
+
+x::y = x;
+
+print(x::y::y::y::y::a);
+
+)";
+
+    REQUIRE(run(src) == "1");
+}
+
+TEST_CASE("namespaces2", "[Namespace]") {
     const auto src = R"(
 print = __builtin_print;
 
@@ -19,7 +56,42 @@ x = namespace {
 
     v: String = "hi";
 
-    print(5); .: fine
+    o: cls = cls(1);
+
+    func = (e: cls) => e.meow;
+
+    infix(SUM) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
+
+    y = namespace {
+        n = 1;
+    };
+};
+
+
+a = x::y::n;
+print(a);
+print(x::y::n);
+x::y::n = 10;
+print(a);
+print(x::y::n);
+a = 20;
+print(a);
+print(x::y::n);
+
+)";
+
+    REQUIRE(run(src) == "1\n1\n1\n10\n20\n10");
+}
+
+
+TEST_CASE("namespaces1", "[Namespace]") {
+    const auto src = R"(
+print = __builtin_print;
+
+x = namespace {
+    cls = class { meow: Int = 0; };
+
+    v: String = "hi";
 
     o: cls = cls(1);
 
@@ -28,15 +100,26 @@ x = namespace {
     infix(SUM) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
 
     y = namespace {
-        LOOK = 1;
-        .: v = 1;
+        n = 1;
     };
 };
+
+
+v = x :: v;
+print(v);
+print(x::v);
+
+x::v = "hello";
+print(v);
+print(x::v);
+
+v = "bye";
+print(v);
+print(x::v);
+
 )";
 
-    run(src);
-
-    SUCCEED();
+    REQUIRE(run(src) == "hi\nhi\nhi\nhello\nbye\nhello");
 }
 
 
