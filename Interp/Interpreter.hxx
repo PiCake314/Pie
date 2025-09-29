@@ -27,8 +27,6 @@
 
 
 struct Visitor {
-    // struct Builtin { std::string name; }; // for later
-
     std::vector<Environment> env;
     const Operators ops;
 
@@ -87,32 +85,35 @@ struct Visitor {
         error("Can only have an expansion inside of a function call!");
     }
 
+    Value assingment(const expr::Assignment *ass, expr::Access *acc) {
+        const auto& left = std::visit(*this, acc->var->variant());
+
+        if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
+
+        const auto& obj = get<Object>(left);
+
+        const auto& found = std::ranges::find_if(obj.second->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
+        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+
+        Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+
+        //TODO: Dry this out!
+        if (auto&& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
+            std::println(std::cerr, "In assignment: {}", ass->stringify());
+            error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
+        }
+
+        found->second = value;
+
+        return value;
+    }
 
     Value operator()(const expr::Assignment *ass) {
 
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
-        if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) {
-            const auto& left = std::visit(*this, acc->var->variant());
+        if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) return assingment(ass, acc);
 
-            if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
 
-            const auto& obj = get<Object>(left);
-
-            const auto& found = std::ranges::find_if(obj.second->members, [name = acc->name](auto&& member) { return member.first.stringify() == name; });
-            if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
-
-            Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
-
-            //TODO: Dry this out!
-            if (auto&& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
-                std::println(std::cerr, "In assignment: {}", ass->stringify());
-                error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
-            }
-
-            found->second = value;
-
-            return value;
-        }
 
         if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
             // type::TypePtr type = type::builtins::Any();
@@ -217,6 +218,53 @@ struct Visitor {
     }
 
 
+    Value operator()(const expr::Access *acc) {
+
+        const auto& left = std::visit(*this, acc->var->variant());
+
+        if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
+
+        const auto& obj = std::get<Object>(left);
+
+        const auto& found = std::ranges::find_if(obj.second->members, [&name = acc->name] (auto&& member) { return member.first.stringify() == name; });
+        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+
+
+        if (std::holds_alternative<expr::Closure>(found->second)) {
+            const auto& closure = get<expr::Closure>(found->second);
+
+            Environment capture_list;
+            for (const auto& [name, value] : obj.second->members)
+                capture_list[name.stringify()] = {value, typeOf(value)};
+
+            closure.capture(capture_list);
+
+            return closure;
+        }
+
+        return found->second;
+    }
+
+
+    Value operator()(const expr::Namespace *ns) {
+        if (auto&& var = getVar(ns->stringify()); var) return var->first;
+
+        // Value value;
+
+        // ScopeGuard sg{this};
+        // for (auto&& expr : ns->expressions) {
+        //     value = std::visit(*this, expr->variant());
+        // }
+
+        // NameSpace NS;
+
+    }
+
+    Value operator()(const expr::SpaceAccess*) {
+        error();
+    }
+
+
     bool match(const Value& value, const expr::Match::Case::Pattern& pattern) {
         if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
             const auto& [name, type, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
@@ -288,32 +336,6 @@ struct Visitor {
         error("Match expression didn't match any pattern:\n" + m->stringify());
     }
 
-    Value operator()(const expr::Access *acc) {
-
-        const auto& left = std::visit(*this, acc->var->variant());
-
-        if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
-
-        const auto& obj = std::get<Object>(left);
-
-        const auto& found = std::ranges::find_if(obj.second->members, [&name = acc->name] (auto&& member) { return member.first.stringify() == name; });
-        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
-
-
-        if (std::holds_alternative<expr::Closure>(found->second)) {
-            const auto& closure = get<expr::Closure>(found->second);
-
-            Environment capture_list;
-            for (const auto& [name, value] : obj.second->members)
-                capture_list[name.stringify()] = {value, typeOf(value)};
-
-            closure.capture(capture_list);
-
-            return closure;
-        }
-
-        return found->second;
-    }
 
     // only added to differentiate between expressions such as: 1 + 2 and (1 + 2)
     Value operator()(const expr::Grouping *g) {
@@ -1594,10 +1616,10 @@ struct Visitor {
             return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
         }
 
-        if (const auto var_type = dynamic_cast<type::VarType*>(type.get())) {
+        if (const auto var_type = dynamic_cast<type::ExprType*>(type.get())) {
             if (type::isBuiltin(type)) return type;
 
-            auto&& value = std::visit(*this, var_type->t->variant());
+            auto&& value = std::visit(*this, var_type->t->variant()); // evaluate type expression
 
             if (std::holds_alternative<ClassValue>(value))
                 return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(value)));
@@ -1609,7 +1631,6 @@ struct Visitor {
             const auto func_type = dynamic_cast<type::FuncType*>(type.get());
 
             for (auto& t : func_type->params) t = validateType(t);
-
 
             // all param types are valid. Only thing left to check is return type
             func_type->ret = validateType(func_type->ret);
@@ -1630,12 +1651,12 @@ struct Visitor {
 
 
     type::TypePtr typeOf(const Value& value) noexcept {
-        if (std::holds_alternative<expr::Node>(value))   return type::builtins::Syntax();
-        if (std::holds_alternative<ssize_t>(value))      return type::builtins::Int();
-        if (std::holds_alternative<double>(value))       return type::builtins::Double();
-        if (std::holds_alternative<bool>(value))         return type::builtins::Bool();
-        if (std::holds_alternative<std::string>(value))  return type::builtins::String();
-        if (std::holds_alternative<ClassValue>(value))   return type::builtins::Type();
+        if (std::holds_alternative<expr::Node > (value)) return type::builtins::Syntax();
+        if (std::holds_alternative<ssize_t    > (value)) return type::builtins::Int();
+        if (std::holds_alternative<double     > (value)) return type::builtins::Double();
+        if (std::holds_alternative<bool       > (value)) return type::builtins::Bool();
+        if (std::holds_alternative<std::string> (value)) return type::builtins::String();
+        if (std::holds_alternative<ClassValue > (value)) return type::builtins::Type();
 
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& func = get<expr::Closure>(value);

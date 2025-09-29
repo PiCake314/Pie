@@ -14,6 +14,8 @@
 
 
 struct Dict;
+struct ClassValue;
+using NameSpace = ClassValue;
 using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
 struct List;
@@ -32,7 +34,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
     if (std::holds_alternative<bool>(value)) {
         const auto& v = std::get<bool>(value);
         // s = std::to_string(v); // reason I did this in the first place is to allow for copy-ellision to happen
-        return v ? "true" : "false";
+        s = v ? "true" : "false";
     }
 
     else if (std::holds_alternative<ssize_t>(value)) {
@@ -115,7 +117,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         const std::string space(indent + 4, ' ');
 
         s = "ASTNode {\n" + space + std::visit(
-            [indent] (auto&& v)-> std::string { return v->stringify(indent + 4); },
+            [indent] (auto&& v) { return v->stringify(indent + 4); },
             get<expr::Node>(value)
         ) + '\n' + std::string(indent, ' ') + '}';
     }

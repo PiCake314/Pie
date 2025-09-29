@@ -6,11 +6,16 @@
 #include <algorithm>
 #include <memory>
 
-#include "../Declarations.hxx"
+// #include "../Declarations.hxx"
 
 
+namespace expr {
+    struct Expr;
+    using ExprPtr = std::shared_ptr<expr::Expr>;
+}
 
 struct ClassValue;
+// using NameSpace = ClassValue;
 
 namespace type {
     struct Type {
@@ -26,11 +31,10 @@ namespace type {
     using TypePtr = std::shared_ptr<Type>;
 
 
-    struct VarType : Type {
+    struct ExprType : Type {
         expr::ExprPtr t;
-        // std::string t;
 
-        VarType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
+        ExprType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
 
         std::string text(const size_t indent = 0) const override;
 
@@ -39,10 +43,10 @@ namespace type {
     };
 
 
-    struct BuiltinType final : VarType {
+    struct BuiltinType final : ExprType {
         std::string t;
 
-        BuiltinType(std::string s) noexcept : VarType{nullptr}, t{std::move(s)} {}
+        BuiltinType(std::string s) noexcept : ExprType{nullptr}, t{std::move(s)} {}
         std::string text(const size_t = 0) const;
     };
 
@@ -58,6 +62,18 @@ namespace type {
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
     };
+
+
+    struct SpaceType : Type {
+
+        // SpaceType() = default;
+
+        std::string text(const size_t indent = 0) const override;
+
+        bool operator>(const Type& other) const override;
+        bool operator>=(const Type& other) const override;
+    };
+
 
     struct FuncType final : Type {
         std::vector<TypePtr> params;

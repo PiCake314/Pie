@@ -58,7 +58,7 @@ public:
     expr::ExprPtr parseExpr(const size_t precedence = {}) {
         Token token = consume();
 
-        expr::ExprPtr left = prefix(token);
+        expr::ExprPtr left = prefix(std::move(token));
 
         // infix
         while (precedence < getPrecedence()) {
@@ -70,25 +70,26 @@ public:
         return left;
     }
 
-    expr::ExprPtr prefix(const Token& token) {
+    expr::ExprPtr prefix(Token token) {
         switch (token.kind) {
             using enum TokenKind;
 
             case INT:
-            case FLOAT : return std::make_shared<expr::Num>(token.text);
+            case FLOAT : return std::make_shared<expr::Num>(std::move(token).text);
             case BOOL  : return std::make_shared<expr::Bool>(token.text == "true" ? true : false);
-            case STRING: return std::make_shared<expr::String>(token.text);
+            case STRING: return std::make_shared<expr::String>(std::move(token).text);
 
-            case NAME  : return name(token);
+            case NAME  : return name(std::move(token));
 
             case CLASS : return klass();
+            case NAMESPACE : return nameSpace();
 
             case MIXFIX:
             case PREFIX:
             case INFIX :
             case SUFFIX:
             case EXFIX :
-                return fixOperator(token);
+                return fixOperator(std::move(token));
 
 
             case MATCH: return match();
@@ -142,7 +143,7 @@ public:
     }
 
 
-    expr::ExprPtr infix(const Token& token, expr::ExprPtr left) {
+    expr::ExprPtr infix(Token token, expr::ExprPtr left) {
         switch (token.kind) {
             using enum TokenKind;
 
@@ -153,10 +154,10 @@ public:
                         //     return std::make_shared<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
                         case TokenKind::INFIX :{
                             const auto prec = prec::calculate(op->high, op->low, ops);
-                            return std::make_shared<expr::BinOp>(std::move(left), token.text, parseExpr(prec));
+                            return std::make_shared<expr::BinOp>(std::move(left), std::move(token).text, parseExpr(prec));
                         }
                         case TokenKind::SUFFIX:
-                            return std::make_shared<expr::PostOp>(token.text, std::move(left));
+                            return std::make_shared<expr::PostOp>(std::move(token).text, std::move(left));
 
 
                         //* I can fix this. Check if the name is the first or not and error accordingly!
@@ -204,7 +205,7 @@ public:
                     }
                 }
 
-                return std::make_shared<expr::Name>(token.text);
+                return std::make_shared<expr::Name>(std::move(token).text);
 
             case DOT:{
                 const auto& accessee = parseExpr(prec::HIGH);
@@ -298,7 +299,7 @@ public:
             if (match("Type"  )) return type::builtins::Type();
         }
         // or an expression
-        return std::make_shared<type::VarType>(parseExpr(prec::ASSIGNMENT));
+        return std::make_shared<type::ExprType>(parseExpr(prec::ASSIGNMENT));
         // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
 
         // log();
@@ -496,6 +497,21 @@ public:
         return std::make_shared<expr::Class>(std::move(fields));
     }
 
+    expr::ExprPtr nameSpace() {
+        using enum TokenKind;
+
+        consume(L_BRACE);
+
+        std::vector<expr::ExprPtr> members;
+
+        while (not match(R_BRACE)) {
+            members.push_back(parseExpr());
+            consume(SEMI);
+        }
+
+        return std::make_shared<expr::Namespace>(std::move(members));
+    }
+
     expr::ExprPtr closure() {
         using enum TokenKind;
 
@@ -533,14 +549,14 @@ public:
         );
     }
 
-    expr::ExprPtr name(const Token& token) {
+    expr::ExprPtr name(Token token) {
         using enum TokenKind;
 
         if (ops.contains(token.text)) {
             switch (const auto& op = ops[token.text]; op->type()) {
                 case TokenKind::PREFIX:{
                     const int prec = prec::calculate(op->high, op->low, ops);
-                    return std::make_shared<expr::UnaryOp>(token.text, parseExpr(prec));
+                    return std::make_shared<expr::UnaryOp>(std::move(token).text, parseExpr(prec));
                 }
 
                 case TokenKind::EXFIX:{
@@ -587,10 +603,10 @@ public:
         return std::make_shared<expr::Name>(token.text, std::move(type));
     }
 
-    expr::ExprPtr fixOperator(const Token& token) {
+    expr::ExprPtr fixOperator(Token token) {
         using enum TokenKind;
 
-        if (token.kind == EXFIX )    return exfixOperator();
+        if (token.kind == EXFIX ) return exfixOperator();
         if (token.kind == MIXFIX) return arbitraryOperator();
 
 

@@ -209,8 +209,7 @@ struct Match : Expr {
     std::string stringify(const size_t indent = 0) const override {
         std::string s = "match " + expr->stringify(indent) + " {\n";
 
-        std::string space(indent + 4, ' ');
-        for (auto&& kase : cases) {
+        for (const std::string space(indent + 4, ' '); auto&& kase : cases) {
             s += space;
 
             s += stringifyPattern(*kase.pattern, indent + 4);
@@ -220,7 +219,7 @@ struct Match : Expr {
         }
 
 
-        return s + "}";
+        return s + std::string(indent, ' ') + "}";
     }
 
     Node variant() const override { return this; }
@@ -269,6 +268,44 @@ struct Access : Expr {
 
     Node variant() const override { return this; }
 };
+
+
+struct Namespace : Expr {
+    std::vector<ExprPtr> expressions;
+
+
+    explicit Namespace(std::vector<ExprPtr> exprs) noexcept
+    :expressions{std::move(exprs)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        std::string s = "space {\n";
+
+        for (const std::string space(indent + 4, ' '); auto&& expr : expressions) {
+            s += space + expr->stringify(indent + 4) + ";\n";
+        }
+
+        return s + std::string(indent, ' ') + "}";
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct SpaceAccess : Expr {
+    std::string spacename;
+    std::string member;
+
+
+    SpaceAccess(std::string space, std::string m) noexcept
+    : spacename{std::move(space)}, member{std::move(m)} {}
+
+    std::string stringify(const size_t = 0) const override {
+        return spacename + "::" + member;
+    }
+
+    Node variant() const override { return this; }
+};
+
 
 struct Grouping : Expr {
     ExprPtr expr;
@@ -481,15 +518,11 @@ struct Block : Expr {
         std::string s = "{\n";
 
         // std::ranges::for_each(lines, &Expr::stringify);
-        for(const auto& line : lines) {
-            s += std::string(indent + 4, ' ');
-            s += line->stringify(indent + 4);
-            s += ";\n";
+        for(std::string space(indent + 4, ' '); const auto& line : lines) {
+            s += space + line->stringify(indent + 4) + ";\n";
         }
 
-        s += std::string(indent, ' ') + "}";
-
-        return s;
+        return s + std::string(indent, ' ') + "}";
     }
 
 

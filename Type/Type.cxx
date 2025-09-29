@@ -7,13 +7,13 @@
 
 namespace type {
 
-    std::string VarType::text(const size_t indent) const {
+    std::string ExprType::text(const size_t indent) const {
         // return t.empty() ? "Any" : t;
         const auto& type = t->stringify(indent);
         return type.empty() ? "Any" : type;
     }
 
-    bool VarType::operator>(const Type& other) const {
+    bool ExprType::operator>(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
 
         const auto& type = text();
@@ -21,7 +21,7 @@ namespace type {
     }
 
 
-    bool VarType::operator>=(const Type& other) const {
+    bool ExprType::operator>=(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
 
         const auto& type = text();
@@ -32,10 +32,12 @@ namespace type {
     std::string BuiltinType::text(const size_t) const { return t; }
 
     std::string LiteralType::text(const size_t indent) const {
-        // return t.empty() ? "Any" : t;
-        const auto& type = stringify(*cls, indent);
-        return type.empty() ? "Any" : type;
+        // const auto& type = stringify(*cls, indent);
+        // return type.empty() ? "Any" : type;
+
+        return stringify(*cls, indent);
     }
+
 
     bool LiteralType::operator>(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
@@ -44,6 +46,7 @@ namespace type {
         const auto& type = text();
         return type == "Syntax" or (type == "Any" and other.text() != "Any");
     }
+    
 
     bool LiteralType::operator>=(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
@@ -53,6 +56,12 @@ namespace type {
         return type == "Syntax" or type == "Any" or type == other.text();
     }
 
+
+    std::string SpaceType::text(const size_t) const { return "Space"; }
+    // a namespace is only not greater than any other type...
+    bool SpaceType::operator>(const Type&) const { return false; }
+    // ...so >= only needs to check for equality!
+    bool SpaceType::operator>=(const Type& other) const { return *this == other; }
 
 
 

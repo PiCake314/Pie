@@ -35,7 +35,7 @@ enum class TokenKind {
     CLASS,
     UNION, // for future
     MATCH,
-    SPACE, // for future
+    NAMESPACE,
 
 // PRECEDENCE
     PR_LOW,
@@ -56,7 +56,7 @@ enum class TokenKind {
 };
 
 
-inline const char* stringify(const TokenKind token) noexcept {
+constexpr const char* stringify(const TokenKind token) noexcept {
     switch (token) {
         using enum TokenKind;
         case NAME:          return "NAME";
@@ -89,7 +89,7 @@ inline const char* stringify(const TokenKind token) noexcept {
         case CLASS:         return "CLASS";
         case UNION:         return "UNION";
         case MATCH:         return "MATCH";
-        case SPACE:         return "SPACE";
+        case NAMESPACE:     return "NAMESPACE";
 
         // should probs prefix the strings with PR_ but maybe it's fine for now
         case PR_LOW:        return "LOW"; 

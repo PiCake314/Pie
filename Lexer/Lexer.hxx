@@ -28,7 +28,7 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "class" ) return CLASS;
     // union
     else if (word == "match" ) return MATCH;
-    // space
+    else if (word == "namespace" ) return NAMESPACE;
     else if (word == "true"  ) return BOOL;
     else if (word == "false" ) return BOOL;
 

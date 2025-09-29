@@ -10,7 +10,7 @@ struct List;
 using PackList = std::shared_ptr<List>;
 
 template <typename ...Ts>
-[[nodiscard]] inline std::shared_ptr<List> makePack(Ts... args) {
+[[nodiscard]] inline std::shared_ptr<List> makePack(Ts&&... args) {
     return std::make_shared<List>(std::forward<Ts>(args)...);
 }
 
@@ -19,30 +19,32 @@ namespace expr {
 // has to be pointers kuz we're forward declareing
 // has to be forward declared bc we're using in in the class bellow
 using Node = std::variant<
-    const struct Num       *,
-    const struct Bool      *,
-    const struct String    *,
-    const struct Name      *,
-    const struct Pack      *,
-    const struct Expansion *,
-    const struct Assignment*,
-    const struct Class     *,
-    const struct Match     *,
-    const struct Access    *,
-    const struct Grouping  *,
-    const struct UnaryOp   *,
-    const struct BinOp     *,
-    const struct PostOp    *,
-    const struct CircumOp  *,
-    const struct OpCall    *,
-    const struct Call      *,
-    const struct Closure   *,
-    const struct Block     *,
-    const struct Prefix    *,
-    const struct Infix     *,
-    const struct Suffix    *,
-    const struct Exfix     *,
-    const struct Operator  *
+    const struct Num         *,
+    const struct Bool        *,
+    const struct String      *,
+    const struct Name        *,
+    const struct Pack        *,
+    const struct Expansion   *,
+    const struct Assignment  *,
+    const struct Class       *,
+    const struct Match       *,
+    const struct Access      *,
+    const struct Namespace   *,
+    const struct SpaceAccess *,
+    const struct Grouping    *,
+    const struct UnaryOp     *,
+    const struct BinOp       *,
+    const struct PostOp      *,
+    const struct CircumOp    *,
+    const struct OpCall      *,
+    const struct Call        *,
+    const struct Closure     *,
+    const struct Block       *,
+    const struct Prefix      *,
+    const struct Infix       *,
+    const struct Suffix      *,
+    const struct Exfix       *,
+    const struct Operator    *
 >;
 
 
