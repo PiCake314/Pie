@@ -15,12 +15,11 @@
 
 struct Dict;
 struct ClassValue;
-using NameSpace = ClassValue;
 using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
 struct List;
 
-using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
+using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, NameSpace, Object, expr::Node, PackList>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 struct List { std::vector<Value> values; };
@@ -68,6 +67,32 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
 
             const std::string space(indent + 4, ' ');
             for (const auto& [name, value] : v.blueprint->members) {
+                s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
+
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) s += '\"';
+
+                s += stringify(value, indent + 4);
+
+                if (is_string) s += '\"';
+
+                s += ";\n";
+            }
+
+            s += std::string(indent, ' ') + '}';
+        }
+    }
+
+    else if (std::holds_alternative<NameSpace>(value)) {
+        const auto& v = get<NameSpace>(value);
+
+        if (v.members->members.empty())
+            s = "namespace { }";
+        else {
+            s = "namespace {\n";
+
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, value] : v.members->members) {
                 s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);

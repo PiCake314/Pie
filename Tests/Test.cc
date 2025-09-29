@@ -7,6 +7,42 @@
 #include "catch.hpp"
 
 
+
+
+
+TEST_CASE("Class member", "[Type]") {
+    const auto src = R"(
+print = __builtin_print;
+
+x = namespace {
+    cls = class { meow: Int = 0; };
+
+    v: String = "hi";
+
+    print(5); .: fine
+
+    o: cls = cls(1);
+
+    func = (e: cls) => e.meow;
+
+    infix(SUM) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
+
+    y = namespace {
+        LOOK = 1;
+        .: v = 1;
+    };
+};
+)";
+
+    run(src);
+
+    SUCCEED();
+}
+
+
+
+
+
 TEST_CASE("Trees", "[Match]") {
     const auto src = R"(
 print = __builtin_print;

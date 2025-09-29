@@ -46,7 +46,7 @@ namespace type {
         const auto& type = text();
         return type == "Syntax" or (type == "Any" and other.text() != "Any");
     }
-    
+
 
     bool LiteralType::operator>=(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
@@ -65,12 +65,12 @@ namespace type {
 
 
 
-    std::string FuncType::text(const size_t) const {
-        std::string t = params.empty() ? "" : params[0]->text();
+    std::string FuncType::text(const size_t indent) const {
+        std::string t = params.empty() ? "" : params[0]->text(indent);
         for (size_t i = 1uz; i < params.size(); ++i)
-            t += ", " + params[i]->text();
+            t += ", " + params[i]->text(indent);
 
-        return '(' + t + "): " + ret->text();
+        return '(' + t + "): " + ret->text(indent);
     }
 
     bool FuncType::operator>(const Type& other) const {

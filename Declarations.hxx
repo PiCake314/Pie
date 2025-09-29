@@ -5,6 +5,7 @@
 
 struct Dict;
 struct ClassValue { std::shared_ptr<Dict> blueprint; };
+struct NameSpace  { std::shared_ptr<Dict> members  ; };
 
 struct List;
 using PackList = std::shared_ptr<List>;

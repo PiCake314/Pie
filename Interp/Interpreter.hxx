@@ -76,16 +76,12 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Pack *) {
-        error();
-    }
+    Value operator()(const expr::Pack*) { error(); }
+    Value operator()(const expr::Expansion*) { error("Can only have an expansion inside of a function call!"); }
 
 
-    Value operator()(const expr::Expansion *) {
-        error("Can only have an expansion inside of a function call!");
-    }
 
-    Value assingment(const expr::Assignment *ass, expr::Access *acc) {
+    Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
         const auto& left = std::visit(*this, acc->var->variant());
 
         if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
@@ -108,10 +104,62 @@ struct Visitor {
         return value;
     }
 
+
+
+    Value spaceAccessAssign(const expr::Assignment *ass, expr::SpaceAccess *sa) {
+        // const auto& var = getVar(sa->spacename);
+
+        // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
+
+        Value space = std::visit(*this, sa->space->variant());
+
+        if (not std::holds_alternative<NameSpace>(space)) error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+
+
+        const auto& ns = std::get<NameSpace>(space);
+
+        const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (auto&& member) { return member.first.stringify() == name; });
+
+        if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
+
+        Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+
+
+        if (auto&& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
+            std::println(std::cerr, "In assignment: {}", ass->stringify());
+            error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
+        }
+
+        found->second = value;
+
+        return value;
+    }
+
+
+    Value spaceAssign(const NameSpace& ns1, const NameSpace& ns2) {
+        for (auto&& [name, value] : ns2.members->members) {
+            if (
+                auto&& it = std::ranges::find_if(ns1.members->members, [&name] (auto&& e) { return e.first.name == name.name; });
+                it != ns1.members->members.end()
+            ) {
+                // explicit copying
+                it->first.type = name.type;
+                it->second = value;
+            }
+            // same here
+            else ns1.members->members.push_back({name, value});
+        }
+
+
+        return ns1;
+    }
+
+
     Value operator()(const expr::Assignment *ass) {
 
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
-        if (const auto acc = dynamic_cast<expr::Access*>(ass->lhs.get())) return assingment(ass, acc);
+        if (auto *acc = dynamic_cast<expr::Access*>    (ass->lhs.get())) return accessAssign(ass, acc);
+        if (auto *sa = dynamic_cast<expr::SpaceAccess*>(ass->lhs.get())) return spaceAccessAssign(ass, sa);
 
 
 
@@ -141,6 +189,17 @@ struct Visitor {
 
 
             auto value = std::visit(*this, ass->rhs->variant());
+
+
+            // reassigning to an existing namespace. special
+            // std::clog << "change: " << (change ? "true" : "false") << std::endl;
+            // std::clog << "type->text(): " << type->text() << std::endl;
+            // std::clog << "std::holds_alternative<NameSpace>(value): " << (std::holds_alternative<NameSpace>(value) ? "true" : "false") << std::endl;
+            // puts("====================================================================================");
+            if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) 
+                return spaceAssign(get<NameSpace>(getVar(name->name)->first), get<NameSpace>(value));
+
+
             // if (type->text() != "Any") // only enforce type checking when
             if (auto&& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
                 std::println(std::cerr, "In assignment: {}", ass->stringify());
@@ -179,7 +238,7 @@ struct Visitor {
         std::vector<std::pair<expr::Name, Value>> members;
 
         ScopeGuard sg{this};
-        for (const auto& field : cls->fields) {
+        for (auto&& field : cls->fields) {
 
             type::TypePtr type = field.first.type;
             if (type::shouldReassign(type)) type = type::builtins::Any();
@@ -210,7 +269,8 @@ struct Visitor {
                 }
             }
 
-
+            env.back()[field.first.name] = {v, type}; // so other members can refer to members before them.
+            // .back() gets removed anyway (because of ScopeGuard!);
             members.push_back({{field.first.name, type}, v});
         }
 
@@ -227,7 +287,7 @@ struct Visitor {
         const auto& obj = std::get<Object>(left);
 
         const auto& found = std::ranges::find_if(obj.second->members, [&name = acc->name] (auto&& member) { return member.first.stringify() == name; });
-        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object '" + acc->var->stringify() + '\'');
 
 
         if (std::holds_alternative<expr::Closure>(found->second)) {
@@ -249,19 +309,57 @@ struct Visitor {
     Value operator()(const expr::Namespace *ns) {
         if (auto&& var = getVar(ns->stringify()); var) return var->first;
 
-        // Value value;
+        Value value;
 
-        // ScopeGuard sg{this};
-        // for (auto&& expr : ns->expressions) {
-        //     value = std::visit(*this, expr->variant());
-        // }
+        ScopeGuard sg{this};
+        // execute all the expressions in the namespace
+        for (auto&& expr : ns->expressions) {
+            value = std::visit(*this, expr->variant());
+        }
 
-        // NameSpace NS;
+        // then add the variables that resulted from that execution
 
+        std::vector<std::pair<expr::Name, Value>> members;
+        for (auto&& [name, val] : env.back()) {
+            auto&& [value, type] = val;
+
+            members.push_back({{std::move(name), std::move(type)}, std::move(value)});
+        }
+
+        std::ranges::reverse(members);
+
+        return NameSpace{std::make_shared<Dict>(std::move(members))};
     }
 
-    Value operator()(const expr::SpaceAccess*) {
-        error();
+    Value operator()(const expr::SpaceAccess* sa) {
+        // const auto& var = getVar(sa->spacename);
+        // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
+
+        Value space = std::visit(*this, sa->space->variant());
+
+        if (not std::holds_alternative<NameSpace>(space)) error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+
+
+        const auto& ns = std::get<NameSpace>(space);
+
+        const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (auto&& member) { return member.first.stringify() == name; });
+
+        if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
+
+
+        if (std::holds_alternative<expr::Closure>(found->second)) {
+            const auto& closure = get<expr::Closure>(found->second);
+
+            Environment capture_list;
+            for (const auto& [name, value] : ns.members->members)
+                capture_list[name.stringify()] = {value, typeOf(value)};
+
+            closure.capture(capture_list);
+
+            return closure;
+        }
+
+        return found->second;
     }
 
 
@@ -1667,18 +1765,11 @@ struct Visitor {
 
 
             type.ret = func.type.ret;
-
             return std::make_shared<type::FuncType>(std::move(type));
         }
 
         if (std::holds_alternative<Object>(value)) {
-            // return std::make_shared<type::VarType>("class" + stringify(value).substr(6)); // skip the "Object " and add "class"
-
-            // std::string s = stringify(get<Object>(value).first);
-
             return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<Object>(value).first));
-            // return std::make_shared<type::VarType>(std::make_shared<expr::Name>(std::move(s)));
-            // return std::make_shared<type::VarType>(std::make_shared<expr::Name>("class" + stringify(value).substr(6)));
         }
 
         if (std::holds_alternative<PackList>(value)) {
@@ -1702,8 +1793,10 @@ struct Visitor {
             // return same ? std::make_shared<type::VariadicType>(values[0]) : non_typed_pack;
         }
 
+        if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();
 
-        error("Unknown Type: " + stringify(value));
+
+        error("Unknown Type for value: " + stringify(value));
     }
 
 
@@ -1729,7 +1822,7 @@ private:
     void unscope() { env.pop_back(); }
 
     const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
-        env.back()[name] = {v, t}; //* might cause issues
+        env.back()[name] = {v, t};
         return v;
     }
 

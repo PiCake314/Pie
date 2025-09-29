@@ -23,7 +23,7 @@
 
 struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, Object, expr::Node, PackList>;
+using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, NameSpace, Object, expr::Node, PackList>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 
@@ -292,15 +292,16 @@ struct Namespace : Expr {
 
 
 struct SpaceAccess : Expr {
-    std::string spacename;
+    ExprPtr space;
     std::string member;
+    // std::string member;
 
 
-    SpaceAccess(std::string space, std::string m) noexcept
-    : spacename{std::move(space)}, member{std::move(m)} {}
+    SpaceAccess(ExprPtr s, std::string m) noexcept
+    : space{std::move(s)}, member{std::move(m)} {}
 
     std::string stringify(const size_t = 0) const override {
-        return spacename + "::" + member;
+        return space->stringify() + "::" + member;
     }
 
     Node variant() const override { return this; }
@@ -497,11 +498,11 @@ struct Closure : Expr {
     std::string stringify(const size_t indent = 0) const override {
         std::string s = "(";
 
-        if (not params.empty()) s += params[0] + ": " + type.params[0]->text();
+        if (not params.empty()) s += params[0] + ": " + type.params[0]->text(indent);
         for(size_t i{1}; i < params.size(); ++i)
             s += ", " + params[i] + ": " + type.params[i]->text();
 
-        return s + "): " + type.ret->text() + " => " + body->stringify(indent);
+        return s + "): " + type.ret->text() + " => " + body->stringify(indent + 4);
     }
 
     Node variant() const override { return this; }
