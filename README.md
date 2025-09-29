@@ -112,6 +112,72 @@ h.age = 10;
 h.prettyPrint();
 ```
 
+<!-- ## Unions -->
+
+
+
+## Namespaces
+
+Like everything else in this language, `namespace`'s are expressions too, and they yield a value!
+To name a `namespace`, assign it to a variable:
+
+```pie
+my_space = namespace {
+    __builtin_print("start");
+
+    decl1: Int = 1;
+    ID: (Any): Any = (x) => x;
+
+    nested = namespace {
+        __builtin_print("inner");
+        decl2 = "Hi";
+    };
+
+    __builtin_print("finish");
+};
+```
+
+`namespace`'s could seem like just a syntactic for `class`'s, but they're not! There is a major difference which is the fact that you can run arbitrary code inside of `namespace`'s. A `class` can only have assignments.
+
+To access a member of a `namespace`, use the "scope resolution operator", or `::`:
+
+```pie
+x = namespace { a = 1; };
+__builtin_print(x::a);
+```
+
+Assigning a `namespace` to an existing `namespace` consolidates the 2 `namespace` onto the first:
+
+```pie
+ns = namespace {
+    a = 1;
+    b = 2;
+    c = 3;
+};
+
+ns = namespace {
+    a = 5;
+    x = 10;
+    y = 20;
+};
+
+__builtin_print(ns::a); .: prints 5
+__builtin_print(ns::b); .: prints 2
+__builtin_print(ns::x); .: prints 10
+```
+This allows you to split code that belongs to a single `namespace` in multiple different files and have all the declarations be in the same `namespace`.
+
+**Keep in mind**, if you assign a `namespace` to another value, it loses it's content:
+
+```pie
+x = namespace { a = 1; };
+x = 5;
+x = namespace { b = 1; };
+
+__builtin_print(x::a); .: ERROR!
+```
+
+
 ## Scopes
 
 Since everything is an expression, so are scopes! They take the value of the last expression in them.\
@@ -332,7 +398,7 @@ this isn't
 - `class`
 <!-- - `union` -->
 - `match`
-<!-- - `space` -->
+- `space`
 
 ###### Phantom keywords
 - `true`
@@ -379,10 +445,9 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
-- [ ] Add match expression (like scala)
-- [ ] Add default values
-- [ ] Add namespaces
 - [ ] Add an import system (modules)
+- [ ] Add default values to function parameters
+- [ ] Add unions
 - [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
 - [ ] File IO
@@ -399,7 +464,9 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
-
+- [x] Added global namespace access syntax
+- [x] Add namespaces
+- [x] Add match expression (like scala)
 - [x] Add add overloaded operators at runtime (instead of parse-time)
 - [x] Fixed infix operators parsing right to left!
 - [x] Implemnted `__builtin_eq` for all values!
