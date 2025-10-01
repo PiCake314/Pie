@@ -445,10 +445,9 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
-- [ ] Add an import system (modules)
 - [ ] Add `use` directive
-- [ ] Add default values to function parameters
 - [ ] Add unions
+- [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
 - [ ] File IO
@@ -465,6 +464,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] Add an import system (modules)
 - [x] Added global namespace access syntax
 - [x] Add namespaces
 - [x] Add match expression (like scala)
