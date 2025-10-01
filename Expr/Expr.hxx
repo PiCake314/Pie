@@ -4,6 +4,7 @@
 #include <print>
 #include <cmath>
 #include <string>
+#include <filesystem>
 #include <vector>
 #include <unordered_map>
 #include <utility>
@@ -19,7 +20,6 @@
 #include "../Token/Token.hxx"
 #include "../Declarations.hxx"
 #include "../Type/Type.hxx"
-#include "../Utils/utils.hxx"
 
 struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
@@ -275,7 +275,7 @@ struct Namespace : Expr {
 
 
     explicit Namespace(std::vector<ExprPtr> exprs) noexcept
-    :expressions{std::move(exprs)} {}
+    : expressions{std::move(exprs)} {}
 
     std::string stringify(const size_t indent = 0) const override {
         std::string s = "space {\n";
@@ -289,6 +289,25 @@ struct Namespace : Expr {
 
     Node variant() const override { return this; }
 };
+
+
+// struct Import : Expr {
+//     std::filesystem::path path;
+
+//     explicit Import(std::filesystem::path p) noexcept
+//     : path{std::move(p)} {}
+
+//     std::string stringify(const size_t = 0) const override {
+//         std::string s;
+//         for (const char c : path.string())
+//             s.push_back(c == '/' ? '.' : c);
+
+//         return "import " + s;
+//     }
+
+
+//     Node variant() const override { return this; }
+// };
 
 
 struct SpaceAccess : Expr {

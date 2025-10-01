@@ -5,8 +5,10 @@
 
 #include <cctype>
 #include <string>
+#include <sstream>
 #include <string_view>
 #include <vector>
+#include <fstream>
 #include <tuple>
 #include <unordered_map>
 #include <algorithm>
@@ -28,7 +30,11 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "class" ) return CLASS;
     // union
     else if (word == "match" ) return MATCH;
-    else if (word == "namespace" ) return NAMESPACE;
+
+    // else if (word == "import"   ) return IMPORT;
+    else if (word == "namespace") return NAMESPACE;
+    else if (word == "use") return USE;
+
     else if (word == "true"  ) return BOOL;
     else if (word == "false" ) return BOOL;
 
@@ -270,4 +276,18 @@ inline bool validNameChar(const char c) noexcept {
 
     return tokens;
 }
+
+
+
+[[nodiscard]] inline std::string readFile(const std::string& fname) {
+    const std::ifstream fin{fname};
+
+    if (not fin.is_open()) error("File \"" + fname + " \"not found!");
+
+    std::stringstream ss;
+    ss << fin.rdbuf();
+
+    return ss.str();
+}
+
 

@@ -20,6 +20,7 @@
 
 #include "../Utils/utils.hxx"
 #include "../Utils/ConstexprLookup.hxx"
+#include "../Lexer/Lexer.hxx"
 #include "../Expr/Expr.hxx"
 #include "../Parser/Parser.hxx"
 
@@ -330,6 +331,24 @@ struct Visitor {
 
         return NameSpace{std::make_shared<Dict>(std::move(members))};
     }
+
+
+    // Value operator()(const expr::Import *import) {
+    //     const auto src = readFile(auto{import->path}.replace_extension(".pie"));
+    //     const Tokens v = lex(src);
+    //     if (v.empty()) error("Can't import an empty file!");
+
+    //     Parser p{v, import->path};
+
+    //     auto [exprs, ops] = p.parse();
+
+    //     Value value;
+    //     for (auto&& expr : exprs)
+    //         value = std::visit(*this, std::move(expr)->variant());
+
+    //     return value;
+    // }
+
 
     Value operator()(const expr::SpaceAccess* sa) {
 

@@ -1,6 +1,7 @@
 #pragma once
 
 #include <print>
+#include <filesystem>
 #include <variant>
 #include <optional>
 #include <memory>
@@ -24,15 +25,18 @@
 
 
 class Parser {
-    Tokens tokens;         // owner of memory for iterator below
+    Tokens tokens;
     typename Tokens::iterator token_iterator;
 
     Operators ops;
 
     std::deque<Token> red; // past tense of read lol
 
+    std::filesystem::path root;
 public:
-    Parser(Tokens t) : tokens{std::move(t)}, token_iterator{tokens.begin()} { }
+    Parser(Tokens t, std::filesystem::path r) noexcept
+    : tokens{std::move(t)}, token_iterator{tokens.begin()}, root{r.remove_filename()}
+    {}
 
     [[nodiscard]] bool atEnd() const noexcept { return token_iterator == tokens.end() or token_iterator->kind == TokenKind::END; }
 
@@ -81,9 +85,24 @@ public:
 
             case CLASS : return klass();
             case NAMESPACE : return nameSpace();
-            case COLON: {
+            // case IMPORT: {
+            //     std::filesystem::path path = root;
 
+            //     do {
+            //         std::string name = consume(NAME).text;
+            //         if (ops.contains(name)) break;
+
+            //         path.append(std::move(name));
+            //     }
+            //     while(match(COLON));
+
+            //     // path.replace_extension(".pie");
+            //     return std::make_shared<expr::Import>(std::move(path));
+            // }
+
+            case COLON: {
                 consume(COLON);
+
                 auto right = parseExpr(prec::HIGH);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right_name_ptr->stringify());
@@ -168,16 +187,6 @@ public:
 
             case COLON: {
                 consume(COLON); // 'in other words "eat shit"' ~Shaw
-
-                // const auto *name_ptr   = dynamic_cast<const expr::Name*>(left.get());
-                // const auto *access_ptr = dynamic_cast<const expr::SpaceAccess*>(left.get());
-
-                // if (not name_ptr and not access_ptr)
-                //     error("Scope Resolution Operator can only be applied on a name. Got: " + left->stringify());
-
-                // if (name_ptr and not type::shouldReassign(name_ptr->type)) error("WTF are you even trying to do?? '" + left->stringify() + "::' ?!");
-
-
                 auto right = parseExpr(prec::HIGH);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right_name_ptr->stringify());

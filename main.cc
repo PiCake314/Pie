@@ -1,26 +1,14 @@
 #include <print>
 #include <string>
 #include <string_view>
-#include <sstream>
 #include <vector>
-#include <fstream>
 #include <utility>
 
 #include "Lexer/Lexer.hxx"
+#include "Preprocessor/Preprocessor.hxx"
 #include "Parser/Parser.hxx"
 #include "Interp/Interpreter.hxx"
 
-
-[[nodiscard]] std::string readFile(const std::string& fname) {
-    const std::ifstream fin{fname};
-
-    if (not fin.is_open()) error("File \"" + fname + " \"not found!");
-
-    std::stringstream ss;
-    ss << fin.rdbuf();
-
-    return ss.str();
-}
 
 
 int main(int argc, char *argv[]) {
@@ -43,11 +31,13 @@ int main(int argc, char *argv[]) {
 
     const auto src = readFile(argv[1]);
 
-    const Tokens v = lex(src);
+    const auto preprocessed_src = preprocess(std::move(src), argv[1]);
+
+    const Tokens v = lex(std::move(preprocessed_src));
 
     if (v.empty()) return 0;
 
-    Parser p{v};
+    Parser p{v, argv[1]};
     if (print_tokens) std::println("{}", v);
 
     auto [exprs, ops] = p.parse();
@@ -62,7 +52,7 @@ int main(int argc, char *argv[]) {
 
     if (run) {
         Visitor visitor{std::move(ops)};
-        for (const auto& expr : exprs)
-            std::visit(visitor, expr->variant());
+        for (auto&& expr : exprs)
+            std::visit(visitor, std::move(expr)->variant());
     }
 }
