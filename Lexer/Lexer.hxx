@@ -279,15 +279,4 @@ inline bool validNameChar(const char c) noexcept {
 
 
 
-[[nodiscard]] inline std::string readFile(const std::string& fname) {
-    const std::ifstream fin{fname};
-
-    if (not fin.is_open()) error("File \"" + fname + " \"not found!");
-
-    std::stringstream ss;
-    ss << fin.rdbuf();
-
-    return ss.str();
-}
-
 

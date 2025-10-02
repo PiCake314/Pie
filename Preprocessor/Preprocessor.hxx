@@ -3,10 +3,14 @@
 
 #include <print>
 #include <cctype>
-#include <fstream>
 #include <string>
+#include <fstream>
+#include <unordered_set>
 #include <filesystem>
 #include <ranges>
+
+
+[[nodiscard]] inline std::string readFile(const std::string& fname);
 
 
 bool findAndRemoveImport(std::string& src, size_t& index) {
@@ -24,43 +28,43 @@ bool findAndRemoveImport(std::string& src, size_t& index) {
 }
 
 size_t findSpace(const std::string& src, size_t ind) {
-    while(++ind < src.length() and not std::isspace(src[ind]) and src[ind] != ';');
+    while (++ind < src.length() and not std::isspace(src[ind]) and src[ind] != ';');
 
     return ind;
 }
 
 
 std::string preprocess(std::string src, const std::filesystem::path& root) {
+    static std::unordered_set<std::string> cache;
+
     std::filesystem::path mainfile = root;
     mainfile.remove_filename();
 
     size_t index;
 
     while (findAndRemoveImport(src, index)) {
-        std::filesystem::path filename = mainfile;
+        auto filename = mainfile;
 
-        const size_t end_index = findSpace(src, index);
+        const auto end_index = findSpace(src, index);
+
         ++index;
         auto name = src.substr(index, end_index - index);
         src.erase(index, end_index - index + (src[end_index] == ';')); // remove filename
+        // std::ranges::replace(name, ':', '/');
 
-        std::ranges::replace(name, ':', '/');
         filename /= name;
+
         filename.replace_extension(".pie");
 
-        std::println("file name: {}", filename.string());
+        // const auto path = std::filesystem::canonical(filename);
+        auto path = std::filesystem::absolute(filename);
 
-        std::ifstream fin{filename};
+        if (cache.contains(path.string())) continue;
 
-        if (fin.fail()) {
-            std::println(std::cerr, "Imported file: '{}' not found", filename.string());
-            exit(1);
-        }
+        auto module = readFile(path);
 
-        std::string module;
-        for (std::string line; std::getline(fin, line); ) module += line + '\n';
-
-        module = preprocess(std::move(module), root);
+        module = preprocess(std::move(module), std::move(path));
+        cache.insert(path.string());
 
         src.insert(index, std::move(module));
     }

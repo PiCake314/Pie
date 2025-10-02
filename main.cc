@@ -11,6 +11,18 @@
 
 
 
+[[nodiscard]] inline std::string readFile(const std::string& fname) {
+    const std::ifstream fin{fname};
+
+    if (not fin.is_open()) error("File \"" + fname + " \"not found!");
+
+    std::stringstream ss;
+    ss << fin.rdbuf();
+
+    return ss.str();
+}
+
+
 int main(int argc, char *argv[]) {
     using std::operator""sv;
     if (argc < 2) error("Please pass a file name!");
@@ -32,6 +44,8 @@ int main(int argc, char *argv[]) {
     const auto src = readFile(argv[1]);
 
     const auto preprocessed_src = preprocess(std::move(src), argv[1]);
+
+    std::clog << "PREPROCESSED:\n" << preprocessed_src << std::endl;
 
     const Tokens v = lex(std::move(preprocessed_src));
 
