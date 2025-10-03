@@ -45,7 +45,7 @@ int main(int argc, char *argv[]) {
 
     const auto processed_src = preprocess(std::move(src), argv[1]);
 
-    std::clog << "PREPROCESSED:\n" << processed_src << std::endl;
+    // std::clog << "PREPROCESSED:\n" << processed_src << std::endl;
 
     const Tokens v = lex(std::move(processed_src));
 

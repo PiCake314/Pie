@@ -291,6 +291,21 @@ struct Namespace : Expr {
 };
 
 
+struct Use : Expr {
+    ExprPtr ns;
+
+    explicit Use(ExprPtr n) noexcept
+    : ns{std::move(n)} {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        return "use " + ns->stringify(indent);
+    }
+
+
+    Node variant() const override { return this; }
+};
+
 // struct Import : Expr {
 //     std::filesystem::path path;
 

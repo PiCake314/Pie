@@ -76,15 +76,17 @@ public:
         switch (token.kind) {
             using enum TokenKind;
 
-            case INT:
-            case FLOAT : return std::make_shared<expr::Num>(std::move(token).text);
+            case FLOAT :
+            case INT   : return std::make_shared<expr::Num>(std::move(token).text);
             case BOOL  : return std::make_shared<expr::Bool>(token.text == "true" ? true : false);
             case STRING: return std::make_shared<expr::String>(std::move(token).text);
 
-            case NAME  : return prefixName(std::move(token));
+            case NAME: return prefixName(std::move(token));
 
-            case CLASS : return klass();
-            case NAMESPACE : return nameSpace();
+            case CLASS:      return klass();
+            case NAMESPACE:  return nameSpace();
+            case USE:        return std::make_shared<expr::Use>(parseExpr());
+
             // case IMPORT: {
             //     std::filesystem::path path = root;
 

@@ -39,7 +39,7 @@ std::string preprocess(std::string src, const std::filesystem::path& root) {
 
     auto canonical = std::filesystem::canonical(root);
     if (cache.contains(canonical.string())) return "";
-    std::clog << "caching: " << canonical.string() << std::endl;
+    // std::clog << "caching: " << canonical.string() << std::endl;
     cache.insert(canonical.string());
 
 
