@@ -276,6 +276,31 @@ The `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
 `.: TODO: add documentaion`
 
 
+# Import System
+
+`import` is the only keyword that is not recognized by the interpreter. Instead, it's a pre-processor directive:
+
+in `../folder/file.pie`:
+```pie
+x = 1;
+```
+
+in `main.pie`
+```pie
+import ../folder/file;
+import ../folder/file;
+
+__builtin_print(x);
+```
+
+The resulting file:
+```pie
+x = 1;
+
+__builtin_print(x);
+```
+Note that `.pie` is omitted in the `import` directive.
+
 ## Builtins
 
 Since Pie doesn't provide any operators, how does one achieve ANYTHING at all with Pie?\

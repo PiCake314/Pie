@@ -37,7 +37,13 @@ size_t findSpace(const std::string& src, size_t ind) {
 std::string preprocess(std::string src, const std::filesystem::path& root) {
     static std::unordered_set<std::string> cache;
 
-    std::filesystem::path mainfile = root;
+    auto canonical = std::filesystem::canonical(root);
+    if (cache.contains(canonical.string())) return "";
+    std::clog << "caching: " << canonical.string() << std::endl;
+    cache.insert(canonical.string());
+
+
+    auto mainfile = root;
     mainfile.remove_filename();
 
     size_t index;
@@ -56,15 +62,12 @@ std::string preprocess(std::string src, const std::filesystem::path& root) {
 
         filename.replace_extension(".pie");
 
-        // const auto path = std::filesystem::canonical(filename);
-        auto path = std::filesystem::absolute(filename);
-
-        if (cache.contains(path.string())) continue;
+        auto path = std::filesystem::canonical(filename);
+        // auto path = std::filesystem::absolute(filename);
 
         auto module = readFile(path);
 
         module = preprocess(std::move(module), std::move(path));
-        cache.insert(path.string());
 
         src.insert(index, std::move(module));
     }
