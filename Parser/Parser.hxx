@@ -107,7 +107,7 @@ public:
 
                 auto right = parseExpr(prec::HIGH);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right_name_ptr->stringify());
+                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
                 return std::make_shared<expr::SpaceAccess>(nullptr, std::move(right_name_ptr)->name);
             }
@@ -191,7 +191,7 @@ public:
                 consume(COLON); // 'in other words "eat shit"' ~Shaw
                 auto right = parseExpr(prec::HIGH);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right_name_ptr->stringify());
+                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
                 return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
             }

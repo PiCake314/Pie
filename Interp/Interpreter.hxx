@@ -321,14 +321,14 @@ struct Visitor {
         // then add the variables that resulted from that execution
 
         std::vector<std::pair<expr::Name, Value>> members;
-        for (const auto& [name, val] : env.back()) {
-            const auto& [value, type] = val;
+        for (auto& [name, val] : env.back()) {
+            auto& [value, type] = val;
 
-            members.push_back({{std::move(name), std::move(type)}, std::move(value)});
+            members.push_back({{name, std::move(type)}, std::move(value)});
         }
 
-        std::ranges::reverse(members);
 
+        std::ranges::reverse(members);
         return NameSpace{std::make_shared<Dict>(std::move(members))};
     }
 
