@@ -33,7 +33,10 @@ inline TokenKind keyword(const std::string_view word) noexcept {
 
     // else if (word == "import"   ) return IMPORT;
     else if (word == "namespace") return NAMESPACE;
+
+    // which one is nicer..?
     else if (word == "use") return USE;
+    else if (word == "using") return USE;
 
     else if (word == "true"  ) return BOOL;
     else if (word == "false" ) return BOOL;

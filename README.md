@@ -14,6 +14,7 @@
 - [Variables](#variables)
 - [Closures](#closures)
 - [Classes](#classes)
+- [Namespaces](#namespaces)
 - [Scopes](#scopes)
 - [Operators](#operators)
 - [Overloading](#overloading)
@@ -176,7 +177,20 @@ x = namespace { b = 1; };
 
 __builtin_print(x::a); .: ERROR!
 ```
+### `use` directive
 
+The `use` directive pulls all the names in from a namespace into the current namespace.
+```pie
+ns = namespace {
+    x = 1;
+    y = "hi";
+    z = 3.14;
+};
+
+use ns;
+
+__builtin_print(x);
+```
 
 ## Scopes
 
@@ -413,17 +427,24 @@ this isn't
 
 ## Keywords List
 
-<!-- - `import` -->
-<!-- - `use` -->
+##### Modules
+- `import`
+- `namespace`
+- `use`
+<!-- - `space` -->
+
+##### Operators
 - `prefix`
 - `infix`
 - `suffix`
 - `exfix`
 - `mixfix`
+
+##### Object Orient Stuff
 - `class`
-<!-- - `union` -->
 - `match`
-- `space`
+<!-- - `union` -->
+
 
 ###### Phantom keywords
 - `true`
