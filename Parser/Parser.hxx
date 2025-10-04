@@ -490,12 +490,17 @@ public:
 
         std::vector<type::TypePtr> types;
 
-        while (not match(R_BRACE)) {
-            auto type = parseType();
-            consume(SEMI);
+        // empty union
+        if (match(R_BRACE)) [[unlikely]] return std::make_shared<expr::Union>(std::move(types));
 
+        types.push_back(parseType());
+
+        while (match("|")) {
+            auto type = parseType();
             types.push_back(type);
         }
+
+        consume(R_BRACE);
 
         return std::make_shared<expr::Union>(std::move(types));
     }
