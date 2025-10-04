@@ -6,6 +6,7 @@
 #include <unistd.h>
 
 
+#include "../Preprocessor/Preprocessor.hxx"
 #include "../Lexer/Lexer.hxx"
 #include "../Parser/Parser.hxx"
 #include "../Interp/Interpreter.hxx"
@@ -65,21 +66,27 @@ struct Capture {
 
 
 std::string run(const char* src) {
-    Capture c{};
 
-    const Tokens v = lex(src);
+    // auto preprocessed_src = preprocess(src);
+    // auto v = lex(std::move(preprocessed_src));
+
+    auto v = lex(src);
 
     if (v.empty()) return "";
 
-    Parser p{v};
+    Parser p{std::move(v), "."};
 
     auto [exprs, ops] = p.parse();
 
+
+    Capture c{};
 
     Visitor visitor{std::move(ops)};
     for (const auto& expr : exprs)
         std::visit(visitor, expr->variant());
 
+
     return c.stop();
+    // return "";
 }
 

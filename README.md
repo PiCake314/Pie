@@ -498,10 +498,12 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - [ ] File IO
 - [ ] Improve error messages (add line and column numbers)
 - [ ] Use Big Int instead of `int32_t`
+- [ ] Add some form of casts (explicit)
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL
 - [ ] Compile to WASM & a web interface
+- [ ] add string escapses (and import escapes too!)
 - [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
 - [ ] Add LLVM backend

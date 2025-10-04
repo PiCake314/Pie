@@ -41,9 +41,9 @@ int main(int argc, char *argv[]) {
 
 
 
-    const auto src = readFile(argv[1]);
+    auto src = readFile(argv[1]);
 
-    const auto processed_src = preprocess(std::move(src), argv[1]);
+    auto processed_src = preprocess(std::move(src), argv[1]);
 
     // std::clog << "PREPROCESSED:\n" << processed_src << std::endl;
 

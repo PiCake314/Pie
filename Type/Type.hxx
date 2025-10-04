@@ -64,6 +64,18 @@ namespace type {
     };
 
 
+    struct UnionType : Type {
+        std::vector<TypePtr> types;
+
+        UnionType(std::vector<TypePtr> ts) noexcept : types{std::move(ts)} {}
+
+        std::string text(const size_t indent = 0) const override;
+
+        bool operator>(const Type& other) const override;
+        bool operator>=(const Type& other) const override;
+    };
+
+
     struct SpaceType : Type {
 
         // SpaceType() = default;

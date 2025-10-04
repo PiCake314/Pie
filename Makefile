@@ -1,12 +1,13 @@
 # Compiler configuration
 
 CC = g++
-CC = g++-14
+# CC = g++-14
 VER = -std=c++23
 OPT = -O3
-ARGS = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough -Wno-missing-braces #-Wnrvo
+WARN = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough -Wno-missing-braces #-Wnrvo
+# FLAGS = -fmodules-ts
 CPP = Type/*.cxx
-# SAN = -fsanitize=address -fsanitize=undefined
+SAN = -fsanitize=address -fsanitize=undefined
 
 ## Library directories
 
@@ -24,11 +25,11 @@ INCLUDE = -I$(MP11_DIR)/include/ -I$(CPP_STD_EXT_DIR)/include/ -I$(BIGINT_DIR)/i
 
 # Main target
 main: checklibs main.cc
-	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) main.cc -o Pie $(SAN)
+	$(CC) $(CPP) $(FLAGS) $(WARN) $(VER) $(INCLUDE) $(OPT) main.cc -o Pie $(SAN)
 
 
 test: checklibs Tests/Test.cc
-	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) && ./run_tests
+	$(CC) $(CPP) $(WARN) $(VER) $(INCLUDE) $(OPT) Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) && ./run_tests
 
 # Check and clone libraries if they don't exist
 checklibs:

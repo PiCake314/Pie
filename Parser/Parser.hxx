@@ -83,10 +83,15 @@ public:
 
             case NAME: return prefixName(std::move(token));
 
-            case CLASS:      return klass();
+            case CLASS: return klass();
+            case UNION: return onion();
+            case MATCH: return match();
+
+
             case NAMESPACE:  return nameSpace();
             case USE:        return std::make_shared<expr::Use>(parseExpr());
 
+            // turned into pre-processor directive
             // case IMPORT: {
             //     std::filesystem::path path = root;
 
@@ -119,8 +124,6 @@ public:
             case EXFIX :
                 return fixOperator(std::move(token));
 
-
-            case MATCH: return match();
 
             // block / scope
             case L_BRACE: {
@@ -477,6 +480,24 @@ public:
         }
 
         return std::make_shared<expr::Class>(std::move(fields));
+    }
+
+
+    expr::ExprPtr onion() {
+        using enum TokenKind;
+
+        consume(L_BRACE);
+
+        std::vector<type::TypePtr> types;
+
+        while (not match(R_BRACE)) {
+            auto type = parseType();
+            consume(SEMI);
+
+            types.push_back(type);
+        }
+
+        return std::make_shared<expr::Union>(std::move(types));
     }
 
     expr::ExprPtr nameSpace() {
