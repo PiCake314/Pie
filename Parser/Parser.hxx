@@ -203,40 +203,7 @@ public:
                 return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT +1)); // right associative
 
 
-            case L_PAREN: {
-                std::unordered_map<std::string, expr::ExprPtr> named_args;
-                std::vector<expr::ExprPtr> args;
-
-                if (not match(R_PAREN)) { // while not closing the paren for the call
-
-                    do if (check(NAME)) {
-                        std::string name = consume().text;
-                        if (match(ASSIGN)) {
-                            if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
-                                error("Named parameter '" + name + "' passed more than once!");
-
-
-                            named_args[std::move(name)] = parseExpr();
-
-                            if (match(ELLIPSIS)) error("Cannot expand pack in named argument!");
-                        }
-                        else {
-                            ----token_iterator; //? back track the consumption of the name..?
-                            red.pop_front();
-                            auto expr = parseExpr();
-                            if (match(ELLIPSIS))
-                                args.emplace_back(std::make_shared<expr::Expansion>(std::move(expr)));
-                            else args.emplace_back(std::move(expr));
-                        }
-                    }
-                    else args.emplace_back(parseExpr()); 
-                    while (match(COMMA));
-
-                    consume(R_PAREN);
-                }
-
-                return std::make_shared<expr::Call>(std::move(left), std::move(named_args), std::move(args));
-            }
+            case L_PAREN: return call(std::move(left));
 
 
             default: error("Couldn't parse \"" + token.text + "\"!!");
@@ -556,6 +523,50 @@ public:
             std::move(params), type::FuncType{std::move(params_types), std::move(return_type)}, std::move(body)
         );
     }
+
+
+    expr::ExprPtr call(expr::ExprPtr left) {
+        using enum TokenKind;
+
+        std::unordered_map<std::string, expr::ExprPtr> named_args;
+        std::vector<expr::ExprPtr> args;
+
+        if (not match(R_PAREN)) { // while not closing the paren for the call
+
+            do if (check(NAME)) {
+                std::string name = consume().text;
+                if (match(ASSIGN)) {
+                    if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
+                        error("Named parameter '" + name + "' passed more than once!");
+
+
+                    named_args[std::move(name)] = parseExpr();
+
+                    if (match(ELLIPSIS)) error("Cannot expand pack in named argument!");
+                }
+                else {
+                    ----token_iterator; //? back track the consumption of the name..?
+                    red.pop_front();
+                    auto expr = parseExpr();
+                    if (match(ELLIPSIS)) {
+                        expr = std::make_shared<expr::Expansion>(std::move(expr));
+                        while(match(ELLIPSIS)) // allows back to back expansions (args... ...);
+                        expr = std::make_shared<expr::Expansion>(std::move(expr));
+
+                        args.emplace_back(std::move(expr));
+                    }
+                    else args.emplace_back(std::move(expr));
+                }
+            }
+            else args.emplace_back(parseExpr()); 
+            while (match(COMMA));
+
+            consume(R_PAREN);
+        }
+
+        return std::make_shared<expr::Call>(std::move(left), std::move(named_args), std::move(args));
+    }
+
 
     expr::ExprPtr prefixName(Token token) {
         using enum TokenKind;

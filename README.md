@@ -494,10 +494,11 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
-- [ ] File IO
 - [ ] Improve error messages (add line and column numbers)
-- [ ] Use Big Int instead of `int32_t`
+- [ ] File IO
 - [ ] Add some form of casts (explicit)
+- [ ] Add Generators
+- [ ] Use Big Int instead of `int32_t`
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
 - [ ] Add REPL

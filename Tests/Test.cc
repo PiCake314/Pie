@@ -9,6 +9,52 @@
 
 
 
+TEST_CASE("nested unions", "[Unions]") {
+    const auto src = R"(
+print = __builtin_print;
+
+Class = class {
+    x: Int = 0;
+    s: String = "";
+};
+
+Num = union { Int | Double };
+Union = union { Num | Class  };
+
+u: Union = 1;
+print(u);
+u: Union = 1.4;
+print(u);
+u = Class(10, "hi");
+print(u);
+WithStr = union { Union | String };
+u: WithStr = "a string";
+print(u);
+
+print(Union);
+)";
+
+    REQUIRE(run(src) == R"(1
+1.400000
+Object {
+    x = 10;
+    s = "hi";
+}
+a string
+union {
+    union {
+        Int;
+        Double;
+    };
+    class {
+        x: Int = 0;
+        s: String = "";
+    };
+})");
+
+}
+
+
 TEST_CASE("operator overloading", "[Type]") {
     const auto src = R"(
 print = __builtin_print;

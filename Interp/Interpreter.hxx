@@ -81,7 +81,6 @@ struct Visitor {
     Value operator()(const expr::Expansion*) { error("Can only have an expansion inside of a function call!"); }
 
 
-
     Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
         const auto& left = std::visit(*this, acc->var->variant());
 
