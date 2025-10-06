@@ -328,7 +328,6 @@ struct Use : Expr {
 struct SpaceAccess : Expr {
     ExprPtr space;
     std::string member;
-    // std::string member;
 
 
     SpaceAccess(ExprPtr s, std::string m) noexcept
@@ -357,7 +356,6 @@ struct Grouping : Expr {
 
 
 struct UnaryOp : Expr {
-    // Token token; // also always name??
     std::string op;
     ExprPtr expr;
 
@@ -375,7 +373,6 @@ struct UnaryOp : Expr {
 
 struct BinOp : Expr {
     ExprPtr lhs;
-    // const TokenKind token; // always name..I think
     std::string op;
     ExprPtr rhs;
 
@@ -392,7 +389,6 @@ struct BinOp : Expr {
 };
 
 struct PostOp : Expr {
-    // Token token; // also always name??
     std::string op;
     ExprPtr expr;
 
@@ -429,13 +425,10 @@ struct OpCall : Expr {
     std::vector<std::string> rest;
     std::vector<ExprPtr> exprs;
     std::vector<bool> op_pos;
-    // bool begin_expr;
-    // bool end_expr;
 
     OpCall(
         std::string f, std::vector<std::string> ops, std::vector<ExprPtr> ex,
         std::vector<bool> pos
-        // const bool begin, const bool end
     ) noexcept
     :
     first{std::move(f)}, rest{std::move(ops)}, exprs{std::move(ex)}, op_pos{std::move(pos)}
@@ -443,9 +436,6 @@ struct OpCall : Expr {
 
 
     std::string stringify(const size_t indent = 0) const override {
-        // std::string s = op_pos[0] ? first : exprs[0]->stringify(indent) + ' ' + first;
-
-        // std::println(std::cerr, "{}, {}", first, rest);
 
         std::string s;
         for (ssize_t op = -1, i{}; const auto& field : op_pos) {
@@ -568,10 +558,6 @@ struct Block : Expr {
 
 // defintions of operators. Usage is BinOp or UnaryOp
 struct Fix : Expr {
-    // these two are literally what a token is...
-    // std::string name;
-    // TokenKind prec;
-
     std::string name;
     Token high;
     Token low;
@@ -584,9 +570,6 @@ struct Fix : Expr {
     Fix(std::string n, Token up, Token down, const int s, std::vector<ExprPtr> cs)
     : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, funcs{std::move(cs)} {}
 
-
-    // Fix(std::string n, Token up, Token down, const int s, ExprPtr c)
-    // : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, func{std::move(c)} {}
 
 
     virtual std::unique_ptr<Fix> clone() const = 0;

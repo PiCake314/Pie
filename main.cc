@@ -30,39 +30,42 @@ int main(int argc, char *argv[]) {
 
     bool print_tokens{};
     bool print_parsed{};
+    bool print_preprocessed{};
     bool run = true;
 
     // this would leave file name at argv[1]
     for(; argc > 2; --argc, ++argv) {
-        if (argv[1] == "-t"sv) print_tokens = true;
-        if (argv[1] == "-p"sv) print_parsed = true;
-        if (argv[1] == "-n"sv) run          = false;
+        if (argv[1] == "-token"sv) print_tokens       = true ;
+        if (argv[1] == "-ast"sv)   print_parsed       = true ;
+        if (argv[1] == "-pre"sv)   print_preprocessed = true;
+        if (argv[1] == "-run"sv)   run                = false;
     }
 
 
+    auto src = readFile(argv[1]);
 
-    const auto src = readFile(argv[1]);
+    auto processed_src = preprocess(std::move(src), argv[1]);
 
-    const auto processed_src = preprocess(std::move(src), argv[1]);
+    if (print_preprocessed)
+        std::println(std::clog, "{}", processed_src);
 
-    // std::clog << "PREPROCESSED:\n" << processed_src << std::endl;
-
-    const Tokens v = lex(std::move(processed_src));
+    Tokens v = lex(std::move(processed_src));
+    if (print_tokens) std::println(std::clog, "{}", v);
 
     if (v.empty()) return 0;
 
-    Parser p{v, argv[1]};
-    if (print_tokens) std::println("{}", v);
+    Parser p{std::move(v), argv[1]};
+
 
     auto [exprs, ops] = p.parse();
 
 
     if (print_parsed) {
         for(const auto& expr : exprs)
-            std::println("{};", expr->stringify(0));
+            std::println(std::clog, "{};", expr->stringify(0));
 
-        if(run) puts("Output:\n");
     }
+    if(run and (print_parsed or print_preprocessed or print_tokens)) puts("Output:\n");
 
     if (run) {
         Visitor visitor{std::move(ops)};

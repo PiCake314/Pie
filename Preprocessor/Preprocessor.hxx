@@ -34,7 +34,28 @@ size_t findSpace(const std::string& src, size_t ind) {
 }
 
 
-std::string preprocess(std::string src, const std::filesystem::path& root) {
+void removeAllBetween(std::string& s, const std::string_view begin, const std::string_view end) {
+    for (size_t ind = s.find(begin); ind != std::string::npos; ind = s.find(begin)) {
+        const size_t end_ind = s.find(end, ind); // look for end starting from index "ind"
+        s.erase(ind, end_ind - ind);
+    }
+}
+
+
+std::string removeComments(std::string src) {
+
+    // removing block comments
+    // doing that first so that we don't confuse ".:" with ".::"
+    removeAllBetween(src, ".::", "::.");
+
+    removeAllBetween(src, ".:", "\n");
+
+    return src;
+}
+
+std::string preprocess(std::string src, const std::filesystem::path& root = ".");
+
+std::string process(std::string src, const std::filesystem::path& root) {
     static std::unordered_set<std::string> cache;
 
     auto canonical = std::filesystem::canonical(root);
@@ -73,4 +94,9 @@ std::string preprocess(std::string src, const std::filesystem::path& root) {
     }
 
     return src;
+}
+
+
+std::string preprocess(std::string src, const std::filesystem::path& root) {
+    return process(removeComments(std::move(src)), root);
 }
