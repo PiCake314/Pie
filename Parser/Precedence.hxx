@@ -17,15 +17,15 @@ namespace prec {
   inline constexpr auto CALL_VALUE        = 9'000;
   inline constexpr auto HIGH_VALUE        = 10'000;
 
-  inline constexpr auto PR_LOW =        "LOW";
+  inline constexpr auto PR_LOW        = "LOW";
   inline constexpr auto PR_ASSIGNMENT = "ASSIGNMENT";
-  inline constexpr auto PR_INFIX =      "INFIX";
-  inline constexpr auto PR_SUM =        "SUM";
-  inline constexpr auto PR_PROD =       "PROD";
-  inline constexpr auto PR_PREFIX =     "PREFIX";
-  inline constexpr auto PR_POSTFIX =    "POSTFIX";
-  inline constexpr auto PR_CALL =       "CALL";
-  inline constexpr auto PR_HIGH =       "HIGH";
+  inline constexpr auto PR_INFIX      = "INFIX";
+  inline constexpr auto PR_SUM        = "SUM";
+  inline constexpr auto PR_PROD       = "PROD";
+  inline constexpr auto PR_PREFIX     = "PREFIX";
+  inline constexpr auto PR_POSTFIX    = "POSTFIX";
+  inline constexpr auto PR_CALL       = "CALL";
+  inline constexpr auto PR_HIGH       = "HIGH";
 
 
   inline int precedenceOf(const std::string& p, const Operators& ops) noexcept {
