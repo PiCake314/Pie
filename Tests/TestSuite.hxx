@@ -7,6 +7,7 @@
 
 
 #include "../Lexer/Lexer.hxx"
+#include "../Preprocessor/Preprocessor.hxx"
 #include "../Parser/Parser.hxx"
 #include "../Interp/Interpreter.hxx"
 
@@ -65,16 +66,20 @@ struct Capture {
 
 
 std::string run(const char* src) {
-    Capture c{};
 
-    const Tokens v = lex(src);
+    // auto processed_src = preprocess(src, ".");
+    // Tokens v = lex(std::move(processed_src));
+
+    Tokens v = lex(src);
 
     if (v.empty()) return "";
 
-    Parser p{v};
+    Parser p{std::move(v), "."};
 
     auto [exprs, ops] = p.parse();
 
+
+    Capture c{};
 
     Visitor visitor{std::move(ops)};
     for (const auto& expr : exprs)

@@ -491,15 +491,14 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
-- [ ] Add unions
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
 - [ ] File IO
-- [ ] Improve error messages (add line and column numbers)
 - [ ] Use Big Int instead of `int32_t`
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
 - [ ] World domination
+- [ ] Improve error messages (add line and column numbers)
 - [ ] Add REPL
 - [ ] Compile to WASM & a web interface
 - [ ] Remove depedency on stdx and boost
@@ -509,6 +508,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] Add unions
 - [x] Add `use` directive
 - [x] Add an import system (modules)
 - [x] Added global namespace access syntax

@@ -10,6 +10,7 @@ enum class TokenKind {
     // NONE = 0,
     ASSIGN,
     FAT_ARROW,
+
     COMMA,
     DOT,
     CASCADE, // for future support
@@ -40,18 +41,6 @@ enum class TokenKind {
     NAMESPACE,
     USE,
 
-// PRECEDENCE
-    PR_LOW,
-    PR_ASSIGNMENT,
-    PR_SUM,
-    PR_PROD,
-    PR_INFIX,
-    PR_PREFIX,
-    PR_POSTFIX,
-    // PR_CIRCUMFIX,
-    PR_CALL,
-    PR_HIGH,
-
     SEMI,
     COLON,
 
@@ -63,7 +52,6 @@ constexpr const char* stringify(const TokenKind token) noexcept {
     switch (token) {
         using enum TokenKind;
         case NAME:          return "NAME";
-        case ASSIGN:        return "ASSIGN";
         case INT:           return "INT";
         case FLOAT:         return "FLOAT";
         case BOOL:          return "BOOL";
@@ -81,6 +69,9 @@ constexpr const char* stringify(const TokenKind token) noexcept {
         case DOT:           return "DOT";
         case SEMI:          return "SEMI";
         case COLON:         return "COLON";
+
+        // should make them weak keywords
+        case ASSIGN:        return "ASSIGN";
         case FAT_ARROW:     return "FAT_ARROW";
 
         // keywords
@@ -97,16 +88,17 @@ constexpr const char* stringify(const TokenKind token) noexcept {
         case NAMESPACE:     return "NAMESPACE";
         case USE:           return "USE";
 
-        // should probs prefix the strings with PR_ but maybe it's fine for now
-        case PR_LOW:        return "LOW"; 
-        case PR_ASSIGNMENT: return "ASSIGNMENT"; 
-        case PR_INFIX:      return "PR_INFIX"; 
-        case PR_SUM:        return "SUM"; 
-        case PR_PROD:       return "PROD"; 
-        case PR_PREFIX:     return "PR_PREFIX"; 
-        case PR_POSTFIX:    return "PR_POSTFIX"; 
-        case PR_CALL:       return "CALL"; 
-        case PR_HIGH:       return "HIGH"; 
+
+        // 
+        // case PR_LOW:        return "PR_LOW";
+        // case PR_ASSIGNMENT: return "PR_ASSIGNMENT";
+        // case PR_INFIX:      return "PR_INFIX";
+        // case PR_SUM:        return "PR_SUM";
+        // case PR_PROD:       return "PR_PROD";
+        // case PR_PREFIX:     return "PR_PREFIX";
+        // case PR_POSTFIX:    return "PR_POSTFIX";
+        // case PR_CALL:       return "PR_CALL";
+        // case PR_HIGH:       return "PR_HIGH";
     }
 
     return "<UNNAMED>";

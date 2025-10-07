@@ -10,7 +10,19 @@
 #include <ranges>
 
 
-[[nodiscard]] inline std::string readFile(const std::string& fname);
+[[nodiscard]] inline std::string readFile2(const std::string& fname) {
+    const std::ifstream fin{fname};
+
+    if (not fin.is_open()) {
+        std::println(std::cerr, "{}", "File \"" + fname + " \"not found!");
+        exit(1);
+    }
+
+    std::stringstream ss;
+    ss << fin.rdbuf();
+
+    return ss.str();
+}
 
 
 bool findAndRemoveImport(std::string& src, size_t& index) {
@@ -86,7 +98,7 @@ std::string process(std::string src, const std::filesystem::path& root) {
         auto path = std::filesystem::canonical(filename);
         // auto path = std::filesystem::absolute(filename);
 
-        auto module = readFile(path);
+        auto module = readFile2(path);
 
         module = preprocess(std::move(module), std::move(path));
 

@@ -559,15 +559,18 @@ struct Block : Expr {
 // defintions of operators. Usage is BinOp or UnaryOp
 struct Fix : Expr {
     std::string name;
-    Token high;
-    Token low;
+
+    // precedence level:
+    std::string high; 
+    std::string low; 
+
     int shift; // needed for printing
 
     std::vector<ExprPtr> funcs;
     // ExprPtr func;
 
 
-    Fix(std::string n, Token up, Token down, const int s, std::vector<ExprPtr> cs)
+    Fix(std::string n, std::string up, std::string down, const int s, std::vector<ExprPtr> cs)
     : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, funcs{std::move(cs)} {}
 
 
@@ -584,21 +587,18 @@ struct Prefix : Fix {
     using Fix::Fix;
 
     std::string stringify(const size_t indent = 0) const override {
-        const auto [c, token] = [this] -> std::pair<char, Token> {
+        const auto [c, token] = [this] -> std::pair<char, std::string> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
-            return {'\0', high}; // it doesn't matter. high == low
+            return {'\0', high}; // or low. it doesn't matter since high == low
         }();
 
-        const std::string shifts(size_t(std::abs(shift)), c);
+        // const std::string shifts(size_t(std::abs(shift)), c);
+        std::string shifts;
+        if (shift) shifts.append(" ").push_back(c);
 
 
-        std::string s;
-
-        // for (const auto& func : funcs)
-        s += "prefix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
-
-        return s;
+        return "prefix(" + token + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
 
@@ -612,20 +612,18 @@ struct Infix : Fix {
     using Fix::Fix;
 
     std::string stringify(const size_t indent = 0) const override {
-        const auto [c, token] = [this] -> std::pair<char, Token> {
+        const auto [c, token] = [this] -> std::pair<char, std::string> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
             return {'\0', high}; // it doesn't matter. high == low
         }();
 
-        const std::string shifts(size_t(std::abs(shift)), c);
+        // const std::string shifts(size_t(std::abs(shift)), c);
+        std::string shifts;
+        if (shift) shifts.append(" ").push_back(c);
 
 
-        std::string s;
-        // for (const auto& func : funcs)
-        s += "infix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
-
-        return s;
+        return "infix(" + token + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
 
@@ -639,22 +637,18 @@ struct Suffix : Fix {
     using Fix::Fix;
 
     std::string stringify(const size_t indent = 0) const override {
-        const auto [c, token] = [this] -> std::pair<char, Token> {
+        const auto [c, token] = [this] -> std::pair<char, std::string> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
             return {'\0', high}; // it doesn't matter. high == low
         }();
 
-        const std::string shifts(size_t(std::abs(shift)), c);
+        // const std::string shifts(size_t(std::abs(shift)), c);
+        std::string shifts;
+        if (shift) shifts.append(" ").push_back(c);
 
-        //! FIX THIS
 
-        std::string s;
-
-        // for (const auto& func : funcs)
-        s += "suffix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
-
-        return s;
+        return "suffix(" + token + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
 
@@ -666,25 +660,22 @@ struct Suffix : Fix {
 
 struct Exfix : Fix {
     std::string name2;
-    Exfix(std::string n1, std::string n2, Token up, Token down, const int s, std::vector<ExprPtr> cs)
+    Exfix(std::string n1, std::string n2, std::string up, std::string down, const int s, std::vector<ExprPtr> cs)
     : Fix{std::move(n1), std::move(up), std::move(down), s, std::move(cs)}, name2{std::move(n2)} {}
 
     std::string stringify(const size_t indent = 0) const override {
-        const auto [c, token] = [this] -> std::pair<char, Token> {
+        const auto [c, token] = [this] -> std::pair<char, std::string> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
             return {'\0', high}; // it doesn't matter. high == low
         }();
 
-        const std::string shifts(size_t(std::abs(shift)), c);
+        // const std::string shifts(size_t(std::abs(shift)), c);
+        std::string shifts;
+        if (shift) shifts.append(" ").push_back(c);
 
-        std::string s;
 
-        // for (const auto& func : funcs)
-        s += "exfix(" + token.text + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
-
-        return s;
-
+        return "exfix(" + token + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
     }
 
 
@@ -698,14 +689,11 @@ struct Exfix : Fix {
 struct Operator : Fix {
     std::vector<std::string> rest;
     std::vector<bool> op_pos;
-    // bool begin_expr;
-    // bool end_expr;
 
     Operator(
         std::string first, std::vector<std::string> rst, std::vector<bool> pos,
-        Token up, Token down,
+        std::string up, std::string down,
         const int s,
-        // const bool begin, const bool end,
         std::vector<ExprPtr> cs
     )
     : Fix{
@@ -723,27 +711,18 @@ struct Operator : Fix {
 
 
     std::string stringify(const size_t indent = 0) const override {
-        const auto [c, token] = [this] -> std::pair<char, Token> {
+        const auto [c, token] = [this] -> std::pair<char, std::string> {
             if (shift < 0) return {'-', high};
             if (shift > 0) return {'+', low};
             return {'\0', high}; // it doesn't matter. high == low
         }();
 
-        const std::string shifts(size_t(std::abs(shift)), c);
+        // const std::string shifts(size_t(std::abs(shift)), c);
+        std::string shifts;
+        if (shift) shifts.append(" ").push_back(c);
 
 
-        // const std::string& op_name = (begin_expr ? ':' : '\0')
-        //     + name
-        //     + std::accumulate(rest.cbegin(), rest.cend(), std::string{}, [](auto&& acc, auto&& e) { return acc + ':' + e; })
-        //     + (end_expr ? ':' : '\0');
-
-
-        std::string s;
-
-        // for (const auto& func : funcs)
-        s += "operator(" + token.text + shifts + ") " + OpName() + " = " + funcs[0]->stringify(indent);
-
-        return s;
+        return "operator(" + token + shifts + ") " + OpName() + " = " + funcs[0]->stringify(indent);
     }
 
 

@@ -59,7 +59,7 @@ public:
         return {expressions, std::move(ops)};
     }
 
-    expr::ExprPtr parseExpr(const size_t precedence = 0) {
+    expr::ExprPtr parseExpr(const int precedence = 0) {
 
         expr::ExprPtr left = prefix(consume());
 
@@ -105,7 +105,7 @@ public:
             case COLON: {
                 consume(COLON);
 
-                auto right = parseExpr(prec::HIGH);
+                auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
@@ -178,7 +178,7 @@ public:
             case NAME: return infixName(std::move(left), std::move(token));
 
             case DOT: {
-                auto accessee = parseExpr(prec::HIGH);
+                auto accessee = parseExpr(prec::HIGH_VALUE);
 
                 //* maybe this could change and i can allow object.1 + 2. :). Just a thought
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
@@ -189,7 +189,7 @@ public:
 
             case COLON: {
                 consume(COLON); // 'in other words "eat shit"' ~Shaw
-                auto right = parseExpr(prec::HIGH);
+                auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
@@ -197,7 +197,7 @@ public:
             }
 
             case ASSIGN: 
-                return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT +1)); // right associative
+                return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT_VALUE +1)); // right associative
 
 
             case L_PAREN: {
@@ -278,7 +278,7 @@ public:
             if (match("Type"  )) return type::builtins::Type();
         }
         // or an expression
-        return std::make_shared<type::ExprType>(parseExpr(prec::ASSIGNMENT));
+        return std::make_shared<type::ExprType>(parseExpr(prec::ASSIGNMENT_VALUE));
         // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
 
         // log();
@@ -335,16 +335,16 @@ public:
     [[nodiscard]] bool check(const TokenKind exp, const size_t i = {})        { return lookAhead(i).kind == exp; }
     [[nodiscard]] bool check(const std::string_view exp, const size_t i = {}) { return lookAhead(i).text == exp; }
 
-    [[nodiscard]] size_t getPrecedence() {
+    [[nodiscard]] int getPrecedence() {
 
         const Token& token = lookAhead();
         switch (token.kind) {
             using enum TokenKind;
 
-            case ASSIGN: return prec::ASSIGNMENT;
+            case ASSIGN: return prec::ASSIGNMENT_VALUE;
 
             case COLON : // namespaces
-            case DOT   : return prec::HIGH;
+            case DOT   : return prec::HIGH_VALUE;
 
             case NAME: {
                 // Probably in the middle of a mixfix() that takes 2 colons ': :' or more (2 expression arguments back to back)
@@ -365,7 +365,7 @@ public:
                 return  prec;
             }
 
-            case L_PAREN: return prec::CALL;
+            case L_PAREN: return prec::CALL_VALUE;
 
 
             default: return 0;
@@ -659,12 +659,11 @@ public:
 
 
         consume(L_PAREN);
-        Token low = consume();
+        std::string low = consume().text;
 
         const int shift = parseOperatorShift();
 
-        // non-const so it's movable later
-        Token high = [shift, &low, this] {
+        std::string high = [shift, &low, this] {
             if (shift > 0) return prec::higher(low, ops);
             if (shift < 0) return std::exchange(low, prec::lower(low, ops));
             return low;
@@ -672,12 +671,13 @@ public:
 
         consume(R_PAREN);
 
-        const std::string& name = consume(NAME).text;
+        std::string name = consume(NAME).text;
 
 
         // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
-        if (high.kind == low.kind and (prec::fromToken(high, ops) == prec::HIGH or prec::fromToken(low, ops) == prec::LOW))
+        if (high == low and (prec::precedenceOf(high, ops) == prec::HIGH_VALUE or prec::precedenceOf(low, ops) == prec::LOW_VALUE))
             error("Can't have set operator precedence to only LOW/HIGH: " + name);
+
 
         consume(ASSIGN);
 
@@ -756,10 +756,8 @@ public:
         if (c->params.size() != 1) error("Exfix operator must be assigned to a unary closure!");
 
 
-
-        const Token low_prec{PR_LOW, "LOW"}; // grouping doesn't have precedence
         std::shared_ptr<expr::Fix> p = std::make_shared<expr::Exfix>(
-            name1, name2, low_prec, low_prec, 0, std::vector<expr::ExprPtr>{std::move(func)}
+            name1, name2, prec::PR_LOW, prec::PR_LOW, 0, std::vector<expr::ExprPtr>{std::move(func)}
         );
 
 
@@ -793,12 +791,12 @@ public:
         using enum TokenKind;
 
         consume(L_PAREN);
-        Token low = consume();
+        std::string low = consume().text;
 
         const int shift = parseOperatorShift();
 
         // non-const so it's movable later
-        Token high = [shift, &low, this] {
+        auto high = [shift, &low, this] {
             if (shift > 0) return prec::higher(low, ops);
             if (shift < 0) return std::exchange(low, prec::lower(low, ops));
             return low;
@@ -894,21 +892,21 @@ public:
 
     int parseOperatorShift() {
         if (check(TokenKind::NAME)) {
-            const Token& shift_token = consume();
+            const auto shift_token = consume(TokenKind::NAME).text;
             // assert(shift_token.text.length() <= 1);
 
-            if (shift_token.text.length() == 1){
-                if (shift_token.text[0] != '+' and shift_token.text[0] != '-')
-                    error("can only have '+' or '-' after precedene!");
+            if (shift_token.length() == 1){
+                if (shift_token[0] != '+' and shift_token[0] != '-')
+                    error("Can only have '+' or '-' after precedene!");
                 // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
 
-                return shift_token.text[0] == '+' ? 1 : -1;
+                return shift_token[0] == '+' ? 1 : -1;
             }
-            else if (shift_token.text.length() > 1) {
-                if (shift_token.text[0] == '+' or shift_token.text[0] == '-')
+            else if (shift_token.length() > 1) {
+                if (shift_token[0] == '+' or shift_token[0] == '-')
                     error("Can only have one +/- after a precedence level");
                 else
-                    error("can only have '+' or '-' after precedene!");
+                    error("Can only have '+' or '-' after precedene!");
             }
         }
 
