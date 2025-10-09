@@ -81,7 +81,6 @@ struct Visitor {
     Value operator()(const expr::Expansion*) { error("Can only have an expansion inside of a function call!"); }
 
 
-
     Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
         const auto& left = std::visit(*this, acc->var->variant());
 
@@ -170,18 +169,26 @@ struct Visitor {
             bool change{};
 
             // variable already exists. Check that type matches the rhs type
-            if (const auto& var = getVar(name->name); var) {
+            if (const auto& var = getVar(name->name); var and type::shouldReassign(name->type)) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
-                if (type::shouldReassign(name->type)) { // condition not conjuncted with above "if" intentionally
-                    type = var->second;
-                    change = true;
-                }
+                type = var->second;
+                change = true;
             }
             else { // New var
-                type = type::shouldReassign(type) ? type::builtins::Any() : validateType(std::move(type));
+                if (type::shouldReassign(type)) {
+                    type = type::builtins::Any();
+                }
+                else {
+                    type = validateType(std::move(type));
+   
+                   if (const auto& c = getVar(type->text()); c) {
+                       if (std::holds_alternative<ClassValue>(c->first))
+                           type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
-                if (const auto& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                       if (std::holds_alternative<expr::Union>(c->first))
+                           type = std::make_shared<type::UnionType>(get<expr::Union>(c->first).types);
+                   }
+                }
             }
 
 
@@ -276,6 +283,16 @@ struct Visitor {
         }
 
         return ClassValue{std::make_shared<Dict>(std::move(members))};
+    }
+
+
+    Value operator()(const expr::Union *uni) {
+        expr::Union unio = *uni;
+
+        for (auto& type : unio.types)
+            type = validateType(type);
+
+        return unio;
     }
 
 
@@ -406,7 +423,8 @@ struct Visitor {
 
     bool match(const Value& value, const expr::Match::Case::Pattern& pattern) {
         if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
-            const auto& [name, type, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
+            const auto& [name, typ, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
+            const auto type = validateType(typ);
 
             if (not (*type >= *typeOf(value))) return false;
 
@@ -1761,7 +1779,12 @@ struct Visitor {
         if (const auto& var = getVar(type->text()); var) {
             if (typeOf(var->first)->text() != "Type") error("'" + stringify(var->first) + "' does not name a type!");
 
-            return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(var->first)));
+            // todo: I could prolly just "return type"
+            if (std::holds_alternative<ClassValue>(var->first))
+                return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(var->first)));
+
+            if (std::holds_alternative<expr::Union>(var->first))
+                return std::make_shared<type::UnionType>(get<expr::Union>(var->first).types);
         }
 
         if (const auto var_type = dynamic_cast<type::ExprType*>(type.get())) {
@@ -1769,8 +1792,12 @@ struct Visitor {
 
             const auto& value = std::visit(*this, var_type->t->variant()); // evaluate type expression
 
+            // todo: I could prolly just "return type"
             if (std::holds_alternative<ClassValue>(value))
-                return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(std::get<ClassValue>(value)));
+                return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(value)));
+
+            if (std::holds_alternative<expr::Union>(value))
+                return std::make_shared<type::UnionType>(get<expr::Union>(value).types);
         }
 
         else if (dynamic_cast<type::LiteralType*>(type.get())) return type;
@@ -1804,7 +1831,10 @@ struct Visitor {
         if (std::holds_alternative<double     > (value)) return type::builtins::Double();
         if (std::holds_alternative<bool       > (value)) return type::builtins::Bool();
         if (std::holds_alternative<std::string> (value)) return type::builtins::String();
+
+        // Type types
         if (std::holds_alternative<ClassValue > (value)) return type::builtins::Type();
+        if (std::holds_alternative<expr::Union> (value)) return type::builtins::Type();
 
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& func = get<expr::Closure>(value);
@@ -1926,6 +1956,5 @@ private:
             std::println("{}: {} = {}", name, type->text(), stringify(value));
         }
     }
-
 };
 

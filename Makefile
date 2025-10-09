@@ -1,12 +1,12 @@
 # Compiler configuration
 
 CC = g++
-CC = g++-14
+# CC = g++-14
 VER = -std=c++23
 OPT = -O3
 ARGS = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough -Wno-missing-braces #-Wnrvo
 CPP = Type/*.cxx
-# SAN = -fsanitize=address -fsanitize=undefined
+SAN = -fsanitize=address -fsanitize=undefined
 
 ## Library directories
 
@@ -17,10 +17,9 @@ CPP_STD_EXT_DIR = $(REMOTE_INCLUDE_DIR)/cpp-std-extensions
 
 # Saved locally
 LOCAL_INCLUDE_DIR = includes
-BIGINT_DIR = $(LOCAL_INCLUDE_DIR)/BigInt
 
 # Include paths
-INCLUDE = -I$(MP11_DIR)/include/ -I$(CPP_STD_EXT_DIR)/include/ -I$(BIGINT_DIR)/include/
+INCLUDE = -I$(MP11_DIR)/include/ -I$(CPP_STD_EXT_DIR)/include/
 
 # Main target
 main: checklibs main.cc

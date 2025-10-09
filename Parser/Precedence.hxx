@@ -1,21 +1,34 @@
 #pragma once
 
 #include "../Utils/utils.hxx"
-#include "../Expr/expr.hxx"
+#include "../Expr/Expr.hxx"
 
 #include <numeric>
 
 
 namespace prec {
-  inline constexpr auto LOW_VALUE         = 0;
-  inline constexpr auto ASSIGNMENT_VALUE  = 1'000;
-  inline constexpr auto INFIX_VALUE       = 2'000;
-  inline constexpr auto SUM_VALUE         = 5'000;
-  inline constexpr auto PROD_VALUE        = 6'000;
-  inline constexpr auto PREFIX_VALUE      = 7'000;
-  inline constexpr auto POSTFIX_VALUE     = 8'000;
-  inline constexpr auto CALL_VALUE        = 9'000;
-  inline constexpr auto HIGH_VALUE        = 10'000;
+  inline constexpr auto BASE = 1 << 10;
+
+  inline constexpr auto LOW_VALUE                = 0;
+  inline constexpr auto COMMA_VALUE              = BASE * 1;
+  inline constexpr auto ASSIGNMENT_VALUE         = BASE * 2;
+  inline constexpr auto OR_VALUE                 = BASE * 3;
+  inline constexpr auto AND_VALUE                = BASE * 4;
+  inline constexpr auto BITOR_VALUE              = BASE * 5;
+  inline constexpr auto BITXOR_VALUE             = BASE * 6;
+  inline constexpr auto BITAND_VALUE             = BASE * 7;
+  inline constexpr auto EQ_VALUE                 = BASE * 8;
+  inline constexpr auto CMP_VALUE                = BASE * 9;
+  inline constexpr auto SPACESHIP_VALUE          = BASE * 10;
+  inline constexpr auto SHIFT_VALUE              = BASE * 11;
+  inline constexpr auto SUM_VALUE                = BASE * 12;
+  inline constexpr auto PROD_VALUE               = BASE * 13;
+  inline constexpr auto PREFIX_VALUE             = BASE * 14;
+  inline constexpr auto SUFFIX_VALUE             = BASE * 15;
+  inline constexpr auto CALL_VALUE               = BASE * 16;
+  inline constexpr auto SCOPE_RESOLUTION_VALUE   = BASE * 17;
+  inline constexpr auto HIGH_VALUE               = BASE * 18;
+
 
   inline constexpr auto PR_LOW        = "LOW";
   inline constexpr auto PR_ASSIGNMENT = "ASSIGNMENT";
@@ -27,17 +40,60 @@ namespace prec {
   inline constexpr auto PR_CALL       = "CALL";
   inline constexpr auto PR_HIGH       = "HIGH";
 
-
   inline int precedenceOf(const std::string& p, const Operators& ops) noexcept {
-    if (p == "LOW")        return LOW_VALUE;
-    if (p == "ASSIGNMENT") return ASSIGNMENT_VALUE;
-    if (p == "INFIX")      return INFIX_VALUE;
-    if (p == "SUM")        return SUM_VALUE;
-    if (p == "PROD")       return PROD_VALUE;
-    if (p == "PREFIX")     return PREFIX_VALUE;
-    if (p == "POSTFIX")    return POSTFIX_VALUE;
-    if (p == "CALL")       return CALL_VALUE;
-    if (p == "HIGH")       return HIGH_VALUE;
+    if (p == "LOW")
+      return LOW_VALUE;
+
+    if (p == "=")
+      return ASSIGNMENT_VALUE;
+
+    if (p == "||")
+      return OR_VALUE;
+
+    if (p == "&&")
+      return AND_VALUE;
+
+    if (p == "|")
+      return BITOR_VALUE;
+
+    if (p == "^")
+      return BITXOR_VALUE;
+
+    if (p == "&")
+      return BITAND_VALUE;
+
+    if (p == "!=" or p == "==")
+      return EQ_VALUE;
+
+    if (p == ">" or p == ">=" or p == "<" or p == "<=")
+      return CMP_VALUE;
+
+    if (p == "<=>")
+      return SPACESHIP_VALUE;
+
+    if (p == "<<" or p == ">>")
+      return SHIFT_VALUE;
+
+    if (p == "+" or p == "-")
+      return SUM_VALUE;
+
+    if (p == "*" or p == "/" or p == "%")
+      return PROD_VALUE;
+
+    if (p == "!" or p == "~")
+      return PREFIX_VALUE;
+
+    if (p == "[]")
+      return SUFFIX_VALUE;
+
+    if (p == "()")
+      return CALL_VALUE;
+
+    if (p == "::")
+      return SCOPE_RESOLUTION_VALUE;
+
+    if (p == "HIGH")
+      return HIGH_VALUE;
 
     if (not ops.contains(p)) error('\'' + p + "' does not name any operator name or precedende level!");
 
@@ -49,16 +105,26 @@ namespace prec {
     return std::midpoint(precedenceOf(high, ops), precedenceOf(low, ops));
   }
 
+
   inline std::string higher(const std::string& p, const Operators& ops) noexcept {
-    if (p == "LOW")        return "ASSIGNMENT";
-    if (p == "ASSIGNMENT") return "INFIX";
-    if (p == "INFIX")      return "SUM";
-    if (p == "SUM")        return "PROD";
-    if (p == "PROD")       return "PREFIX";
-    if (p == "PREFIX")     return "POSTFIX";
-    if (p == "POSTFIX")    return "CALL";
-    if (p == "CALL")       return "HIGH";
-    if (p == "HIGH")       error("Can't go higher than HIGH!");
+    if (p == "LOW")                                     return "=";
+    if (p == "=")                                       return "||";
+    if (p == "||")                                      return "&&";
+    if (p == "&&")                                      return "|";
+    if (p == "|")                                       return "^";
+    if (p == "^")                                       return "&";
+    if (p == "&")                                       return "==";
+    if (p == "!=" or p == "==")                         return "<=";
+    if (p == ">" or p == ">=" or p == "<" or p == "<=") return "<=>";
+    if (p == "<=>")                                     return ">>";
+    if (p == "<<" or p == ">>")                         return "-";
+    if (p == "+" or p == "-")                           return "%";
+    if (p == "*" or p == "/" or p == "%")               return "~";
+    if (p == "!" or p == "~")                           return "[]";
+    if (p == "[]")                                      return "()";
+    if (p == "()")                                      return "::";
+    if (p == "::")                                      return "HIGH";
+    if (p == "HIGH") error("Can't go higher than HIGH!");
 
     // should I assume it already contains?
     if (not ops.contains(p)) error('\'' + p + "' not name any precedende level or operator!");
@@ -68,19 +134,28 @@ namespace prec {
   }
 
   inline std::string lower(const std::string& p, const Operators& ops) noexcept {
-    if (p == "LOW")        error("Can't go lower than LOW!");
-    if (p == "ASSIGNMENT") return "LOW";
-    if (p == "INFIX")      return "ASSIGNMENT";
-    if (p == "SUM")        return "INFIX";
-    if (p == "PROD")       return "SUM";
-    if (p == "PREFIX")     return "PROD";
-    if (p == "POSTFIX")    return "PREFIX";
-    if (p == "CALL")       return "POSTFIX";
-    if (p == "HIGH")       return "CALL";
+    if (p == "LOW") error("Can't go lower than LOW!");
+    if (p == "=")                                       return "LOW";
+    if (p == "||")                                      return "=";
+    if (p == "&&")                                      return "||";
+    if (p == "|")                                       return "&&";
+    if (p == "^")                                       return "|";
+    if (p == "&")                                       return "^";
+    if (p == "!=" or p == "==")                         return "&";
+    if (p == ">" or p == ">=" or p == "<" or p == "<=") return "==";
+    if (p == "<=>")                                     return "<=";
+    if (p == "<<" or p == ">>")                         return "<=>";
+    if (p == "+" or p == "-")                           return ">>";
+    if (p == "*" or p == "/" or p == "%")               return "-";
+    if (p == "!" or p == "~")                           return "%";
+    if (p == "[]")                                      return "~";
+    if (p == "()")                                      return "[]";
+    if (p == "::")                                      return "()";
+    if (p == "HIGH")                                    return "::";
 
-    // should I assume it already contains?
+
+    //? should I assume it already contains?
     if (not ops.contains(p)) error('\'' + p + "' not name any precedende level or operator!");
-
     const auto& op = ops.at(p);
     return op->high == op->low ? lower(op->high /*or op->high*/, ops) : op->low;
   }

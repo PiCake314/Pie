@@ -8,7 +8,6 @@
 namespace type {
 
     std::string ExprType::text(const size_t indent) const {
-        // return t.empty() ? "Any" : t;
         const auto& type = t->stringify(indent);
         return type.empty() ? "Any" : type;
     }
@@ -32,9 +31,6 @@ namespace type {
     std::string BuiltinType::text(const size_t) const { return t; }
 
     std::string LiteralType::text(const size_t indent) const {
-        // const auto& type = stringify(*cls, indent);
-        // return type.empty() ? "Any" : type;
-
         return stringify(*cls, indent);
     }
 
@@ -56,6 +52,30 @@ namespace type {
         return type == "Syntax" or type == "Any" or type == other.text();
     }
 
+
+    std::string UnionType::text(const size_t indent) const {
+        std::string s = "union {\n";
+
+        std::string space(indent + 4, ' ');
+        for (const auto& t : types)
+            s += space + t->text(indent + 4) + ";\n";
+
+
+        return s + std::string(indent, ' ') + "}";
+    }
+
+    bool UnionType::operator> (const Type& other) const {
+        // for (const auto& type : types)
+        //     if (*type > other) return true;
+
+        // return false;
+
+        return std::ranges::any_of(types, [&other](const auto& type) { return *type > other; });
+    };
+
+    bool UnionType::operator>=(const Type& other) const {
+        return std::ranges::any_of(types, [&other](const auto& type) { return *type >= other; });
+    };
 
     std::string SpaceType::text(const size_t) const { return "Space"; }
     // a namespace is only not greater than any other type...

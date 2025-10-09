@@ -19,7 +19,11 @@ using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
 struct List;
 
-using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, NameSpace, Object, expr::Node, PackList>;
+// using expr::Union instead of a separate class for Union since they'd probably be the same
+// it might come and bite me later, but I mean..
+// I've been using expr::Closure for a while now and it's been okay
+// + expr::Union doesn't have any ExprPtr in it anyway
+using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
 struct List { std::vector<Value> values; };
@@ -81,6 +85,12 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
 
             s += std::string(indent, ' ') + '}';
         }
+    }
+
+    else if (std::holds_alternative<expr::Union>(value)) {
+        const auto& v = std::get<expr::Union>(value);
+
+        s = v.stringify(indent);
     }
 
     else if (std::holds_alternative<NameSpace>(value)) {

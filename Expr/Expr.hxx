@@ -23,7 +23,7 @@
 
 struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, NameSpace, Object, expr::Node, PackList>;
+using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 
@@ -157,6 +157,27 @@ struct Class : Expr {
             + " = " + field.second->stringify(indent + 4) + ";\n";
         }
 
+
+        return s + std::string(indent, ' ') + "}";
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct Union : Expr {
+    std::vector<type::TypePtr> types;
+
+    Union(std::vector<type::TypePtr> ts) noexcept
+    : types{std::move(ts)} { }
+
+    std::string stringify(const size_t indent = 0) const override {
+        std::string s = "union {\n";
+
+        const std::string space(indent + 4, ' ');
+        for (const auto& type : types) {
+            s += space + type->text(indent + 4) + ";\n";
+        }
 
         return s + std::string(indent, ' ') + "}";
     }

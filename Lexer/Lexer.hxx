@@ -27,8 +27,9 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "infix" ) return INFIX;
     else if (word == "suffix") return SUFFIX;
     else if (word == "exfix" ) return EXFIX;
+
     else if (word == "class" ) return CLASS;
-    // union
+    else if (word == "union" ) return UNION;
     else if (word == "match" ) return MATCH;
 
     // else if (word == "import"   ) return IMPORT;
