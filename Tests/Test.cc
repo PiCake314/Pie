@@ -61,8 +61,8 @@ print = __builtin_print;
 
 cls = class { woof: String = ""; };
 
-infix(SUM) + = (a: cls, b: cls) => 1;
-infix(SUM) + = (a: Int, b: Int) => 2;
+infix(+) + = (a: cls, b: cls) => 1;
+infix(+) + = (a: Int, b: Int) => 2;
 
 a = cls();
 b: cls = cls();
@@ -106,7 +106,7 @@ x = namespace {
 
     func = (e: cls) => e.meow;
 
-    infix(SUM) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
+    infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
 
     y = namespace {
         n = 1;
@@ -143,7 +143,7 @@ x = namespace {
 
     func = (e: cls) => e.meow;
 
-    infix(SUM) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
+    infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
 
     y = namespace {
         n = 1;
@@ -261,8 +261,8 @@ TEST_CASE("Infix operators", "[Parsing]") {
     const auto src =
 R"(
 print = __builtin_print;
-infix(SUM) + = (a, b) => __builtin_add(a, b);
-infix(SUM) - = (a, b) => __builtin_sub(a, b);
+infix(+) + = (a, b) => __builtin_add(a, b);
+infix(+) - = (a, b) => __builtin_sub(a, b);
 x = 1 + 2 + 3 + 4;
 y = 4 - 3 - 2 - 1;
 print(x);
