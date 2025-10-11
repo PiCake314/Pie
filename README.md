@@ -492,6 +492,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 #### in order of priority
 
 - [ ] Add default values to function parameters
+- [ ] Remove preprocessor
 - [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
 - [ ] File IO

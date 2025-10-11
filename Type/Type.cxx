@@ -54,14 +54,16 @@ namespace type {
 
 
     std::string UnionType::text(const size_t indent) const {
-        std::string s = "union {\n";
+        std::string s = "union { ";
 
-        std::string space(indent + 4, ' ');
-        for (const auto& t : types)
-            s += space + t->text(indent + 4) + ";\n";
+        for (std::string pipe{}; const auto& t : types) {
+
+            s += pipe + t->text(indent + 4);
+            pipe = " | ";
+        }
 
 
-        return s + std::string(indent, ' ') + "}";
+        return s + " }";
     }
 
     bool UnionType::operator> (const Type& other) const {

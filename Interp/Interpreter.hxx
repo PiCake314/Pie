@@ -156,11 +156,9 @@ struct Visitor {
 
 
     Value operator()(const expr::Assignment *ass) {
-
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
-        if (auto *acc = dynamic_cast<expr::Access*>    (ass->lhs.get())) return accessAssign(ass, acc);
-        if (auto *sa = dynamic_cast<expr::SpaceAccess*>(ass->lhs.get())) return spaceAccessAssign(ass, sa);
-
+        if (auto *acc = dynamic_cast<expr::Access*>     (ass->lhs.get())) return accessAssign(ass, acc);
+        if (auto *sa  = dynamic_cast<expr::SpaceAccess*>(ass->lhs.get())) return spaceAccessAssign(ass, sa);
 
 
         if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
@@ -180,7 +178,7 @@ struct Visitor {
                 }
                 else {
                     type = validateType(std::move(type));
-   
+
                    if (const auto& c = getVar(type->text()); c) {
                        if (std::holds_alternative<ClassValue>(c->first))
                            type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
@@ -433,7 +431,9 @@ struct Visitor {
                 if (value != val) return false;
             }
 
-            addVar(name, value, type);
+            if (name.length() != 0)
+                addVar(name, value, type);
+
             return true;
         }
 
@@ -1613,7 +1613,7 @@ struct Visitor {
 
         // for now, can only implement variadic functions inlined in this function
         if (name == "print") {
-            if (args.empty()) error("'print' requires at least 1 argument passed!");
+            if (args.empty()) error("'print' requires at least 1 positional argument passed!");
 
             using std::operator""sv;
             const auto allowed_params = {"sep"sv, "end"sv};

@@ -87,9 +87,8 @@ public:
             case UNION: return onion();
             case MATCH: return match();
 
-
-            case NAMESPACE:  return nameSpace();
-            case USE:        return std::make_shared<expr::Use>(parseExpr());
+            case NAMESPACE: return nameSpace();
+            case USE:       return std::make_shared<expr::Use>(parseExpr());
 
 
             // case IMPORT: {
@@ -147,19 +146,24 @@ public:
                     return std::make_shared<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
                 }
 
+
                 // could still be closure or groupings
-                const bool is_closure =
-                    check(NAME) and (
-                        check(COMMA, 1) or  // (a, 
-                        check(COLON, 1) or  // (a: 
-                        (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2)))  // (a) =>
+                const bool is_closure = (
+                        (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2))) or // (a) =>
+                        (check(COMMA, 1))  // (a, 
                     );
 
                 if (is_closure) return closure();
+                // still unsure
+
+                auto expr = parseExpr();
+                // (a: 
+                if (check(NAME) and check(COLON, 1)) {
+                    auto type = parseType();
+                }
 
                 // tt's just grouping,
                 // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
-                auto expr = parseExpr();
                 consume(R_PAREN);
                 return expr;
             }
@@ -346,21 +350,42 @@ public:
         using enum TokenKind;
         using Pattern   = expr::Match::Case::Pattern;
         using Single    = expr::Match::Case::Pattern::Single;
-        using Patterns = expr::Match::Case::Pattern::Patterns;
+        using Patterns  = expr::Match::Case::Pattern::Patterns;
 
-        if (not check(NAME)) return nullptr;
+        bool has_name{};
+        bool has_type{};
+        bool has_valu{};
 
-
-        std::string name = consume(NAME).text;
+        std::string name;
+        if (check(NAME)) {
+            name = consume(NAME).text;
+            has_name = true;
+        }
 
         // base case
         if (not match(L_PAREN)) {
             // trying to write code that avoids move
+
+            auto type = type::builtins::Any();
+            if (match(COLON)) {
+                type = parseType();
+                has_type = true;
+            }
+
+            expr::ExprPtr value;
+            if (match(ASSIGN)) {
+                value = parseExpr();
+                has_valu = true;
+            }
+
+            if (not (has_name or has_type or has_valu))
+                error("Match expression case doesn't contain a pattern");
+
             return std::make_unique<Pattern>(
                 Single{
                     std::move(name),
-                    match(COLON) ? parseType() : type::builtins::Any(),
-                    match(ASSIGN) ? parseExpr() : nullptr
+                    std::move(type),
+                    std::move(value)
                 }
             );
         }
@@ -619,7 +644,12 @@ public:
 
         if (check(COLON) and not check(COLON, 1)){
             consume(/* COLON */);
-            return std::make_shared<expr::Name>(token.text, parseType());
+            auto type = parseType();
+
+            if (not check(ASSIGN))
+                error("Can't declare new variables without assigning them values: '" + token.text + ": " + type->text() + '\'');
+
+            return std::make_shared<expr::Name>(token.text, std::move(type));
         }
 
         return std::make_shared<expr::Name>(token.text, type::builtins::_());
