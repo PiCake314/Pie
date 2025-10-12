@@ -11,7 +11,22 @@
 
 
 
-TEST_CASE("Arbitrary function params", "[Parameters]") {
+TEST_CASE("literals", "[Assingment]") {
+    const auto src = R"(
+print = __builtin_print;
+1 = "hi";
+true = 5;
+print(1);
+print(true);
+)";
+
+    REQUIRE(run(src) == R"(hi
+5)");
+}
+
+
+
+TEST_CASE("Arbitrary function", "[Parameters]") {
     const auto src = R"(
 print = __builtin_print;
 infix(+) + = (a, b) => __builtin_add(a, b);
@@ -30,7 +45,6 @@ func("meow", "hehe", "bye");
     REQUIRE(run(src) == R"(meow
 hehe
 bye)");
-
 }
 
 

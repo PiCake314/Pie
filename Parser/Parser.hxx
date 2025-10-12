@@ -31,6 +31,7 @@ class Parser {
 
     Operators ops;
 
+    // deque instead of vector for pop_front
     std::deque<Token> red; // past tense of read lol
 
     std::filesystem::path root;
@@ -64,11 +65,8 @@ public:
 
         expr::ExprPtr left = prefix(consume());
 
-        // infix
-        while (precedence < getPrecedence()) {
-
+        while (precedence < getPrecedence())
             left = infix(std::move(left), consume());
-        }
 
         return left;
     }
@@ -173,7 +171,7 @@ public:
 
                 if (exprs.size() != 1) error("Comma operator not supported!!");
 
-                return std::move(exprs)[0];
+                return std::move(exprs[0]);
             }
 
             case R_BRACE: error("Can't have empty block!");
@@ -211,7 +209,7 @@ public:
             }
 
             case ASSIGN: 
-                return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT_VALUE +1)); // right associative
+                return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT_VALUE - 1));
 
 
             case L_PAREN: return call(std::move(left));
@@ -322,10 +320,12 @@ public:
         switch (token.kind) {
             using enum TokenKind;
 
+            // right associative
             case ASSIGN: return prec::ASSIGNMENT_VALUE;
 
-            case COLON : // namespaces
-            case DOT   : return prec::HIGH_VALUE;
+            case COLON : return prec::SCOPE_RESOLUTION_VALUE;
+
+            case DOT   : return prec::MEMBER_ACCESS_VALUE;
 
             case NAME: {
                 // Probably in the middle of a mixfix() that takes 2 colons ': :' or more (2 expression arguments back to back)
@@ -627,62 +627,12 @@ public:
 
 
     expr::ExprPtr prefixName(Token token) {
-        using enum TokenKind;
-
-        if (ops.contains(token.text)) {
-            switch (const auto& op = ops[token.text]; op->type()) {
-                case TokenKind::PREFIX:{
-                    const int prec = prec::calculate(op->high, op->low, ops);
-                    return std::make_shared<expr::UnaryOp>(std::move(token).text, parseExpr(prec));
-                }
-
-                case TokenKind::EXFIX:{
-                    const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
-
-                    auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
-
-                    if (not match(op->name2)) error("Exfix operator not closed!");
-
-                    return ret;
-                }
-
-                case TokenKind::MIXFIX: {
-                    const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
-                    if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
+        if (ops.contains(token.text)) return parseOperator(std::move(token));
 
 
-                    const int prec = prec::calculate(op->high, op->low, ops);
-
-                    std::vector<expr::ExprPtr> exprs;
-                    for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(1)) {
-                        // match will consume the op
-                        if (is_op) {
-                            if (not match(op->rest[i++]))
-                                error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
-                        }
-                        else exprs.push_back(parseExpr(prec));
-                    }
-
-                    return std::make_shared<expr::OpCall>(
-                        op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
-                    );
-                }
-                //     return std::make_shared<BinOp>(token, parseExpr(precFromToken(op->prec)));
-
-                default:
-                    // log();
-                    error("[in/suf]fix operator used as [pre/ex]fix");
-            }
-        }
-
-
-        if (check(COLON) and not check(COLON, 1)){
+        if (check(TokenKind::COLON) and not check(TokenKind::COLON, 1)){ // making sure it's not a namespace access like "n::x"
             consume(/* COLON */);
             auto type = parseType();
-
-            // ! FIX THIS
-            // if (not check(ASSIGN))
-            //     error("Can't declare new variables without assigning them values: '" + token.text + ": " + type->text() + '\'');
 
             return std::make_shared<expr::Name>(token.text, std::move(type));
         }
@@ -696,7 +646,7 @@ public:
             switch (const auto& op = ops[token.text]; op->type()) {
                 // case TokenKind::PREFIX:
                 //     return std::make_shared<UnaryOp>(token, parseExpr(precFromToken(op->prec)));
-                case TokenKind::INFIX :{
+                case TokenKind::INFIX: {
                     const auto prec = prec::calculate(op->high, op->low, ops);
                     return std::make_shared<expr::BinOp>(std::move(left), std::move(token).text, parseExpr(prec));
                 }
@@ -714,8 +664,7 @@ public:
 
 
                 // some other part of Operator. 
-                case TokenKind::MIXFIX:
-                {
+                case TokenKind::MIXFIX: {
                     const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
 
                     // error("Beginning operator '" + token.text  + "' found where it shouldn't be!");
@@ -752,6 +701,54 @@ public:
         return std::make_shared<expr::Name>(std::move(token).text);
     }
 
+    expr::ExprPtr parseOperator(Token token) {
+        switch (const auto& op = ops[token.text]; op->type()) {
+            case TokenKind::PREFIX:{
+                const int prec = prec::calculate(op->high, op->low, ops);
+                return std::make_shared<expr::UnaryOp>(std::move(token).text, parseExpr(prec));
+            }
+
+            case TokenKind::EXFIX:{
+                const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
+
+                auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
+
+                if (not match(op->name2)) error("Exfix operator not closed!");
+
+                return ret;
+            }
+
+            case TokenKind::MIXFIX: {
+                const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
+                if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
+
+                const int prec = prec::calculate(op->high, op->low, ops);
+
+                std::vector<expr::ExprPtr> exprs;
+                for (size_t i{}; const auto& is_op : op->op_pos | std::views::drop(1)) {
+                    // match will consume the op
+                    if (is_op) {
+                        if (not match(op->rest[i++]))
+                            error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
+                    }
+                    else exprs.push_back(parseExpr(prec));
+                }
+
+                return std::make_shared<expr::OpCall>(
+                    op->name, op->rest, std::move(exprs), op->op_pos // op->begin_expr, op->end_expr
+                );
+            }
+
+            default:
+                // log();
+                error("[in/suf]fix operator used as [pre/ex]fix");
+        }
+    }
+
+
+
+    // operator defintion
+    // fix(PREC) op = (...) => ...
     expr::ExprPtr fixOperator(Token token) {
         using enum TokenKind;
 
