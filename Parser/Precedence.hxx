@@ -30,36 +30,48 @@ namespace prec {
   inline constexpr auto HIGH_VALUE               = BASE * 18;
 
 
-  inline constexpr auto PR_LOW        = "LOW";
-  inline constexpr auto PR_ASSIGNMENT = "ASSIGNMENT";
-  inline constexpr auto PR_INFIX      = "INFIX";
-  inline constexpr auto PR_SUM        = "SUM";
-  inline constexpr auto PR_PROD       = "PROD";
-  inline constexpr auto PR_PREFIX     = "PREFIX";
-  inline constexpr auto PR_POSTFIX    = "POSTFIX";
-  inline constexpr auto PR_CALL       = "CALL";
-  inline constexpr auto PR_HIGH       = "HIGH";
+  inline constexpr auto LOW                = "LOW";
+  inline constexpr auto ASSIGNMENT         = "=";
+  inline constexpr auto OR                 = "||";
+  inline constexpr auto AND                = "&&";
+  inline constexpr auto BITOR              = "|";
+  inline constexpr auto BITXOR             = "^";
+  inline constexpr auto BITAND             = "&";
+  inline constexpr auto EQ                 = "==";
+  inline constexpr auto CMP                = "<";
+  inline constexpr auto SPACESHIP          = "<=>";
+  inline constexpr auto SHIFT              = "<<";
+  inline constexpr auto SUM                = "+";
+  inline constexpr auto PROD               = "*";
+  inline constexpr auto PREFIX             = "!";
+  inline constexpr auto SUFFIX             = "[]";
+  inline constexpr auto CALL               = "()";
+  inline constexpr auto SCOPE_RESOLUTION   = "::";
+  inline constexpr auto HIGH               = "HIGH";
 
+
+
+//todo: continue refactoring!!!!!!!
   inline int precedenceOf(const std::string& p, const Operators& ops) noexcept {
-    if (p == "LOW")
+    if (p == LOW)
       return LOW_VALUE;
 
-    if (p == "=")
+    if (p == ASSIGNMENT)
       return ASSIGNMENT_VALUE;
 
-    if (p == "||")
+    if (p == OR)
       return OR_VALUE;
 
-    if (p == "&&")
+    if (p == AND)
       return AND_VALUE;
 
-    if (p == "|")
+    if (p == BITOR)
       return BITOR_VALUE;
 
-    if (p == "^")
+    if (p == BITXOR)
       return BITXOR_VALUE;
 
-    if (p == "&")
+    if (p == BITAND)
       return BITAND_VALUE;
 
     if (p == "!=" or p == "==")

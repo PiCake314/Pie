@@ -11,6 +11,7 @@
 #include <unordered_map>
 #include <deque>
 #include <algorithm>
+#include <functional>
 #include <numeric>
 #include <ranges>
 #include <cassert>
@@ -147,25 +148,32 @@ public:
                 }
 
 
-                // could still be closure or groupings
-                const bool is_closure = (
-                        (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2))) or // (a) =>
-                        (check(COMMA, 1))  // (a, 
-                    );
+                auto exprs = parseCommaList();
 
-                if (is_closure) return closure();
+                if (check(COLON) or check(FAT_ARROW)) return closure(std::move(exprs));
+
+                // could still be closure or groupings
+                // const bool is_closure = (
+                //         (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2))) or // (a) =>
+                //         (check(COMMA, 1))  // (a, 
+                //     );
+
+                // if (is_closure) return closure();
                 // still unsure
 
-                auto expr = parseExpr();
-                // (a: 
-                if (check(NAME) and check(COLON, 1)) {
-                    auto type = parseType();
-                }
+                // auto expr = parseExpr();
+                // // (a: 
+                // if (check(NAME) and check(COLON, 1)) {
+                //     auto type = parseType();
+                // }
 
-                // tt's just grouping,
-                // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
-                consume(R_PAREN);
-                return expr;
+                // // tt's just grouping,
+                // // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
+                // consume(R_PAREN);
+
+                if (exprs.size() != 1) error("Comma operator not supported!!");
+
+                return std::move(exprs)[0];
             }
 
             case R_BRACE: error("Can't have empty block!");
@@ -331,11 +339,12 @@ public:
                 const auto& op = ops[token.text];
                 const int prec = prec::calculate(op->high, op->low, ops);
 
+                //todo: prefix sould also be right to left
                 // mix fix operators should be parsed right to left.......I think ;-;
                 if (token.text == op->name and op->type() == TokenKind::MIXFIX)
                     return prec + 1;
 
-                return  prec;
+                return prec;
             }
 
             case L_PAREN: return prec::CALL_VALUE;
@@ -511,28 +520,53 @@ public:
         return std::make_shared<expr::Namespace>(std::move(members));
     }
 
-    expr::ExprPtr closure() {
+
+    // '(' already consumed
+    std::vector<expr::ExprPtr> parseCommaList() {
+        std::vector<expr::ExprPtr> exprs;
+
+        if (match(TokenKind::R_PAREN)) return exprs;
+
+        do exprs.push_back(parseExpr()); while(match(TokenKind::COMMA));
+
+        consume(TokenKind::R_PAREN);
+
+        return exprs;
+    }
+
+
+    expr::ExprPtr closure(std::vector<expr::ExprPtr> exprs) {
         using enum TokenKind;
 
+        constexpr auto fix_type = [] (const auto& e) -> type::TypePtr {
+            if (auto name = dynamic_cast<expr::Name*>(e.get()); name and not type::shouldReassign(name->type))
+                return name->type;
+
+            return type::builtins::Any();
+        };
 
         std::vector<std::string> params;
         std::vector<type::TypePtr> params_types;
 
-        do {
-            Token name = consume(NAME);
+        std::ranges::transform(exprs, std::back_inserter(params), [] (const auto& e) { return e->stringify(); });
+        std::ranges::transform(exprs, std::back_inserter(params_types), fix_type);
 
-            type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
+        // do {
+        //     Token name = consume(NAME);
 
-            params.push_back(std::move(name).text);
-            params_types.push_back(std::move(type));
-        }
-        while(match(COMMA));
+        //     type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
 
-        consume(R_PAREN);
+        //     params.push_back(std::move(name).text);
+        //     params_types.push_back(std::move(type));
+        // }
+        // while(match(COMMA));
+
+        // consume(R_PAREN);
+
 
         for (bool found{}; auto&& type : params_types) {
             if (type::isVariadic(type)) {
-                if (found) error("Variadic parameters can only appear once in parameter list!");
+                if  (found) error("Variadic parameters can only appear once in parameter list!");
                 else found = true;
             }
         }
@@ -646,8 +680,9 @@ public:
             consume(/* COLON */);
             auto type = parseType();
 
-            if (not check(ASSIGN))
-                error("Can't declare new variables without assigning them values: '" + token.text + ": " + type->text() + '\'');
+            // ! FIX THIS
+            // if (not check(ASSIGN))
+            //     error("Can't declare new variables without assigning them values: '" + token.text + ": " + type->text() + '\'');
 
             return std::make_shared<expr::Name>(token.text, std::move(type));
         }
@@ -803,6 +838,7 @@ public:
         // ops[name] = p.get();
         if (not ops.contains(name)) ops[name] = p->clone();
 
+        // pushing back after cloning so that the op table doesn't contain the closure
         p->funcs.push_back(std::move(func));
         return p;
     }
@@ -810,9 +846,9 @@ public:
     expr::ExprPtr exfixOperator() {
         using enum TokenKind;
 
-        const std::string& name1 = consume(NAME).text;
+        std::string name1 = consume(NAME).text;
         consume(COLON);
-        const std::string& name2 = consume(NAME).text;
+        std::string name2 = consume(NAME).text;
 
         consume(ASSIGN);
 
@@ -823,13 +859,13 @@ public:
 
 
         std::shared_ptr<expr::Fix> p = std::make_shared<expr::Exfix>(
-            name1, name2, prec::PR_LOW, prec::PR_LOW, 0, std::vector<expr::ExprPtr>{std::move(func)}
+            name1, name2, prec::LOW, prec::LOW, 0, std::vector<expr::ExprPtr>{std::move(func)}
         );
 
 
         if (ops.contains(name1)) {
             const auto& op = ops[name1];
-            op->funcs.push_back(std::move(func));
+            // op->funcs.push_back(std::move(func));
 
             if (op->type() != TokenKind::EXFIX) {
                 std::println(std::cerr, "Overload set for operator '{}:{}' must have the same operator type:", name1, name2);
@@ -924,14 +960,14 @@ public:
                 std::move(high), std::move(low),
                 shift,
                 // begins_with_expr, ends_with_expr,
-                std::vector<expr::ExprPtr>{std::move(func)}
+                std::vector<expr::ExprPtr>{/* std::move(func) */}
             );
 
 
 
         if (ops.contains(first)) {
             const auto& op = ops[first];
-            op->funcs.push_back(std::move(func));
+            // op->funcs.push_back(std::move(func));
 
             if (op->type() != TokenKind::MIXFIX) error(); // ! ADD ERR MSG
 
@@ -952,6 +988,8 @@ public:
         ops[p->name] = p->clone();
         for (const auto& name : rest) ops[name] = p->clone();
 
+        // push_back after clone on purpose. See other note
+        p->funcs.push_back(std::move(func));
         return p;
     }
 

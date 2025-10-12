@@ -66,6 +66,9 @@ struct Visitor {
         // how about a special value?
         if (isBuiltIn(n->name)) return n->name;
 
+        if (not type::shouldReassign(n->type))
+            error("Declarations annotated with a type need to be assigned a value: " + n->stringify() + ": " + n->type->text());
+
         if (const auto& var = getVar(n->stringify()); var) return var->first;
 
 
@@ -198,10 +201,6 @@ struct Visitor {
 
 
             // reassigning to an existing namespace. special
-            // std::clog << "change: " << (change ? "true" : "false") << std::endl;
-            // std::clog << "type->text(): " << type->text() << std::endl;
-            // std::clog << "std::holds_alternative<NameSpace>(value): " << (std::holds_alternative<NameSpace>(value) ? "true" : "false") << std::endl;
-            // puts("====================================================================================");
             if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) 
                 return spaceAssign(get<NameSpace>(getVar(name->name)->first), get<NameSpace>(value));
 
@@ -225,7 +224,9 @@ struct Visitor {
             }
 
 
-            if (change) changeVar(name->name, value);
+            if (change) {
+                if (not changeVar(name->name, value)) error();
+            }
             else        addVar(name->stringify(), value, type);
 
             return value;
@@ -540,7 +541,7 @@ struct Visitor {
             std::erase_if(set, [] (const expr::Closure *e) { return e->type.params[0]->text() == "Any"; });
         }
 
-        // for now
+
         if (set.size() != 1) error("Could not resolve overload set for operator: " + name);
 
         return set[0];
@@ -1354,8 +1355,7 @@ struct Visitor {
 
         auto func = dynamic_cast<expr::Closure*>(fix->funcs[0].get());
 
-        for (auto& t : func->type.params)
-            t = validateType(std::move(t));
+        for (auto& t : func->type.params) t = validateType(std::move(t));
 
         func->type.ret = validateType(std::move(func)->type.ret);
 

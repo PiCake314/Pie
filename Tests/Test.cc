@@ -9,6 +9,54 @@
 
 
 
+
+
+TEST_CASE("Arbitrary function params", "[Parameters]") {
+    const auto src = R"(
+print = __builtin_print;
+infix(+) + = (a, b) => __builtin_add(a, b);
+
+x: Int = 5;
+
+func = (x: String, x + 2, "hi") => {
+    print(x);
+    print(x + 2);
+    print("hi");
+};
+
+func("meow", "hehe", "bye");
+)";
+
+    REQUIRE(run(src) == R"(meow
+hehe
+bye)");
+
+}
+
+
+
+TEST_CASE("Operator Overloading", "[Overload]") {
+    const auto src = R"(
+print = __builtin_print;
+
+mixfix(HIGH -) if : : else : = (cond: Bool  , thn, els) => 1;
+mixfix(HIGH -) if : : else : = (cond: Int   , thn, els) => 2;
+mixfix(HIGH -) if::else: = (cond: String, thn, els) => 3;
+
+print(if (true) { 1; } else { 2; });
+print(if (0) { 1; } else { 2; });
+print(if ("") { 1; } else { 2; });
+
+)";
+
+    REQUIRE(run(src) == R"(1
+2
+3)");
+
+}
+
+
+
 TEST_CASE("nested unions", "[Unions]") {
     const auto src = R"(
 print = __builtin_print;
@@ -42,10 +90,7 @@ Object {
 }
 a string
 union {
-    union {
-        Int;
-        Double;
-    };
+    union { Int | Double };
     class {
         x: Int = 0;
         s: String = "";
