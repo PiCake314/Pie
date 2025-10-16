@@ -232,7 +232,7 @@ There are `5` types of operators that can be defined:
 Here is how to define your own operator:
 
 ```pie
-prefix(PREFIX) always_one = (x) => 1;
+prefix(!) always_one = (x) => 1;
 ```
 
 `always_one` is now a prefix operator that when applied, always returns `1`!\
@@ -245,23 +245,19 @@ a = always_one 5;
 `infix` has to be assigned to a binary closure while `prefix` and `suffix` have to be assigned to a unary closure.
 
 ### Precedence
-What goes between the parenthesis after the keyword (i.e.`prefix(SUM)`) is the precedence.\
-Here is the list of the precedence levels (from lowest to highest)
+What goes between the parenthesis after the keyword (i.e.`prefix(+)`) is the precedence. You can use any operator you want and Pie will figure it out automatically. For example, operators with precedence level `+` have a lower precedence than operators annotated with precedence level `*`. You can use user-defined-operators as precedence level.
 
-- `ASSIGNMENT`
-- `INFIX`
-- `SUM`
-- `PROD`
-- `PREFIX`
-- `POSTFIX`
-- `CALL`
+One can nudge the precedence level by attaching a `+` or a `-` after a precedence level:
+```pie
+infix(*)   star = (a, b) => 1;
+infix(* -) plus = (a, b) => 2;
+```
 
-To create an operator that has a precedence higher than `SUM`, one can attach a plus sign, making the precedence `SUM +`. Note that a higher level with a `-` is still higher than a lower level with a `+`.\
-i.e: `(PROD -) > (SUM +)`
+User defined operator `` has a lower
 
 An operator can also have the precedence of another operator:
 ```pie
-infix(SUM)   add = (a, b) => __builtin_add(a, b);
+infix(+)     add = (a, b) => __builtin_add(a, b);
 infix(add)   sub = (a, b) => __builtin_sub(a, b);
 infix(add +) mul = (a, b) => __builtin_mul(a, b);
 ```
@@ -277,8 +273,8 @@ Operator `sub` has a precedence that is equal to operator `add`'s precedence. Op
 
 You can overload operators based on the parameter types"
 ```pie
-infix(SUM) + = (a: Int, b: Int): Int => __builtin_add(a, b);
-infix(SUM) + = (a: String, b: String): String => __builtin_concat(a, b);
+infix(+) + = (a: Int, b: Int): Int => __builtin_add(a, b);
+infix(+) + = (a: String, b: String): String => __builtin_concat(a, b);
 
 1 + 2;
 "Hi" + "Bye";
@@ -383,7 +379,7 @@ The `Syntax` type is a special type that gives a handle onto the AST node used t
 Take this example:
 
 ```pie
-operator(SUM) + = (a, b) => __builtin_add(a, b);
+operator(+) + = (a, b) => __builtin_add(a, b);
 
 x: Syntax = 1 + a;
 ```
@@ -491,10 +487,11 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
-- [ ] Add default values to function parameters
 - [ ] Remove preprocessor
-- [ ] Make `=` and `=>` overloadable
 - [ ] Add fold expressions (like C++)
+- [ ] Make `=` and `=>` overloadable
+- [ ] Add default values to function parameters
+- [ ] Looping....maybee
 - [ ] File IO
 - [ ] Use Big Int instead of `int32_t`
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
