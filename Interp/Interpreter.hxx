@@ -161,6 +161,7 @@ struct Visitor {
     Value operator()(const expr::Assignment *ass) {
         // assigning to x.y should never create a variable "x.y" bu access x and change y;
         if (auto *acc = dynamic_cast<expr::Access*>     (ass->lhs.get())) return accessAssign(ass, acc);
+        // ns::x
         if (auto *sa  = dynamic_cast<expr::SpaceAccess*>(ass->lhs.get())) return spaceAccessAssign(ass, sa);
 
 
@@ -201,8 +202,12 @@ struct Visitor {
 
 
             // reassigning to an existing namespace. special
-            if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) 
+            if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) {
+                if (not std::holds_alternative<NameSpace>(getVar(name->name)->first))
+                    changeVar(name->name, NameSpace{std::make_shared<Dict>()});
+
                 return spaceAssign(get<NameSpace>(getVar(name->name)->first), get<NameSpace>(value));
+            }
 
 
             // if (type->text() != "Any") // only enforce type checking when
