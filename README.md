@@ -283,8 +283,68 @@ The `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
 
 ## Match Expressions
 
-`.: TODO: add documentaion`
+Match expressions can match against 3 things.
+1. Value
+2. Type
+3. Structure
 
+
+**Value Matching**:
+```pie
+x = 1;
+
+match x {
+    =1 => print("one");
+    =2 => print("two");
+    ="hi" => print("some string");
+};
+```
+
+**Type Matching**:
+```pie
+x = 1;
+
+match x {
+    :Sting => print("str");
+    :Int => print("num");
+    :Double => print("float");
+};
+```
+
+
+**Type Matching**:
+```pie
+C = class { a = 0; b = "";};
+c = C(314, C(1, "two"));
+
+match c {
+    C(x: Int, ="two") => print(x);
+    C(y=3, :String = "something") => print(2);
+    C(n: Int = 314, C(=1, ="two")) => print(n);
+};
+```
+
+Note how you can match both the value and the type at the same time. You can even give the matched value a name.
+The collection of the tokens:\
+`<name>: <type> = <value>`\
+is called a `Single`.
+
+
+
+ **Guards and such**:
+ You can match against multiple patterns in a single case by using the pipe symbol `|` and you can guard against any case by using the ampersand `&`:
+
+ ```pie
+x = 5;
+
+match x {
+    =1 | =2 | =3 => print("one two three");
+    a & __builtin_lt(a, 0) => print("negative");
+    a & __builtin_gt(a, 0) => print("positive (not 1, 2, or 3)");
+};
+```
+
+Of course, you can have both conditions and pipes in the same case.
 
 # Import System
 
@@ -453,6 +513,7 @@ this isn't
 - `{ }`
 - `,`
 - `.`
+- `=`
 - `:`
 - `;`
 
