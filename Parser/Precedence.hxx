@@ -10,25 +10,25 @@ namespace prec {
   inline constexpr auto BASE = 1 << 10;
 
   inline constexpr auto              LOW_VALUE = 0;
-  inline constexpr auto            COMMA_VALUE = BASE * 1;
-  inline constexpr auto       ASSIGNMENT_VALUE = BASE * 2;
-  inline constexpr auto               OR_VALUE = BASE * 3;
-  inline constexpr auto              AND_VALUE = BASE * 4;
-  inline constexpr auto            BITOR_VALUE = BASE * 5;
-  inline constexpr auto           BITXOR_VALUE = BASE * 6;
-  inline constexpr auto           BITAND_VALUE = BASE * 7;
-  inline constexpr auto               EQ_VALUE = BASE * 8;
-  inline constexpr auto              CMP_VALUE = BASE * 9;
-  inline constexpr auto        SPACESHIP_VALUE = BASE * 10;
-  inline constexpr auto            SHIFT_VALUE = BASE * 11;
-  inline constexpr auto              SUM_VALUE = BASE * 12;
-  inline constexpr auto             PROD_VALUE = BASE * 13;
-  inline constexpr auto           PREFIX_VALUE = BASE * 14;
-  inline constexpr auto           SUFFIX_VALUE = BASE * 15;
-  inline constexpr auto             CALL_VALUE = BASE * 16;
-  inline constexpr auto    MEMBER_ACCESS_VALUE = BASE * 16; // same as a call operator
-  inline constexpr auto SCOPE_RESOLUTION_VALUE = BASE * 17;
-  inline constexpr auto             HIGH_VALUE = BASE * 18;
+  inline constexpr auto            COMMA_VALUE = BASE * (1 <<  0);
+  inline constexpr auto       ASSIGNMENT_VALUE = BASE * (1 <<  1);
+  inline constexpr auto               OR_VALUE = BASE * (1 <<  2);
+  inline constexpr auto              AND_VALUE = BASE * (1 <<  3);
+  inline constexpr auto            BITOR_VALUE = BASE * (1 <<  4);
+  inline constexpr auto           BITXOR_VALUE = BASE * (1 <<  5);
+  inline constexpr auto           BITAND_VALUE = BASE * (1 <<  6);
+  inline constexpr auto               EQ_VALUE = BASE * (1 <<  7);
+  inline constexpr auto              CMP_VALUE = BASE * (1 <<  8);
+  inline constexpr auto        SPACESHIP_VALUE = BASE * (1 <<  9);
+  inline constexpr auto            SHIFT_VALUE = BASE * (1 << 10);
+  inline constexpr auto              SUM_VALUE = BASE * (1 << 11);
+  inline constexpr auto             PROD_VALUE = BASE * (1 << 12);
+  inline constexpr auto           PREFIX_VALUE = BASE * (1 << 13);
+  inline constexpr auto           SUFFIX_VALUE = BASE * (1 << 14);
+  inline constexpr auto             CALL_VALUE = BASE * (1 << 15);
+  inline constexpr auto    MEMBER_ACCESS_VALUE = BASE * (1 << 15); // same as a call operator
+  inline constexpr auto SCOPE_RESOLUTION_VALUE = BASE * (1 << 16);
+  inline constexpr auto             HIGH_VALUE = BASE * (1 << 17);
 
 
   inline constexpr auto LOW                = "LOW";
