@@ -756,20 +756,27 @@ public:
         if (token.kind == MIXFIX) return arbitraryOperator();
 
 
-        consume(L_PAREN);
-        std::string low = consume().text;
+        int shift{};
+        std::string name, low, high;
 
-        const int shift = parseOperatorShift();
+        if (match(L_PAREN)) {
+            low = consume().text;
 
-        std::string high = [shift, &low, this] {
-            if (shift > 0) return prec::higher(low, ops);
-            if (shift < 0) return std::exchange(low, prec::lower(low, ops));
-            return low;
-        }();
+            shift = parseOperatorShift();
 
-        consume(R_PAREN);
+            high = [shift, &low, this] {
+                if (shift > 0) return prec::higher(low, ops);
+                if (shift < 0) return std::exchange(low, prec::lower(low, ops));
+                return low;
+            }();
 
-        std::string name = consume(NAME).text;
+            consume(R_PAREN);
+
+            name = consume(NAME).text;
+        }
+        else name = low = high = consume(NAME).text;
+
+
 
 
         // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
