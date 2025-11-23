@@ -798,22 +798,6 @@ public:
 
             if (op->high != high or op->low != low)
                 error("Overloaded set of operator '" + name + "' must all have the same precedence!");
-
-
-            // this feels like double checking the fix operator
-            // but it also seems like I need to get the derived type to create a shared_ptr anyway..so IDK
-            // if (auto p = dynamic_cast<const expr::Prefix*>(ops[name]))
-            //     return std::make_shared<expr::Prefix>(*p);
-
-            // if (auto p = dynamic_cast<const expr::Infix*>(ops[name]))
-            //     return std::make_shared<expr::Infix>(*p);
-
-            // if (auto p = dynamic_cast<const expr::Suffix*>(ops[name]))
-            //     return std::make_shared<expr::Suffix>(*p);
-
-
-            // error();
-            // return std::make_shared<expr::Fix>(*op);
         }
 
 
@@ -856,7 +840,7 @@ public:
 
 
         std::shared_ptr<expr::Fix> p = std::make_shared<expr::Exfix>(
-            name1, name2, prec::LOW, prec::LOW, 0, std::vector<expr::ExprPtr>{std::move(func)}
+            name1, name2, prec::LOW, prec::LOW, 0, std::vector<expr::ExprPtr>{/* std::move(func) */}
         );
 
 
@@ -881,6 +865,9 @@ public:
 
         ops[name1] = p->clone();
         ops[name2] = p->clone(); //* maybe? //* maybe not...? idk
+
+        // pushing back after cloning so that the op table doesn't contain the closure
+        p->funcs.push_back(std::move(func));
 
         return p;
     };

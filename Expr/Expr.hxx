@@ -696,7 +696,7 @@ struct Exfix : Fix {
         if (shift) shifts.append(" ").push_back(c);
 
 
-        return "exfix(" + token + shifts + ") " + name + " = " + funcs[0]->stringify(indent);
+        return "exfix(" + token + shifts + ") " + name + ':' + name2 + " = " + funcs[0]->stringify(indent);
     }
 
 

@@ -524,6 +524,14 @@ struct Visitor {
         const std::vector<expr::ExprPtr>& funcs,
         const std::vector<type::TypePtr>& types
     ) {
+        std::clog << "name: " << name << std::endl;
+        std::clog << "funcs:" << std::endl;
+        for (auto&& f : funcs)
+            std::clog << f->stringify() << std::endl;
+        std::clog << "Types:" << std::endl;
+        for (auto&& t : types)
+            std::clog << t->text() << std::endl;
+
         std::vector<expr::Closure*> set;
 
         for (const auto& func : funcs) {
