@@ -134,7 +134,7 @@ namespace prec {
     if (p == "+" or p == "-")                           return "%";
     if (p == "*" or p == "/" or p == "%")               return "~";
     if (p == "!" or p == "~")                           return "[]";
-    if (p == "[]")                                      return "()";
+    if (p == "[]" or p == "?")                                      return "()";
     if (p == "()")                                      return "::";
     if (p == "::")                                      return "HIGH";
     if (p == "HIGH") error("Can't go higher than HIGH!");
@@ -161,7 +161,7 @@ namespace prec {
     if (p == "+" or p == "-")                           return ">>";
     if (p == "*" or p == "/" or p == "%")               return "-";
     if (p == "!" or p == "~")                           return "%";
-    if (p == "[]")                                      return "~";
+    if (p == "[]" or p == "?")                                      return "~";
     if (p == "()")                                      return "[]";
     if (p == "::")                                      return "()";
     if (p == "HIGH")                                    return "::";
