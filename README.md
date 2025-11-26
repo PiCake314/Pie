@@ -549,7 +549,6 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 #### in order of priority
 
 - [ ] Remove preprocessor
-- [ ] Add fold expressions (like C++)
 - [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
@@ -568,6 +567,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] Add fold expressions (like C++)
 - [x] Arbitrary function parameters
 - [x] Add unions
 - [x] Add `use` directive
