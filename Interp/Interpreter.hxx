@@ -136,7 +136,7 @@ struct Visitor {
                         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
                     );
 
-                // addVar(func->params[0], arg1);
+
                 args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
                 args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
 
@@ -155,8 +155,9 @@ struct Visitor {
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
 
-                args_env[func->params[0]] = {ret  , func->type.params[0]};
-                args_env[func->params[1]] = {value, func->type.params[1]};
+
+                args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
+                args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -179,17 +180,15 @@ struct Visitor {
 
 
         // ! check this line later
-        Value ret = fold->left_to_right ? std::move(init) : packlist->values.back();
+        // Value ret = fold->left_to_right ? std::move(init) : packlist->values.back();
+        Value ret = std::move(init);
 
-
-        std::vector<Value> values = std::move(packlist)->values;
+        // std::vector<Value> values = std::move(packlist)->values;
 
         if (not fold->left_to_right) {
-            values.pop_back();
-
-            std::ranges::reverse(values);
-
-            values.push_back(std::move(init));
+            // values.pop_back();
+            // values.push_back(std::move(init));
+            std::ranges::reverse(packlist->values);
         }
 
 
@@ -209,7 +208,10 @@ struct Visitor {
             func->type.params[1] = validateType(std::move(func)->type.params[1]);
 
 
-            for (Environment args_env; const auto& value : values) {
+            const auto  first_idx = 1 - fold->left_to_right;
+            const auto second_idx =     fold->left_to_right;
+
+            for (Environment args_env; const auto& value : packlist->values) {
 
                 // these two lines could be dried out...
                 // along with at least 7 more instances of the same line scattered througout the codebase
@@ -229,9 +231,10 @@ struct Visitor {
                         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
                     );
 
-                // addVar(func->params[0], arg1);
-                args_env[func->params[0]] = {ret  , func->type.params[0]};
-                args_env[func->params[1]] = {value, func->type.params[1]};
+
+
+                args_env[func->params[ first_idx]] = {ret  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx]] = {value, func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -241,15 +244,16 @@ struct Visitor {
         else { // fuck me
             checkNoSyntaxType(op->funcs);
 
-            for (Environment args_env; const auto& value : values) {
+            for (Environment args_env; const auto& value : packlist->values) {
                 const auto type1 = validateType(typeOf(ret));
 
                 auto type2 = validateType(typeOf(value));
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
 
-                args_env[func->params[0]] = {ret  , func->type.params[0]};
-                args_env[func->params[1]] = {value, func->type.params[1]};
+
+                args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
+                args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
 
 
                 ScopeGuard sg{this, args_env};

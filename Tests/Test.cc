@@ -8,6 +8,62 @@
 
 
 
+TEST_CASE("binary left fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix - = (a: Int, b: Int) => __builtin_sub(a, b);
+
+func = (args: ...Any) => (10 - args - ...); .: ((((10 - 1) - 2) - 3) - 4)
+
+print(func(1, 2, 3, 4));
+)";
+
+    REQUIRE(run(src) == R"(0)");
+}
+
+
+
+TEST_CASE("unary right fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix - = (a: Int, b: Int) => __builtin_sub(a, b);
+
+func = (args: ...Any) => (... - args); .: (1 - (2 - (3 - 4)))
+
+print(func(1, 2, 3, 4));
+)";
+
+    REQUIRE(run(src) == R"(-2)");
+}
+
+
+
+TEST_CASE("binary right fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix - = (a: Int, b: Int) => __builtin_sub(a, b);
+
+func = (args: ...Any) => (... - args - 10); .: (1 - (2 - (3 - (4 - 10))))
+
+print(func(1, 2, 3, 4));
+)";
+
+    REQUIRE(run(src) == R"(8)");
+}
+
+
+TEST_CASE("left fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix - = (a: Int, b: Int) => __builtin_sub(a, b);
+
+func = (args: ...Any) => (args - ...); .: (((1 - 2) - 3) - 4)
+
+print(func(1, 2, 3, 4));
+)";
+
+    REQUIRE(run(src) == R"(-8)");
+}
 
 
 
