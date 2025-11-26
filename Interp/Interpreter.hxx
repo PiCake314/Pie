@@ -83,6 +83,183 @@ struct Visitor {
     Value operator()(const expr::Pack*) { error(); }
     Value operator()(const expr::Expansion*) { error("Can only have an expansion inside of a function call!"); }
 
+    Value operator()(const expr::UnaryFold* fold) {
+
+        Value pack = std::visit(*this, fold->pack->variant());
+
+        if (not std::holds_alternative<PackList>(pack)) error("Folding over a non-pack: " + stringify(pack));
+
+        const auto& packlist = get<PackList>(pack);
+
+        if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
+        if (packlist->values.size() == 1) return packlist->values[0];
+
+
+        Value ret = fold->left_to_right ? packlist->values.front() : packlist->values.back(); // [packlist->values.size() - 2];
+        const auto values = fold->left_to_right?
+            packlist->values |                       std::views::drop(1) | std::views::as_rvalue | std::ranges::to<std::vector<Value>>():
+            packlist->values | std::views::reverse | std::views::drop(1) | std::views::as_rvalue | std::ranges::to<std::vector<Value>>();
+
+        const auto& op = ops.at(fold->op);
+
+        // can't have any syntax type since the pack consists of values, not expressions..
+        // unless...!
+        // TODO: allow for folding over syntax...maybe
+        checkNoSyntaxType(op->funcs);
+
+        expr::Closure* func;
+
+        // no overload resolution required
+        if (op->funcs.size() == 1) {
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func->type.params[0] = validateType(std::move(func)->type.params[0]);
+            func->type.params[1] = validateType(std::move(func)->type.params[1]);
+
+
+            for (Environment args_env; const auto& value : values) {
+
+                // these two lines could be dried out...
+                // along with at least 7 more instances of the same line scattered througout the codebase
+                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                        "', parameter '" + func->params[0] +
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                    );
+
+                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[1] >= *type_of_arg))
+                    error(
+                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                        "', parameter '" + func->params[1] +
+                        "' expected: " + func->type.params[1]->text() +
+                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                    );
+
+                // addVar(func->params[0], arg1);
+                args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
+                args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
+
+
+                ScopeGuard sg{this, args_env};
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+            }
+        }
+        else { // fuck me
+            checkNoSyntaxType(op->funcs);
+
+            for (Environment args_env; const auto& value : values) {
+                const auto type1 = validateType(typeOf(ret));
+
+                auto type2 = validateType(typeOf(value));
+
+                func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+
+                args_env[func->params[0]] = {ret  , func->type.params[0]};
+                args_env[func->params[1]] = {value, func->type.params[1]};
+
+
+                ScopeGuard sg{this, args_env};
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+            }
+        }
+
+        return ret;
+    }
+
+    Value operator()(const expr::BinaryFold* fold) {
+
+
+        Value pack = std::visit(*this, fold->pack->variant());
+        Value init = std::visit(*this, fold->init->variant());
+
+        const auto& packlist = get<PackList>(pack);
+
+        if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
+
+
+        // ! check this line later
+        Value ret = fold->left_to_right ? std::move(init) : packlist->values.back();
+
+
+        std::vector<Value> values = std::move(packlist)->values;
+
+        if (not fold->left_to_right) {
+            values.pop_back();
+
+            std::ranges::reverse(values);
+
+            values.push_back(std::move(init));
+        }
+
+
+        const auto& op = ops.at(fold->op);
+
+        // can't have any syntax type since the pack consists of values, not expressions..
+        // unless...!
+        // TODO: allow for folding over syntax...maybe
+        checkNoSyntaxType(op->funcs);
+
+        expr::Closure* func;
+
+        // no overload resolution required
+        if (op->funcs.size() == 1) {
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func->type.params[0] = validateType(std::move(func)->type.params[0]);
+            func->type.params[1] = validateType(std::move(func)->type.params[1]);
+
+
+            for (Environment args_env; const auto& value : values) {
+
+                // these two lines could be dried out...
+                // along with at least 7 more instances of the same line scattered througout the codebase
+                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                        "', parameter '" + func->params[0] +
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                    );
+
+                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[1] >= *type_of_arg))
+                    error(
+                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                        "', parameter '" + func->params[1] +
+                        "' expected: " + func->type.params[1]->text() +
+                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                    );
+
+                // addVar(func->params[0], arg1);
+                args_env[func->params[0]] = {ret  , func->type.params[0]};
+                args_env[func->params[1]] = {value, func->type.params[1]};
+
+
+                ScopeGuard sg{this, args_env};
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+            }
+        }
+        else { // fuck me
+            checkNoSyntaxType(op->funcs);
+
+            for (Environment args_env; const auto& value : values) {
+                const auto type1 = validateType(typeOf(ret));
+
+                auto type2 = validateType(typeOf(value));
+
+                func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+
+                args_env[func->params[0]] = {ret  , func->type.params[0]};
+                args_env[func->params[1]] = {value, func->type.params[1]};
+
+
+                ScopeGuard sg{this, args_env};
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+            }
+        }
+
+        return ret;
+    }
+
 
     Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
         const auto& left = std::visit(*this, acc->var->variant());
@@ -524,14 +701,6 @@ struct Visitor {
         const std::vector<expr::ExprPtr>& funcs,
         const std::vector<type::TypePtr>& types
     ) {
-        std::clog << "name: " << name << std::endl;
-        std::clog << "funcs:" << std::endl;
-        for (auto&& f : funcs)
-            std::clog << f->stringify() << std::endl;
-        std::clog << "Types:" << std::endl;
-        for (auto&& t : types)
-            std::clog << t->text() << std::endl;
-
         std::vector<expr::Closure*> set;
 
         for (const auto& func : funcs) {
@@ -559,6 +728,7 @@ struct Visitor {
 
         return set[0];
     }
+
 
 
     const Value& checkReturnType(const Value& ret, type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
@@ -620,10 +790,9 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg  = std::visit(*this, up->expr->variant());
-            auto type = typeOf(arg);
-            type = validateType(std::move(type));
+            auto type = validateType(typeOf(arg));
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {type});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type)});
 
             args_env[func->params[0]] = {arg, func->type.params[0]}; //? fixed
         }
@@ -693,14 +862,12 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg1  = std::visit(*this, bp->lhs->variant());
-            auto type1 = typeOf(arg1);
-            type1 = validateType(std::move(type1));
+            auto type1 = validateType(typeOf(arg1));
 
             const auto arg2  = std::visit(*this, bp->rhs->variant());
-            auto type2 = typeOf(arg2);
-            type2 = validateType(std::move(type2));
+            auto type2 = validateType(typeOf(arg2));
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {type1, type2});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
 
             args_env[func->params[0]] = {arg1, func->type.params[0]};
             args_env[func->params[1]] = {arg2, func->type.params[1]};
@@ -751,8 +918,7 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg  = std::visit(*this, pp->expr->variant());
-            auto type = typeOf(arg);
-            type = validateType(std::move(type));
+            auto type = validateType(typeOf(arg));
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {type});
 
@@ -804,10 +970,9 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg  = std::visit(*this, cp->expr->variant());
-            auto type = typeOf(arg);
-            type = validateType(std::move(type));
+            auto type = validateType(typeOf(arg));
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {type});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type)});
 
             args_env[func->params[0]] = {arg, func->type.params[0]};
         }
@@ -902,8 +1067,8 @@ struct Visitor {
 
         const size_t args_size =
             args.size() +
-            std::ranges::fold_left(expand_at, size_t{}, [] (const auto& acc, const auto& elt) { return acc + elt.second.size(); }) - // plus the expansions
-            expand_at.size(); // minus redundant packs (already expanded)
+            std::ranges::fold_left(expand_at, size_t{}, [] (const auto& acc, const auto& elt) { return acc + elt.second.size(); }) // plus the expansions
+            - expand_at.size(); // minus redundant packs (already expanded)
 
 
         auto var = std::visit(*this, call->func->variant());
@@ -1827,6 +1992,9 @@ struct Visitor {
         }
         else if (type::isVariadic(type)) {
             const auto variadic_type = dynamic_cast<type::VariadicType*>(type.get());
+
+            // todo: allow this in the future
+            if (variadic_type->type->text() == "Syntax") error("Variadics of 'Syntax' is not allowed!");
 
             variadic_type->type = validateType(std::move(variadic_type)->type);
 

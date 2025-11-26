@@ -23,11 +23,13 @@ INCLUDE = -I$(MP11_DIR)/include/ -I$(CPP_STD_EXT_DIR)/include/
 
 # Main target
 main: checklibs main.cc
-	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) main.cc -o Pie $(SAN)
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 main.cc -o Pie $(SAN)
 
+OPT: checklibs main.cc
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) main.cc -o Pie
 
 test: checklibs Tests/Test.cc
-	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) $(OPT) Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) && ./run_tests
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) && ./run_tests
 
 # Check and clone libraries if they don't exist
 checklibs:

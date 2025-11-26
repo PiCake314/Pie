@@ -550,12 +550,13 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 - [ ] Remove preprocessor
 - [ ] Add fold expressions (like C++)
-- [ ] Make `=` and `=>` overloadable
+- [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
-- [ ] Looping....maybee
+- [ ] Make `=` and `=>` overloadable
 - [ ] File IO
 - [ ] Use Big Int instead of `int32_t`
 - [ ] Fix builin reset (value-rest, reset/name-reset) 
+- [ ] Looping....maybee
 - [ ] World domination
 - [ ] Improve error messages (add line and column numbers)
 - [ ] Add REPL

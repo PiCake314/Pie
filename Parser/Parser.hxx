@@ -145,6 +145,16 @@ public:
                     return std::make_shared<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
                 }
 
+                const bool fold_expr = [this] {
+                    for (size_t i{}; not atEnd(); ++i) {
+                        if (check(R_PAREN , i)) return false;
+                        if (check(COLON   , i)) return false;
+                        if (check(ELLIPSIS, i)) return true ;
+                    }
+                    return false;
+                }();
+
+                if (fold_expr) return parseFoldExpr();
 
                 auto exprs = parseCommaList();
 
@@ -276,6 +286,17 @@ public:
         using std::operator""s;
 
 		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
+            // log();
+            expected(exp, token, loc);
+        }
+
+		return consume();
+	}
+
+    Token consume(const std::string& exp, const std::source_location& loc = std::source_location::current()) {
+        using std::operator""s;
+
+		if (const Token token = lookAhead(); token.text != exp) [[unlikely]] {
             // log();
             expected(exp, token, loc);
         }
@@ -532,6 +553,69 @@ public:
         consume(TokenKind::R_PAREN);
 
         return exprs;
+    }
+
+
+    // left paren already consumed
+    expr::ExprPtr parseFoldExpr() {
+        using enum TokenKind;
+
+        if (match(ELLIPSIS)) { // right fold
+            constexpr auto is_left_to_right = false;
+
+            std::string op = consume().text;
+            if (not ops.contains(op))                error("Folding over unknown operator: " + op);
+            if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+
+            auto pack = parseExpr(prec::HIGH_VALUE);
+
+
+            // unary fold
+            if (match(R_PAREN)) return std::make_shared<expr::UnaryFold>(std::move(pack), std::move(op), is_left_to_right);
+
+
+            // binary fold
+            consume(op);
+            auto init = parseExpr(prec::HIGH_VALUE);
+            consume(R_PAREN);
+
+            return std::make_shared<expr::BinaryFold>(std::move(pack), std::move(init), std::move(op), is_left_to_right);
+        }
+        else { // left fold fold
+            constexpr auto is_left_to_right = true;
+            auto pack = parseExpr(prec::HIGH_VALUE);
+
+            std::string op = consume().text;
+            if (not ops.contains(op))                error("Folding over unknown operator: " + op);
+            if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+
+            // unary fold
+            if (match(ELLIPSIS)) {
+                consume(R_PAREN);
+                return std::make_shared<expr::UnaryFold>(std::move(pack), std::move(op), is_left_to_right);
+            }
+
+
+            // binary fold
+            // pack was in fact not a pack, but init
+            auto init = std::move(pack);
+            pack = parseExpr(prec::HIGH_VALUE);
+
+            consume(op);
+
+            consume(ELLIPSIS);
+
+            consume(R_PAREN);
+
+            return std::make_shared<expr::BinaryFold>(
+                std::move(pack),
+                std::move(init),
+                std::move(op),
+                is_left_to_right
+            );
+
+
+        }
     }
 
 

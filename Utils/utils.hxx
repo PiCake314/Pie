@@ -53,5 +53,9 @@ inline void trace() {
     error(std::string{"Expected token "} + stringify(exp) + " and found " + stringify(got), location);
 }
 
+[[noreturn]] inline void expected(const std::string& exp, const Token& got, const std::source_location& location = std::source_location::current()) noexcept {
+    error(std::string{"Expected '"} + exp + "' and found " + stringify(got.kind) + ": " + got.text, location);
+}
+
 
 

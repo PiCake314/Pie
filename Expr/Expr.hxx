@@ -118,6 +118,50 @@ struct Expansion : Expr {
 };
 
 
+struct UnaryFold : Expr {
+    ExprPtr pack;
+    std::string op;
+    bool left_to_right;
+
+    UnaryFold(ExprPtr p, std::string o, const bool l2r) noexcept
+    : pack{std::move(p)}, op{std::move(o)}, left_to_right{l2r}
+    {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        if (left_to_right)
+            return '(' + pack->stringify(indent) + ' ' + op + " ...)";
+        else
+            return "(... " + op + ' ' + pack->stringify(indent) + ')';
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct BinaryFold : Expr {
+    ExprPtr pack;
+    ExprPtr init;
+    std::string op;
+    bool left_to_right;
+
+
+    explicit BinaryFold(ExprPtr p, ExprPtr i, std::string o, const bool l2r) noexcept
+    : pack{std::move(p)}, init{std::move(i)}, op{std::move(o)}, left_to_right{std::move(l2r)}
+    {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        if (left_to_right) {
+            return '(' + init->stringify(indent) + ' ' + op + ' ' + pack->stringify(indent) + ' ' + op + " ...)";
+        }
+        else {
+            return "(... " + op + ' ' + pack->stringify(indent) + ' ' + op + ' ' + init->stringify(indent) + ')';
+        }
+    }
+
+    Node variant() const override { return this; }
+};
+
+
 struct Assignment : Expr {
     // std::string name;
     ExprPtr lhs;
