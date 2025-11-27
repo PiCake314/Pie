@@ -82,26 +82,26 @@ struct Name : Expr {
 };
 
 
-struct Pack : Expr {
-    std::vector<ExprPtr> values;
+// struct Pack : Expr {
+//     std::vector<ExprPtr> values;
 
-    explicit Pack(std::vector<ExprPtr> vs) : values{std::move(vs)} {}
+//     explicit Pack(std::vector<ExprPtr> vs) : values{std::move(vs)} {}
 
 
-    std::string stringify(const size_t indent = 0) const override {
-        std::string s;
-        std::string comma;
+//     std::string stringify(const size_t indent = 0) const override {
+//         std::string s;
+//         std::string comma;
 
-        for (auto&& v : values) {
-            s += comma + v->stringify(indent);
-            comma = ", ";
-        }
+//         for (auto&& v : values) {
+//             s += comma + v->stringify(indent);
+//             comma = ", ";
+//         }
 
-        return s;
-    }
+//         return s;
+//     }
 
-    Node variant() const override { return this; }
-};
+//     Node variant() const override { return this; }
+// };
 
 
 struct Expansion : Expr {
@@ -137,6 +137,22 @@ struct UnaryFold : Expr {
     Node variant() const override { return this; }
 };
 
+struct SeparatedUnaryFold : Expr {
+    ExprPtr lhs;
+    ExprPtr rhs;
+    std::string op;
+
+    SeparatedUnaryFold(ExprPtr l, ExprPtr r, std::string o) noexcept
+    : lhs{std::move(l)}, rhs{std::move(r)}, op{std::move(o)}
+    {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        return '(' + lhs->stringify(indent) + ' ' + op + " ... " + op + ' ' + rhs->stringify(indent) + ')';
+    }
+
+    Node variant() const override { return this; }
+};
+
 
 struct BinaryFold : Expr {
     ExprPtr pack;
@@ -144,18 +160,25 @@ struct BinaryFold : Expr {
     std::string op;
     bool left_to_right;
 
+    ExprPtr sep;
 
-    explicit BinaryFold(ExprPtr p, ExprPtr i, std::string o, const bool l2r) noexcept
-    : pack{std::move(p)}, init{std::move(i)}, op{std::move(o)}, left_to_right{std::move(l2r)}
+
+    explicit BinaryFold(ExprPtr p, ExprPtr i, std::string o, const bool l2r, ExprPtr s = nullptr) noexcept
+    : pack{std::move(p)}, init{std::move(i)}, op{std::move(o)}, left_to_right{std::move(l2r)}, sep{std::move(s)}
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        if (left_to_right) {
+        if (left_to_right and sep) 
+            return '(' + init->stringify(indent) + ' ' + op + ' ' + pack->stringify(indent) + ' ' + op + " ... " + op + ' ' + sep->stringify(indent) + ')';
+
+        if (left_to_right)
             return '(' + init->stringify(indent) + ' ' + op + ' ' + pack->stringify(indent) + ' ' + op + " ...)";
-        }
-        else {
+
+        if (sep)
+            return '(' + sep->stringify(indent) + ' ' + op  + " ... " + op + ' ' + pack->stringify(indent) + ' ' + op + ' ' + init->stringify(indent) + ')';
+
+        else // I know this else only attaches to the above if, but it looks aesthetically appealing
             return "(... " + op + ' ' + pack->stringify(indent) + ' ' + op + ' ' + init->stringify(indent) + ')';
-        }
     }
 
     Node variant() const override { return this; }

@@ -554,14 +554,14 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - [ ] Make `=` and `=>` overloadable
 - [ ] File IO
 - [ ] Use Big Int instead of `int32_t`
-- [ ] Fix builin reset (value-rest, reset/name-reset) 
+- [ ] Fix builin reset (value-reset, reset/name-reset) 
 - [ ] Looping....maybee
 - [ ] World domination
 - [ ] Improve error messages (add line and column numbers)
 - [ ] Add REPL
-- [ ] Compile to WASM & a web interface
-- [ ] Remove depedency on stdx and boost
 - [ ] Add recursive operators
+- [ ] Remove depedency on stdx and boost
+- [ ] Compile to WASM & a web interface
 - [ ] Add LLVM backend
 
 ---

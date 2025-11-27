@@ -555,67 +555,100 @@ public:
         return exprs;
     }
 
+// case 1: (... + args)                 right  unary
+// case 2: (... + args + init)          right binary
+
+// case 3: (args + ...)                 left   unary
+// case 4: (args + ... +  sep )         left   unary separated
+// case 5: (sep  + ... +  args)         right  unary separated
+// case 6: (sep  + ... +  args + init)  right binary separated
+
+// case 7: (init + args + ...)          left binary
+// case 8: (init + args + ... + sep)    left binary separated
 
     // left paren already consumed
     expr::ExprPtr parseFoldExpr() {
         using enum TokenKind;
 
-        if (match(ELLIPSIS)) { // right fold
-            constexpr auto is_left_to_right = false;
+        // right folds (unseparated)
+        if (match(ELLIPSIS)) return foldCase1And2();
 
-            std::string op = consume().text;
-            if (not ops.contains(op))                error("Folding over unknown operator: " + op);
-            if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+        constexpr auto l2r = true;
+        constexpr auto r2l = false;
 
-            auto pack = parseExpr(prec::HIGH_VALUE);
-
-
-            // unary fold
-            if (match(R_PAREN)) return std::make_shared<expr::UnaryFold>(std::move(pack), std::move(op), is_left_to_right);
+        auto pack = parseExpr(prec::HIGH_VALUE);
 
 
-            // binary fold
+        std::string op = consume().text;
+        if (not ops.contains(op))                error("Folding over unknown operator: " + op);
+        if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+
+
+        if (match(ELLIPSIS)) {
+            // left unary fold (unseparated) | case 3
+            if (match(R_PAREN))  return std::make_shared<expr::UnaryFold>(std::move(pack), std::move(op), l2r);
+
             consume(op);
+
+            auto rhs = parseExpr(prec::HIGH_VALUE);
+
+            // separated unary  | cases 4 and 5
+            if (match(R_PAREN)) return std::make_shared<expr::SeparatedUnaryFold>(std::move(pack), std::move(rhs), std::move(op));
+
+            consume(op);
+
+            // right binary separated fold | case 6
+            auto separator = std::move(pack);
+            pack = std::move(rhs);
             auto init = parseExpr(prec::HIGH_VALUE);
-            consume(R_PAREN);
-
-            return std::make_shared<expr::BinaryFold>(std::move(pack), std::move(init), std::move(op), is_left_to_right);
-        }
-        else { // left fold fold
-            constexpr auto is_left_to_right = true;
-            auto pack = parseExpr(prec::HIGH_VALUE);
-
-            std::string op = consume().text;
-            if (not ops.contains(op))                error("Folding over unknown operator: " + op);
-            if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
-
-            // unary fold
-            if (match(ELLIPSIS)) {
-                consume(R_PAREN);
-                return std::make_shared<expr::UnaryFold>(std::move(pack), std::move(op), is_left_to_right);
-            }
-
-
-            // binary fold
-            // pack was in fact not a pack, but init
-            auto init = std::move(pack);
-            pack = parseExpr(prec::HIGH_VALUE);
-
-            consume(op);
-
-            consume(ELLIPSIS);
 
             consume(R_PAREN);
-
-            return std::make_shared<expr::BinaryFold>(
-                std::move(pack),
-                std::move(init),
-                std::move(op),
-                is_left_to_right
-            );
-
-
+            return std::make_shared<expr::BinaryFold>(std::move(pack), std::move(init), std::move(op), r2l, std::move(separator));
         }
+
+
+        // binary fold
+        // pack was in fact not a pack, but init
+        auto init = std::move(pack);
+        pack = parseExpr(prec::HIGH_VALUE);
+
+        consume(op);
+
+        consume(ELLIPSIS);
+
+        expr::ExprPtr seperator{};
+
+        // populating the sep for case 8
+        if (match(op)) seperator = parseExpr(prec::HIGH_VALUE);
+
+        consume(R_PAREN);
+
+        // case 7 and 8
+        return std::make_shared<expr::BinaryFold>(std::move(pack), std::move(init), std::move(op), l2r, std::move(seperator));
+    }
+
+
+
+    expr::ExprPtr foldCase1And2() {
+        using enum TokenKind;
+
+        constexpr auto is_left_to_right = false;
+
+        std::string op = consume().text;
+        if (not ops.contains(op))                error("Folding over unknown operator: " + op);
+        if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+
+        auto pack = parseExpr(prec::HIGH_VALUE);
+
+        // unary fold | case 1
+        if (match(R_PAREN)) return std::make_shared<expr::UnaryFold>(std::move(pack), std::move(op), is_left_to_right);
+
+        // binary fold | case 2
+        consume(op);
+        auto init = parseExpr(prec::HIGH_VALUE);
+        consume(R_PAREN);
+
+        return std::make_shared<expr::BinaryFold>(std::move(pack), std::move(init), std::move(op), is_left_to_right);
     }
 
 
@@ -825,7 +858,7 @@ public:
 
             default:
                 // log();
-                error("[in/suf]fix operator used as [pre/ex]fix");
+                error("[in/suf]fix operator '" + token.text + "' used as [pre/ex]fix");
         }
     }
 

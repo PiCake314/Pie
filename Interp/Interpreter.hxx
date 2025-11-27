@@ -80,8 +80,8 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Pack*) { error(); }
-    Value operator()(const expr::Expansion*) { error("Can only have an expansion inside of a function call!"); }
+    // Value operator()(const expr::Pack*) { error(); }
+    Value operator()(const expr::Expansion*) { error("Can only expand in function calls or fold expressions!"); }
 
     Value operator()(const expr::UnaryFold* fold) {
 
@@ -89,7 +89,7 @@ struct Visitor {
 
         if (not std::holds_alternative<PackList>(pack)) error("Folding over a non-pack: " + stringify(pack));
 
-        const auto& packlist = get<PackList>(pack);
+        auto& packlist = get<PackList>(pack);
 
         if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
         if (packlist->values.size() == 1) return packlist->values[0];
@@ -149,8 +149,7 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             for (Environment args_env; const auto& value : values) {
-                const auto type1 = validateType(typeOf(ret));
-
+                auto type1 = validateType(typeOf(ret  ));
                 auto type2 = validateType(typeOf(value));
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
@@ -168,28 +167,45 @@ struct Visitor {
         return ret;
     }
 
-    Value operator()(const expr::BinaryFold* fold) {
+
+    Value operator()(const expr::SeparatedUnaryFold *fold) {
+        Value lhs = std::visit(*this, fold->lhs->variant());
+        Value rhs = std::visit(*this, fold->rhs->variant());
 
 
-        Value pack = std::visit(*this, fold->pack->variant());
-        Value init = std::visit(*this, fold->init->variant());
-
-        const auto& packlist = get<PackList>(pack);
-
-        if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
+        const auto l_pack = std::holds_alternative<PackList>(lhs), l2r = l_pack;
+        const auto r_pack = std::holds_alternative<PackList>(rhs);
 
 
-        // ! check this line later
-        // Value ret = fold->left_to_right ? std::move(init) : packlist->values.back();
-        Value ret = std::move(init);
+        if (l_pack == r_pack) {
+            std::string err = l_pack ? "Folding over 2 packs: '" : "Folding over non-packs: '";
+            error(err + fold->lhs->stringify() + "' and '" + fold->rhs->stringify() + '\'');
+        }
 
-        // std::vector<Value> values = std::move(packlist)->values;
+        Value pack = l_pack? std::move(lhs) : std::move(rhs);
+        Value sep  = r_pack? std::move(lhs) : std::move(rhs);
 
-        if (not fold->left_to_right) {
-            // values.pop_back();
-            // values.push_back(std::move(init));
+
+        auto& packlist = get<PackList>(pack);
+
+        Value ret;
+        if (l2r) {
+            ret = packlist->values.front();
+            packlist->values.erase(packlist->values.cbegin());
+        }
+        else {
+            ret = packlist->values.back();
+            packlist->values.pop_back();
             std::ranges::reverse(packlist->values);
         }
+
+
+        std::vector<Value> values;
+        for (size_t i{}; auto& value : packlist->values) {
+            values.push_back(std::move(value));
+            if ((i & 1) == 0) values.push_back(sep);
+        }
+        if (not l2r) std::ranges::reverse(values);
 
 
         const auto& op = ops.at(fold->op);
@@ -204,6 +220,111 @@ struct Visitor {
         // no overload resolution required
         if (op->funcs.size() == 1) {
             func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func->type.ret       = validateType(std::move(func)->type.ret      );
+            func->type.params[0] = validateType(std::move(func)->type.params[0]);
+            func->type.params[1] = validateType(std::move(func)->type.params[1]);
+
+
+            for (Environment args_env; const auto& value : values) {
+
+                // these two lines could be dried out...
+                // along with at least 7 more instances of the same line scattered througout the codebase
+                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[0] >= *type_of_arg))
+                    error(
+                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                        "', parameter '" + func->params[0] +
+                        "' expected: " + func->type.params[0]->text() +
+                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                    );
+
+                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[1] >= *type_of_arg))
+                    error(
+                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                        "', parameter '" + func->params[1] +
+                        "' expected: " + func->type.params[1]->text() +
+                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                    );
+
+
+                args_env[func->params[1 - l2r]] = {ret  , func->type.params[1 - l2r]};
+                args_env[func->params[    l2r]] = {value, func->type.params[    l2r]};
+
+
+                ScopeGuard sg{this, args_env};
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+            }
+        }
+        else { // fuck me
+            checkNoSyntaxType(op->funcs);
+
+            for (Environment args_env; const auto& value : values) {
+                auto type1 = validateType(typeOf(ret  ));
+                auto type2 = validateType(typeOf(value));
+
+                func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+                // I think these lines are needed. Have to check 
+                func->type.ret       = validateType(std::move(func)->type.ret      );
+                func->type.params[0] = validateType(std::move(func)->type.params[0]);
+                func->type.params[1] = validateType(std::move(func)->type.params[1]);
+
+
+                args_env[func->params[1 - l2r]] = {ret  , func->type.params[1 - l2r]};
+                args_env[func->params[    l2r]] = {value, func->type.params[    l2r]};
+
+
+                ScopeGuard sg{this, args_env};
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+            }
+        }
+
+        return ret;
+    }
+
+
+    Value operator()(const expr::BinaryFold* fold) {
+        Value pack = std::visit(*this, fold->pack->variant());
+        Value init = std::visit(*this, fold->init->variant());
+
+        auto& packlist = get<PackList>(pack);
+
+        if (packlist->values.empty()) return init;
+
+
+        // ! check this line later
+        // Value ret = fold->left_to_right ? std::move(init) : packlist->values.back();
+        Value ret = std::move(init);
+
+        // std::vector<Value> values = std::move(packlist)->values;
+
+        // if (not fold->left_to_right) std::ranges::reverse(packlist->values);
+
+        std::vector<Value> values;
+        if (fold->sep) {
+            const auto sep = std::visit(*this, fold->sep->variant());
+
+            for (size_t i{}; auto& value : packlist->values) {
+                values.push_back(std::move(value));
+
+                if ((i & 1) == 0) values.push_back(sep);
+            }
+        }
+        else for (auto& value : packlist->values) values.push_back(std::move(value));
+        if (not fold->left_to_right) std::ranges::reverse(values);
+
+
+        const auto& op = ops.at(fold->op);
+
+        // can't have any syntax type since the pack consists of values, not expressions..
+        // unless...!
+        // TODO: allow for folding over syntax...maybe
+        checkNoSyntaxType(op->funcs);
+
+        expr::Closure* func;
+
+        // no overload resolution required
+        if (op->funcs.size() == 1) {
+            func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
+            func->type.ret       = validateType(std::move(func)->type.ret      );
             func->type.params[0] = validateType(std::move(func)->type.params[0]);
             func->type.params[1] = validateType(std::move(func)->type.params[1]);
 
@@ -211,7 +332,7 @@ struct Visitor {
             const auto  first_idx = 1 - fold->left_to_right;
             const auto second_idx =     fold->left_to_right;
 
-            for (Environment args_env; const auto& value : packlist->values) {
+            for (Environment args_env; const auto& value : values) {
 
                 // these two lines could be dried out...
                 // along with at least 7 more instances of the same line scattered througout the codebase
@@ -244,12 +365,15 @@ struct Visitor {
         else { // fuck me
             checkNoSyntaxType(op->funcs);
 
-            for (Environment args_env; const auto& value : packlist->values) {
-                const auto type1 = validateType(typeOf(ret));
-
+            for (Environment args_env; const auto& value : values) {
+                auto type1 = validateType(typeOf(ret  ));
                 auto type2 = validateType(typeOf(value));
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+                // * may be not needed....idk tho ;-;
+                func->type.ret       = validateType(std::move(func)->type.ret      );
+                func->type.params[0] = validateType(std::move(func)->type.params[0]);
+                func->type.params[1] = validateType(std::move(func)->type.params[1]);
 
 
                 args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
