@@ -59,12 +59,12 @@ struct Visitor {
         return s->str;
     }
 
+
     Value operator()(const expr::Name *n) {
         // what should builtins evaluate to?
         // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :))))
         // interesting!
         // how about a special value?
-        if (isBuiltIn(n->name)) return n->name;
 
         if (not type::shouldReassign(n->type))
             error("Declarations annotated with a type need to be assigned a value: " + n->stringify() + ": " + n->type->text());
@@ -72,11 +72,13 @@ struct Visitor {
         if (const auto& var = getVar(n->stringify()); var) return var->first;
 
 
+        // for now, buitlin functions and typename just return their names as strings...
+        // maybe i need to return some builtin type or smth. IDK
+        if (isBuiltin(n->name)) return n->name;
+        if (isBuiltinTypeName(n->name)) return n->name;
 
-        // std::println("Trace: {}", std::stacktrace::current());
-        // trace();
+
         error("Name \"" + n->stringify() + "\" is not defined");
-        // std::unreachable();
     }
 
 
@@ -1380,7 +1382,7 @@ struct Visitor {
 
         if (std::holds_alternative<std::string>(var)) { // that dumb lol. but now it works
             const auto& name = std::get<std::string>(var);
-            if (isBuiltIn(name)) return evaluateBuiltin(args, expand_at, call->named_args, name);
+            if (isBuiltin(name)) return evaluateBuiltin(args, expand_at, call->named_args, name);
         }
 
 
@@ -1707,7 +1709,7 @@ struct Visitor {
     }
 
 
-    [[nodiscard]] bool isBuiltIn(const std::string_view func) const noexcept {
+    [[nodiscard]] bool isBuiltin(const std::string_view func) const noexcept {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
         for(const auto& builtin : {
@@ -1947,9 +1949,9 @@ struct Visitor {
         if (name == "true" or name == "false") arity_check(0);
         if (name == "true")  return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
         if (name == "false") return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
+
         if (name == "input_str") return execute<0>(stdx::get<S<"input_str">>(functions).value, {}, this);
         if (name == "input_int") return execute<0>(stdx::get<S<"input_int">>(functions).value, {}, this);
-
 
 
         // for now, can only implement variadic functions inlined in this function
@@ -2221,6 +2223,17 @@ struct Visitor {
 
 
         error("Unknown Type for value: " + stringify(value));
+    }
+
+
+    static bool isBuiltinTypeName(const std::string& name) noexcept {
+        return name == "Any"
+            or name == "Int"
+            or name == "Double"
+            or name == "String"
+            or name == "Bool"
+            or name == "Type"
+            or name == "Syntax"; // names can't be variadics (thank god)
     }
 
 
