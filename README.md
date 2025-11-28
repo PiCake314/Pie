@@ -305,7 +305,7 @@ match x {
 x = 1;
 
 match x {
-    :Sting => print("str");
+    :String => print("str");
     :Int => print("num");
     :Double => print("float");
 };
