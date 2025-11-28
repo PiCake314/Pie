@@ -1715,7 +1715,7 @@ struct Visitor {
         for(const auto& builtin : {
             "print", "concat", //* variadic
             "true", "false", "input_str", "input_int", //* nullary
-            "pack_len", "reset", "eval","neg", "not",     //* unary
+            "pack_len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string",     //* unary
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
             "conditional" //* trinary
         })
@@ -1791,6 +1791,55 @@ struct Visitor {
                     // TypeList<ssize_t>,
                     // TypeList<double>,
                     TypeList<bool>
+                >
+            >{},
+
+            MapEntry<
+                S<"to_int">,
+                Func<"to_int",
+                    decltype([](const auto& x, const auto&) -> ssize_t {
+                        if constexpr (
+                            std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
+                            std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
+                            std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
+                        ) return x;
+
+                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
+                        return std::stoll(x);
+                    }),
+                    TypeList<ssize_t>,
+                    TypeList<double>,
+                    TypeList<bool>,
+                    TypeList<std::string>
+                >
+            >{},
+
+            MapEntry<
+                S<"to_double">,
+                Func<"to_double",
+                    decltype([](const auto& x, const auto&) -> double {
+                        if constexpr (
+                            std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
+                            std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
+                            std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
+                        ) return x;
+
+
+                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
+                        return std::stod(x);
+                    }),
+                    TypeList<ssize_t>,
+                    TypeList<double>,
+                    TypeList<bool>,
+                    TypeList<std::string>
+                >
+            >{},
+
+            MapEntry<
+                S<"to_string">,
+                Func<"to_string",
+                    decltype([](const auto& x, const auto&) { return stringify(x); }),
+                    TypeList<Any>
                 >
             >{},
 
@@ -2035,10 +2084,13 @@ struct Visitor {
 
 
 
-        if (name == "eval" )    return execute<1>(stdx::get<S<"eval"     >>(functions).value, {value1}, this);
-        if (name == "neg"  )    return execute<1>(stdx::get<S<"neg"      >>(functions).value, {value1}, this);
-        if (name == "not"  )    return execute<1>(stdx::get<S<"not"      >>(functions).value, {value1}, this);
-        if (name == "pack_len") return execute<1>(stdx::get<S<"pack_len" >>(functions).value, {value1}, this);
+        if (name == "eval"     ) return execute<1>(stdx::get<S<"eval"      >>(functions).value, {value1}, this);
+        if (name == "neg"      ) return execute<1>(stdx::get<S<"neg"       >>(functions).value, {value1}, this);
+        if (name == "not"      ) return execute<1>(stdx::get<S<"not"       >>(functions).value, {value1}, this);
+        if (name == "pack_len" ) return execute<1>(stdx::get<S<"pack_len"  >>(functions).value, {value1}, this);
+        if (name == "to_int"   ) return execute<1>(stdx::get<S<"to_int"    >>(functions).value, {value1}, this);
+        if (name == "to_double") return execute<1>(stdx::get<S<"to_double" >>(functions).value, {value1}, this);
+        if (name == "to_string") return execute<1>(stdx::get<S<"to_string" >>(functions).value, {value1}, this);
 
 
         // all the rest of those funcs expect 2 arguments
