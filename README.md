@@ -548,10 +548,12 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
+- [ ] Lexically Scoped Operators
 - [ ] Remove preprocessor
 - [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
+- [ ] Casting (maybe using `as`)
 - [ ] File IO
 - [ ] Use Big Int instead of `int32_t`
 - [ ] Fix builin reset (value-reset, reset/name-reset) 

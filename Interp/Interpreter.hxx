@@ -1209,14 +1209,153 @@ struct Visitor {
         return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
+
+    Value partialApplication(
+        const expr::Call* call,
+        const expr::Closure& func,
+        const size_t args_size,
+        std::vector<std::pair<size_t, std::vector<Value>>> expand_at,
+        std::vector<expr::ExprPtr> args, 
+        const bool is_variadic
+    ) {
+        Environment argument_capture_list = func.env;
+
+        for (const auto& [name, expr] : call->named_args) {
+            type::TypePtr type;
+            for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
+                if (n == name) {
+                    type = t;
+                    break;
+                }
+            }
+
+            if (not type) error(); // should never happen anyway
+
+            Value value;
+            if (type->text() == "Syntax") value = expr->variant();
+            else {
+                value = std::visit(*this, expr->variant());
+
+                // if the param type not a super type of arg type, error out
+                if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+            }
+
+            argument_capture_list[name] = {std::move(value), std::move(type)};
+        }
+
+
+        std::vector<std::pair<std::string, type::TypePtr>> pos_params;
+        for (const auto& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
+
+        std::erase_if(pos_params, [&named_args = call->named_args] (const auto& p) {
+            return std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first; }) != named_args.cend();
+        });
+
+        std::vector<std::string> new_params;
+        for (const auto& [name, _] : pos_params | std::views::drop(args_size)) new_params.push_back(name);
+
+        std::vector<type::TypePtr> new_types;
+        for (const auto& name : new_params) {
+            type::TypePtr type;
+            for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
+                if (n == name) {
+                    type = t;
+                    break;
+                }
+            }
+            new_types.push_back(std::move(type));
+        }
+
+        type::FuncType func_type{std::move(new_types), func.type.ret};
+        expr::Closure closure{std::move(new_params),  std::move(func_type),  func.body};
+
+        bool normal = true;
+
+        if (is_variadic) {
+            const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
+            const size_t variadic_index = std::distance(pos_params.begin(), it);
+
+            // call->args.erase(std::next(call->args.begin(), variadic_index));
+
+            if (args_size > variadic_index) {
+                normal = false;
+
+                pos_params.erase(std::next(pos_params.begin(), variadic_index));
+
+                // we ignore the pack, so we consume an extra argument. Remove it from the carried function
+                closure.params.erase(closure.params.begin());
+                closure.type.params.erase(closure.type.params.begin());
+
+                for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
+                    const auto& [name, type] = param;
+                    Value value;
+
+                    if (curr < expand_at.size() and i == expand_at[curr].first) {
+                        for (const auto& val : expand_at[curr++].second) {
+                            if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        }
+                    }
+                    else {
+                        if (type->text() == "Syntax") {
+                            value = expr->variant();
+                        }
+                        else {
+                            value = std::visit(*this, expr->variant());
+
+                            if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        }
+                    }
+
+                    ++i;
+                    argument_capture_list[name] = {std::move(value), std::move(type)};
+                }
+            }
+        }
+
+        /* else */
+        if (normal) for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
+            const auto& [name, type] = param;
+            Value value;
+
+            if (curr < expand_at.size() and i == expand_at[curr].first) {
+                for (const auto& val : expand_at[curr++].second) {
+                    if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                }
+            }
+            else {
+                if (type->text() == "Syntax") {
+                    value = expr->variant();
+                }
+                else {
+                    value = std::visit(*this, expr->variant());
+
+                    // if the param type not a super type of arg type, error out
+                    if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                }
+            }
+
+            ++i;
+            argument_capture_list[name] = {std::move(value), std::move(type)};
+        }
+
+        closure.capture(argument_capture_list);
+        return closure;
+    }
+
+
     Value operator()(const expr::Call *call) {
         if (const auto& var = getVar(call->stringify()); var) return var->first;
 
         ScopeGuard sg{this};
 
 
-        // using Arg = std::variant<expr::ExprPtr, Value>;
-        auto args = call->args;
+
+        const auto args = std::move(call)->args;
         std::vector<std::pair<size_t, std::vector<Value>>> expand_at;
 
         for (size_t i{}; i < args.size(); ++i) {
@@ -1259,142 +1398,14 @@ struct Visitor {
             // const size_t arity = func.params.size() - is_variadic; // don't count pack as a concrete param
             // const size_t args_size = call->args.size() + call->named_args.size(); 
 
-            if (not is_variadic and args_size + call->named_args.size() > func.params.size()) error("Wrong arity call!");
+            if (not is_variadic and args_size + call->named_args.size() > func.params.size()) error("Too many arguments passed to function: " + call->stringify());
 
 
-            // * curry!
+            // curry! 
             if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
-                Environment argument_capture_list = func.env;
-
-                for (const auto& [name, expr] : call->named_args) {
-                    type::TypePtr type;
-                    for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
-                        if (n == name) {
-                            type = t;
-                            break;
-                        }
-                    }
-
-                    if (not type) error(); // should never happen anyway
-
-                    Value value;
-                    if (type->text() == "Syntax") value = expr->variant();
-                    else {
-                        value = std::visit(*this, expr->variant());
-
-                        // if the param type not a super type of arg type, error out
-                        if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                    }
-
-                    argument_capture_list[name] = {std::move(value), std::move(type)};
-                }
-
-
-                std::vector<std::pair<std::string, type::TypePtr>> pos_params;
-                for (const auto& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
-
-                std::erase_if(pos_params, [&named_args = call->named_args] (const auto& p) {
-                    return std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first; }) != named_args.cend();
-                });
-
-                std::vector<std::string> new_params;
-                for (const auto& [name, _] : pos_params | std::views::drop(args_size)) new_params.push_back(name);
-
-                std::vector<type::TypePtr> new_types;
-                for (const auto& name : new_params) {
-                    type::TypePtr type;
-                    for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
-                        if (n == name) {
-                            type = t;
-                            break;
-                        }
-                    }
-                    new_types.push_back(std::move(type));
-                }
-
-                type::FuncType func_type{std::move(new_types), func.type.ret};
-                expr::Closure closure{std::move(new_params),  std::move(func_type),  func.body};
-
-                bool normal = true;
-
-                if (is_variadic) {
-                    const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
-                    const size_t variadic_index = std::distance(pos_params.begin(), it);
-
-                    // call->args.erase(std::next(call->args.begin(), variadic_index));
-
-                    if (args_size > variadic_index) {
-                        normal = false;
-
-                        pos_params.erase(std::next(pos_params.begin(), variadic_index));
-
-                        // we ignore the pack, so we consume an extra argument. Remove it from the carried function
-                        closure.params.erase(closure.params.begin());
-                        closure.type.params.erase(closure.type.params.begin());
-
-                        for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
-                            const auto& [name, type] = param;
-                            Value value;
-
-                            if (curr < expand_at.size() and i == expand_at[curr].first) {
-                                for (const auto& val : expand_at[curr++].second) {
-                                    if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                                }
-                            }
-                            else {
-                                if (type->text() == "Syntax") {
-                                    value = expr->variant();
-                                }
-                                else {
-                                    value = std::visit(*this, expr->variant());
-
-                                    if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                                }
-                            }
-
-                            ++i;
-                            argument_capture_list[name] = {std::move(value), std::move(type)};
-                        }
-                    }
-                }
-
-                /* else */
-                if (normal) for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
-                    const auto& [name, type] = param;
-                    Value value;
-
-                    if (curr < expand_at.size() and i == expand_at[curr].first) {
-                        for (const auto& val : expand_at[curr++].second) {
-                            if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                        }
-                    }
-                    else {
-                        if (type->text() == "Syntax") {
-                            value = expr->variant();
-                        }
-                        else {
-                            value = std::visit(*this, expr->variant());
-
-                            // if the param type not a super type of arg type, error out
-                            if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                        }
-                    }
-
-                    ++i;
-                    argument_capture_list[name] = {std::move(value), std::move(type)};
-                }
-
-
-                closure.capture(argument_capture_list);
-                return closure;
+                return partialApplication(call, func, args_size, std::move(expand_at), std::move(args), is_variadic);
             }
             else { //* full call. Don't curry!
-
                 Environment args_env;
                 for (const auto& [name, expr] : call->named_args) {
                     type::TypePtr type;
@@ -1440,25 +1451,7 @@ struct Visitor {
                     const size_t post_variadic_size = std::ranges::size(post_variadic);
                     const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
 
-                    // const auto pre_pack = std::ranges::subrange(args, std::ranges::size(pre_variadic));
 
-                    // const auto variadic = std::ranges::subrange{
-                    //     std::next(args.begin(), pre_variadic_size),
-                    //     std::prev(args.end(), post_variadic_size)
-                    // };
-
-                    // if (variadic_size != std::ranges::size(variadic)) {
-                    //     std::clog << "variadic_size: " << variadic_size << std::endl;
-                    //     std::clog << "size(variadic): " << std::ranges::size(variadic) << std::endl;
-                    // }
-                    // assert(variadic_size == std::ranges::size(variadic));
-
-                    // const auto post_pack = std::ranges::subrange{
-                    //     std::prev(args.end(), post_variadic_size),
-                    //     args.end()
-                    // };
-
-                    // *
                     auto pack = makePack();
                     for (
                         size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
@@ -1608,38 +1601,42 @@ struct Visitor {
             }
         }
 
-        else if (std::holds_alternative<ClassValue>(var)) {
-            // if (not call->args.empty()) error("Can't pass arguments to classes!");
-            const auto& cls = std::get<ClassValue>(var);
-
-            if (call->args.size() > cls.blueprint->members.size())
-                error("Too many arguments passed to constructor of class: " + stringify(cls));
-
-            // copying defaults field values from class definition
-            Object obj{cls, std::make_shared<Dict>(cls.blueprint->members) };
-
-            // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
-            // const auto& [arg, value] : std::views::zip(call->args, obj->members)
-            for (size_t i{}; i < call->args.size(); ++i) {
-                const auto& v = std::visit(*this, call->args[i]->variant());
-
-                if (not (*obj.second->members[i].first.type >= *typeOf(v)))
-                    error(
-                        "Type mis-match in constructor of:\n" + stringify(cls) + "\nMember `" +
-                        obj.second->members[i].first.stringify() + "` expected: " + obj.second->members[i].first.type->text() +
-                        "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
-                    );
-
-                obj.second->members[i].second = v;
-            }
-
-            return obj;
-        }
+        else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
 
 
-        if (call->args.size() != 0) error("Can't pass arguments to values!");
+        if (args.size() != 0) error("Can't pass arguments to values!");
         return var;
     }
+
+
+    Value constructorCall(const expr::Call *call, Value var) {
+        // if (not call->args.empty()) error("Can't pass arguments to classes!");
+        const auto& cls = std::get<ClassValue>(var);
+
+        if (call->args.size() > cls.blueprint->members.size())
+            error("Too many arguments passed to constructor of class: " + stringify(cls));
+
+        // copying defaults field values from class definition
+        Object obj{cls, std::make_shared<Dict>(cls.blueprint->members) };
+
+        // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
+        // const auto& [arg, value] : std::views::zip(call->args, obj->members)
+        for (size_t i{}; i < call->args.size(); ++i) {
+            const auto& v = std::visit(*this, call->args[i]->variant());
+
+            if (not (*obj.second->members[i].first.type >= *typeOf(v)))
+                error(
+                    "Type mis-match in constructor of:\n" + stringify(cls) + "\nMember `" +
+                    obj.second->members[i].first.stringify() + "` expected: " + obj.second->members[i].first.type->text() +
+                    "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
+                );
+
+            obj.second->members[i].second = v;
+        }
+
+        return obj;
+    }
+
 
     Value operator()(const expr::Closure *c) {
         if (const auto& var = getVar(c->stringify()); var) return var->first;
