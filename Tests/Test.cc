@@ -8,6 +8,49 @@
 
 
 
+
+
+TEST_CASE("unary separated left fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix - = (a: Int, b: Int) => __builtin_sub(a, b);
+
+func = (args: ...Any) => (args - ... - 10); .: (1 - 10 - 2 - 10 - 3 - 10 - 4)
+print(func(1, 2, 3, 4));
+)";
+
+    REQUIRE(run(src) == R"(-38)");
+}
+
+
+TEST_CASE("unary separated right fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix - = (a: Int, b: Int) => __builtin_sub(a, b);
+
+func = (args: ...Any) => (10 - ... - args); .: (1 - (10 - (2 - (10 - (3 - (4 - 10))))))
+print(func(1, 2, 3, 4));
+)";
+
+    REQUIRE(run(src) == R"(-8)");
+}
+
+
+TEST_CASE("binary separated left fold", "[Fold Exprs]") {
+    const auto src = R"(
+print = __builtin_print;
+infix + = (a: Int, b: Int) => __builtin_add(a, b);
+infix + = (a: String, b: String) => __builtin_concat(a, b);
+
+
+greet = (greetings: String, names: ...String, delim: String) => greetings + ("Teach" + names + ... + delim) + "!";
+print(greet("Hello ", "Ali", "Ben", "Byt", ", "));
+)";
+
+    REQUIRE(run(src) == R"(Hello Teach, Ali, Ben, Byt!)");
+}
+
+
 TEST_CASE("binary left fold", "[Fold Exprs]") {
     const auto src = R"(
 print = __builtin_print;

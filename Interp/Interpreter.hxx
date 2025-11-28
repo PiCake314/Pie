@@ -109,18 +109,22 @@ struct Visitor {
 
         expr::Closure* func;
 
+        const size_t  first_idx = 1 - fold->left_to_right;
+        const size_t second_idx =     fold->left_to_right;
+
         // no overload resolution required
         if (op->funcs.size() == 1) {
             func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
-            func->type.params[0] = validateType(std::move(func)->type.params[0]);
-            func->type.params[1] = validateType(std::move(func)->type.params[1]);
+            func->type.ret                = validateType(std::move(func)->type.ret               );
+            func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
+            func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
-            for (Environment args_env; const auto& value : values) {
+            for (const auto& value : values) {
 
                 // these two lines could be dried out...
                 // along with at least 7 more instances of the same line scattered througout the codebase
-                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[0] >= *type_of_arg))
+                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
                     error(
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[0] +
@@ -128,7 +132,7 @@ struct Visitor {
                         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
                     );
 
-                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[1] >= *type_of_arg))
+                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
                     error(
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[1] +
@@ -137,8 +141,9 @@ struct Visitor {
                     );
 
 
-                args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
-                args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
+                Environment args_env;
+                args_env[func->params[ first_idx]] = {ret  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx]] = {value, func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -148,13 +153,17 @@ struct Visitor {
         else { // fuck me
             checkNoSyntaxType(op->funcs);
 
-            for (Environment args_env; const auto& value : values) {
+            for (const auto& value : values) {
                 auto type1 = validateType(typeOf(ret  ));
                 auto type2 = validateType(typeOf(value));
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+                func->type.ret                = validateType(std::move(func)->type.ret               );
+                func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
+                func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
+                Environment args_env;
                 args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
                 args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
 
@@ -185,27 +194,37 @@ struct Visitor {
         Value pack = l_pack? std::move(lhs) : std::move(rhs);
         Value sep  = r_pack? std::move(lhs) : std::move(rhs);
 
-
         auto& packlist = get<PackList>(pack);
 
+        if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
+        if (packlist->values.size() == 1) return packlist->values[0];
+
+
         Value ret;
+        std::vector<Value> values;
+        values.reserve(packlist->values.size() * 2 - 1);
         if (l2r) {
-            ret = packlist->values.front();
-            packlist->values.erase(packlist->values.cbegin());
+            ret = std::move(packlist)->values[0];
+
+            for (auto& value : packlist->values | std::views::drop(1)) {
+                values.push_back(sep);
+                values.push_back(std::move(value));
+            }
         }
         else {
-            ret = packlist->values.back();
-            packlist->values.pop_back();
-            std::ranges::reverse(packlist->values);
+            ret = sep;
+
+            const auto len = packlist->values.size();
+
+            values.push_back(std::move(packlist)->values[len - 1]);
+            values.push_back(std::move(packlist)->values[len - 2]);
+
+            for (auto& value : packlist->values | std::views::reverse | std::views::drop(2)) {
+                values.push_back(sep);
+                values.push_back(std::move(value));
+            }
         }
 
-
-        std::vector<Value> values;
-        for (size_t i{}; auto& value : packlist->values) {
-            values.push_back(std::move(value));
-            if ((i & 1) == 0) values.push_back(sep);
-        }
-        if (not l2r) std::ranges::reverse(values);
 
 
         const auto& op = ops.at(fold->op);
@@ -217,19 +236,22 @@ struct Visitor {
 
         expr::Closure* func;
 
+        const size_t  first_idx = 1 - l2r;
+        const size_t second_idx =     l2r;
+
         // no overload resolution required
         if (op->funcs.size() == 1) {
             func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
-            func->type.ret       = validateType(std::move(func)->type.ret      );
-            func->type.params[0] = validateType(std::move(func)->type.params[0]);
-            func->type.params[1] = validateType(std::move(func)->type.params[1]);
+            func->type.ret                = validateType(std::move(func)->type.ret               );
+            func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
+            func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
-            for (Environment args_env; const auto& value : values) {
 
+            for (const auto& value : values) {
                 // these two lines could be dried out...
                 // along with at least 7 more instances of the same line scattered througout the codebase
-                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[0] >= *type_of_arg))
+                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
                     error(
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[0] +
@@ -237,7 +259,7 @@ struct Visitor {
                         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
                     );
 
-                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[1] >= *type_of_arg))
+                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
                     error(
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[1] +
@@ -246,8 +268,9 @@ struct Visitor {
                     );
 
 
-                args_env[func->params[1 - l2r]] = {ret  , func->type.params[1 - l2r]};
-                args_env[func->params[    l2r]] = {value, func->type.params[    l2r]};
+                Environment args_env;
+                args_env[func->params[ first_idx]] = {ret  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx]] = {value, func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -257,19 +280,21 @@ struct Visitor {
         else { // fuck me
             checkNoSyntaxType(op->funcs);
 
-            for (Environment args_env; const auto& value : values) {
+            for (const auto& value : values) {
+
                 auto type1 = validateType(typeOf(ret  ));
                 auto type2 = validateType(typeOf(value));
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
                 // I think these lines are needed. Have to check 
-                func->type.ret       = validateType(std::move(func)->type.ret      );
-                func->type.params[0] = validateType(std::move(func)->type.params[0]);
-                func->type.params[1] = validateType(std::move(func)->type.params[1]);
+                func->type.ret                = validateType(std::move(func)->type.ret             );
+                func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
+                func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
-                args_env[func->params[1 - l2r]] = {ret  , func->type.params[1 - l2r]};
-                args_env[func->params[    l2r]] = {value, func->type.params[    l2r]};
+                Environment args_env;
+                args_env[func->params[ first_idx]] = {ret  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx]] = {value, func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -299,17 +324,30 @@ struct Visitor {
         // if (not fold->left_to_right) std::ranges::reverse(packlist->values);
 
         std::vector<Value> values;
-        if (fold->sep) {
-            const auto sep = std::visit(*this, fold->sep->variant());
+        if (fold->left_to_right) {
+            if (fold->sep) {
+                const auto sep = std::visit(*this, fold->sep->variant());
 
-            for (size_t i{}; auto& value : packlist->values) {
-                values.push_back(std::move(value));
-
-                if ((i & 1) == 0) values.push_back(sep);
+                for (auto& value : packlist->values) {
+                    values.push_back(sep);
+                    values.push_back(std::move(value));
+                }
             }
+            else for (auto& value : packlist->values) values.push_back(std::move(value));
         }
-        else for (auto& value : packlist->values) values.push_back(std::move(value));
-        if (not fold->left_to_right) std::ranges::reverse(values);
+        else {
+            if (fold->sep) {
+                const auto sep = std::visit(*this, fold->sep->variant());
+
+                for (auto& value : packlist->values) {
+                    values.push_back(std::move(value));
+                    values.push_back(sep);
+                }
+            }
+            else for (auto& value : packlist->values) values.push_back(std::move(value));
+
+            std::ranges::reverse(values);
+        }
 
 
         const auto& op = ops.at(fold->op);
@@ -321,22 +359,22 @@ struct Visitor {
 
         expr::Closure* func;
 
+        const auto  first_idx = 1 - fold->left_to_right;
+        const auto second_idx =     fold->left_to_right;
+
         // no overload resolution required
         if (op->funcs.size() == 1) {
             func = dynamic_cast<expr::Closure*>(op->funcs[0].get());
-            func->type.ret       = validateType(std::move(func)->type.ret      );
-            func->type.params[0] = validateType(std::move(func)->type.params[0]);
-            func->type.params[1] = validateType(std::move(func)->type.params[1]);
+            func->type.ret                = validateType(std::move(func)->type.ret               );
+            func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
+            func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
-
-            const auto  first_idx = 1 - fold->left_to_right;
-            const auto second_idx =     fold->left_to_right;
 
             for (Environment args_env; const auto& value : values) {
 
                 // these two lines could be dried out...
                 // along with at least 7 more instances of the same line scattered througout the codebase
-                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[0] >= *type_of_arg))
+                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
                     error(
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[0] +
@@ -344,7 +382,7 @@ struct Visitor {
                         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
                     );
 
-                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[1] >= *type_of_arg))
+                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
                     error(
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[1] +
@@ -371,13 +409,13 @@ struct Visitor {
 
                 func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
                 // * may be not needed....idk tho ;-;
-                func->type.ret       = validateType(std::move(func)->type.ret      );
-                func->type.params[0] = validateType(std::move(func)->type.params[0]);
-                func->type.params[1] = validateType(std::move(func)->type.params[1]);
+                func->type.ret                = validateType(std::move(func)->type.ret               );
+                func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
+                func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
-                args_env[func->params[1 - fold->left_to_right]] = {ret  , func->type.params[1 - fold->left_to_right]};
-                args_env[func->params[    fold->left_to_right]] = {value, func->type.params[    fold->left_to_right]};
+                args_env[func->params[ first_idx]] = {ret  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx]] = {value, func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -1437,7 +1475,7 @@ struct Visitor {
 
                                     if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
                                         error("Type mis-match! Parameter '" + name
-                                            + "' expected type: "+ type->text() 
+                                            + "' expected type: "+ type->text()
                                             + ", got: " + type_of_value->text()
                                         );
 
@@ -2079,7 +2117,7 @@ struct Visitor {
     }
 
 
-    type::TypePtr validateType(type::TypePtr type) noexcept {
+    type::TypePtr validateType(const type::TypePtr& type) noexcept {
 
         //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (const auto& var = getVar(type->text()); var) {
