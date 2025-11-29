@@ -9,6 +9,63 @@
 
 
 
+TEST_CASE("Empty Pack", "[General]") {
+    const auto src = R"(
+print = __builtin_print;
+
+printPack = (first, rest: ...Any) => __builtin_conditional(
+    __builtin_eq(
+        __builtin_pack_len(rest), 0),
+            print(first),
+            {
+                print(first);
+                printPack(rest...);
+            }
+    );
+
+printPack("Ali", "Ben", "Con", "Byte");
+)";
+
+    REQUIRE(run(src) == R"(Ali
+Ben
+Con
+Byte)");
+}
+
+
+
+TEST_CASE("linked lists", "[General]") {
+    const auto src = R"(
+print = __builtin_print;
+
+
+Node: Type = class {
+    val = "None";
+    next = "None";
+};
+
+printList = (l: Node) => match l {
+    Node(n, :Node) => {
+        print(n);
+        printList(l.next);
+    };
+
+    Node(n: Int, ="None") => print(n);
+    Node(_, ="None") => print("Empty List!");
+};
+
+list = Node(1, Node(2, Node(3)));
+
+printList(Node());
+printList(list);
+)";
+
+    REQUIRE(run(src) == R"(Empty List!
+1
+2
+3)");
+}
+
 
 TEST_CASE("unary separated left fold", "[Fold Exprs]") {
     const auto src = R"(

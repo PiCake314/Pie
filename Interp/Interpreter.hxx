@@ -1275,14 +1275,20 @@ struct Visitor {
         bool normal = true;
 
         if (is_variadic) {
-            const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
-            const size_t variadic_index = std::distance(pos_params.begin(), it);
+            // const auto iter = std::ranges::find_if(pos_params, type::isVariadic, &std::pair::second);
+            const auto iter = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
+            const size_t variadic_index = std::distance(pos_params.begin(), iter);
 
             // call->args.erase(std::next(call->args.begin(), variadic_index));
 
             if (args_size > variadic_index) {
                 normal = false;
 
+
+                // FIX: first add the empty pack
+                argument_capture_list[pos_params[variadic_index].first] = {makePack(), std::move(pos_params[variadic_index]).second};
+                // only then should you remove the parameter
+                // previously, I only had the following. So the pack was left as undefined instead of empty
                 pos_params.erase(std::next(pos_params.begin(), variadic_index));
 
                 // we ignore the pack, so we consume an extra argument. Remove it from the carried function
@@ -1454,6 +1460,10 @@ struct Visitor {
                     const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
 
 
+                    if (variadic_size == 0) {
+                        args_env[pos_params[variadic_index].first] = {makePack(), std::move(pos_params)[variadic_index].second};
+                    }
+
                     auto pack = makePack();
                     for (
                         size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
@@ -1485,7 +1495,7 @@ struct Visitor {
 
                                     if (type->text() == "Syntax") {
                                         error(); //* remove!
-                                        // value = expr->variant();
+                                        // value = expr->variant();L
                                     }
                                     else {
                                         value = std::visit(*this, expr->variant());
