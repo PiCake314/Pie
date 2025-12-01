@@ -3,11 +3,9 @@
 ## Philosophy
 <!-- This language aims to be unique, but it also should still feel familiar. Here are some of it's "features": -->
 - Pie aims to be unique yet feel familiar
-- Everything is an expression
-- Bare-bones (if it doesn't need to be keyword, then it isn't)
-- No operators defined for you
+- Everything is an expression (null/unit/none type)
+- Bare-bones (if it doesn't need to be keyword, then it isn't + no operators)
 - Still quirky (different even if the difference is not good)
-- No null/unit/none type or any type indicating nothing
 
 ## Introduction
 
@@ -18,6 +16,7 @@
 - [Scopes](#scopes)
 - [Operators](#operators)
 - [Overloading](#overloading)
+- [Packs](#packs)
 - [Match Expressions](#match-expressions)
 - [Built-in Functions](#builtins)
 - [Types](#types)
@@ -280,6 +279,47 @@ infix(+) + = (a: String, b: String): String => __builtin_concat(a, b);
 "Hi" + "Bye";
 ```
 The `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
+
+## Packs
+Pakcs in Pie are analogous to C++'s packs. One can only declare packs as a function parameter:
+```pie
+func = (pack: ...Any) => __builtin_print(pack);
+func(1, "Hello", 3.14);
+```
+Note that to declare a pack, the argument **MUST** be given a type preceeded by ellipses. Packs may be empty.
+
+#### Fold Expressions:
+Pie supports Fold Expressions, much like C++:
+
+##### Unary left fold
+`(pack + ...)` 
+
+##### Unary right fold
+`(... + pack)` 
+
+#### Binary left fold
+`(init + pack + ...)` 
+`init` will be used as an initial value. Helps in the case where the pack is empty:
+
+##### Binary right fold
+`(... + pack + init)`
+
+
+##### Separated unary left fold
+`(pack + ... + sep)`
+The above expressions evaluates like this:
+`((((arg1 + sep) + arg2) + sep) + arg3)`
+This can be useful if you wanted to create a CSV entry from a bunch of strings for example.
+
+##### Separated unary right fold
+`(pack + ... + sep)`
+
+
+##### Separated binary left fold
+`(init + pack + ... + sep)`
+
+##### Separated binary right fold
+`(sep + ... + pack + init)`
 
 ## Match Expressions
 
