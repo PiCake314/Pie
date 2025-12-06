@@ -24,14 +24,19 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     using enum TokenKind;
          if (word == "mixfix") return MIXFIX;
     else if (word == "prefix") return PREFIX;
-    else if (word == "infix" ) return INFIX;
+    else if (word == "infix" ) return INFIX ;
     else if (word == "suffix") return SUFFIX;
-    else if (word == "exfix" ) return EXFIX;
+    else if (word == "exfix" ) return EXFIX ;
 
-    else if (word == "class" ) return CLASS;
-    else if (word == "union" ) return UNION;
-    else if (word == "match" ) return MATCH;
+    else if (word == "class") return CLASS;
+    else if (word == "union") return UNION;
+    else if (word == "match") return MATCH;
 
+    else if (word == "loop"    ) return LOOP;
+    else if (word == "break"   ) return BREAK;
+    else if (word == "continue") return CONTINUE;
+
+    // pre-processor handles imports
     // else if (word == "import"   ) return IMPORT;
     else if (word == "namespace") return NAMESPACE;
 

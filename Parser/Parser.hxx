@@ -86,6 +86,15 @@ public:
             case UNION: return onion();
             case MATCH: return match();
 
+            case LOOP:     return loop();
+            case BREAK:    return std::make_shared<expr::Break>(parseExpr());
+                // if (check(SEMI)) return std::make_shared<expr::Break>(           );
+                // else             return std::make_shared<expr::Break>(parseExpr());
+
+            case CONTINUE: return std::make_shared<expr::Continue>();
+                // if (check(SEMI)) return std::make_shared<expr::Continue>(           );
+                // else             return std::make_shared<expr::Continue>(parseExpr());
+
             case NAMESPACE: return nameSpace();
             case USE:       return std::make_shared<expr::Use>(parseExpr());
 
@@ -210,12 +219,26 @@ public:
             }
 
             case COLON: {
-                consume(COLON); // 'in other words "eat shit"' ~Shaw
-                auto right = parseExpr(prec::HIGH_VALUE);
-                auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+                if (
+                    check(COLON) and not (
+                        dynamic_cast<expr::Name*>(left.get()) or
+                        dynamic_cast<expr::SpaceAccess*>(left.get()) or
+                        dynamic_cast<expr::Namespace*>(left.get())
+                    )
+                )
+                    error("Can only space-access names or namespaces: " + left->stringify());
 
-                return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
+                if (match(COLON)) { // namespace
+                    auto right = parseExpr(prec::HIGH_VALUE);
+                    auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
+                    if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+
+                    return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
+                }
+                // either a type
+                // or and else for loop
+
+                return std::make_shared<expr::Name>(left->stringify(), parseType());
             }
 
             case ASSIGN: 
@@ -628,7 +651,6 @@ public:
     }
 
 
-
     expr::ExprPtr foldCase1And2() {
         using enum TokenKind;
 
@@ -649,6 +671,31 @@ public:
         consume(R_PAREN);
 
         return std::make_shared<expr::BinaryFold>(std::move(pack), std::move(init), std::move(op), is_left_to_right);
+    }
+
+
+    expr::ExprPtr loop() {
+        using enum TokenKind;
+
+        auto kind = match(FAT_ARROW) ? nullptr : parseExpr();
+
+        if (kind) consume(FAT_ARROW);
+
+        auto var_or_body = parseExpr();
+
+        if (match(FAT_ARROW))
+            return std::make_shared<expr::Loop>(std::move(var_or_body), nullptr, std::move(kind), parseExpr());
+
+        if (check(SEMI))
+            return std::make_shared<expr::Loop>(std::move(var_or_body), nullptr, std::move(kind));
+
+
+        auto body = parseExpr();
+
+        if (match(FAT_ARROW))
+            return std::make_shared<expr::Loop>(std::move(body), std::move(var_or_body), std::move(kind), parseExpr());
+
+        return std::make_shared<expr::Loop>(std::move(body), std::move(var_or_body), std::move(kind));
     }
 
 
@@ -878,6 +925,10 @@ public:
 
         if (match(L_PAREN)) {
             low = consume().text;
+            if (low == "(") { // precedence is `()`
+                consume(")");
+                low += ')';
+            }
 
             shift = parseOperatorShift();
 

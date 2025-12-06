@@ -6,8 +6,6 @@
 
 
 enum class TokenKind {
-    // UNKNOWN = -1,
-    // NONE = 0,
     ASSIGN,
     FAT_ARROW,
 
@@ -28,6 +26,7 @@ enum class TokenKind {
     L_PAREN,
     R_PAREN,
 
+
 // Keywords
     MIXFIX,
     PREFIX,
@@ -35,9 +34,11 @@ enum class TokenKind {
     SUFFIX,
     EXFIX,
     CLASS,
-    UNION, // for future
+    UNION,
     MATCH,
-
+    LOOP,
+    BREAK,
+    CONTINUE,
     // IMPORT,
     NAMESPACE,
     USE,
@@ -85,21 +86,13 @@ constexpr const char* stringify(const TokenKind token) noexcept {
         case UNION:         return "UNION";
         case MATCH:         return "MATCH";
 
+        case LOOP    :      return "LOOP";
+        case BREAK   :      return "BREAK";
+        case CONTINUE:      return "CONTINUE";
+
         // case IMPORT:        return "IMPORT";
         case NAMESPACE:     return "NAMESPACE";
         case USE:           return "USE";
-
-
-        // 
-        // case PR_LOW:        return "PR_LOW";
-        // case PR_ASSIGNMENT: return "PR_ASSIGNMENT";
-        // case PR_INFIX:      return "PR_INFIX";
-        // case PR_SUM:        return "PR_SUM";
-        // case PR_PROD:       return "PR_PROD";
-        // case PR_PREFIX:     return "PR_PREFIX";
-        // case PR_POSTFIX:    return "PR_POSTFIX";
-        // case PR_CALL:       return "PR_CALL";
-        // case PR_HIGH:       return "PR_HIGH";
     }
 
     return "<UNNAMED>";

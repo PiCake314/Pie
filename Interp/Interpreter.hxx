@@ -31,6 +31,9 @@ struct Visitor {
     std::vector<Environment> env;
     const Operators ops;
 
+    ssize_t loop_counter{};
+    bool broken{}, continued{};
+
 
     // inline static const std::unordered_map<const char*, 
 
@@ -584,6 +587,9 @@ struct Visitor {
 
 
         // assing to the serialization (stringification) of the AST node
+        if (dynamic_cast<expr::Namespace*>(ass->rhs.get()) and not dynamic_cast<expr::Name*>(ass->lhs.get()))
+            error("Cannot assign namespaces to non-names: " + ass->stringify());
+
         return addVar(ass->lhs->stringify(), std::visit(*this, ass->rhs->variant()));
     }
 
@@ -645,16 +651,10 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Access *acc) {
+    Value objectAccess(const Object& obj, const std::string& name) {
 
-        const auto& left = std::visit(*this, acc->var->variant());
-
-        if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
-
-        const auto& obj = std::get<Object>(left);
-
-        const auto& found = std::ranges::find_if(obj.second->members, [&name = acc->name] (const auto& member) { return member.first.stringify() == name; });
-        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object '" + acc->var->stringify() + '\'');
+        const auto& found = std::ranges::find_if(obj.second->members, [&name] (const auto& member) { return member.first.stringify() == name; });
+        if (found == obj.second->members.end()) error("Name '" + name + "' doesn't exist in object '" + /*acc->var->*/ stringify(obj) + '\'');
 
 
         if (std::holds_alternative<expr::Closure>(found->second)) {
@@ -670,6 +670,27 @@ struct Visitor {
         }
 
         return found->second;
+    }
+
+
+    // Value stringAccess(const std::string& str, const std::string& name) {
+    //     if (name == "at") {
+    //         const auto src = "__builtin";
+    //     }
+
+    //     error();
+    // }
+
+
+    Value operator()(const expr::Access *acc) {
+
+        const auto& left = std::visit(*this, acc->var->variant());
+
+        if (std::holds_alternative<     Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
+        // if (std::holds_alternative<std::string>(left)) return stringAccess(get<std::string>(left), acc->name);
+
+
+        error("Can't access a non-class type!");
     }
 
 
@@ -845,7 +866,171 @@ struct Visitor {
     }
 
 
-    // only added to differentiate between expressions such as: 1 + 2 and (1 + 2)
+    Value operator()(const expr::Loop *loop) {
+        enum class Type { NONE = 0, INT, BOOL, PACK, OBJECT };
+        const auto classify = [](const Value& v) {
+            if (std::holds_alternative<ssize_t> (v)) return Type::INT ;
+            if (std::holds_alternative<bool   > (v)) return Type::BOOL;
+            if (std::holds_alternative<PackList>(v)) return Type::PACK;
+            if (std::holds_alternative<Object > (v)) return Type::OBJECT;
+
+            return Type::NONE;
+        };
+
+
+        // push
+        const auto current_counter = loop_counter;
+
+        Value ret;
+        if (loop->kind) {
+            const Value kind = std::visit(*this, loop->kind->variant());
+
+            switch (classify(kind)) {
+                // for loop
+                case Type::INT: {
+                    const auto limit = get<ssize_t>(kind);
+                    if (limit <= 0) {
+                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        return std::visit(*this, loop->els->variant());
+                    }
+
+
+                    if (loop->var) {
+                        std::string var_name = loop->var->stringify();
+                        ScopeGuard sg{this};
+
+                        for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
+                            addVar(var_name, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+
+                            ret = std::visit(*this, loop->body->variant());
+
+                            if (broken) break;
+                            // if (continued) continue;
+                        }
+                    }
+                    else for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
+                        ret = std::visit(*this, loop->body->variant());
+
+                        if (broken) break;
+                    }
+
+                } break;
+
+                // while loop
+                case Type::BOOL: {
+                    if (not get<bool>(kind)) {
+                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        return std::visit(*this, loop->els->variant());
+                    }
+
+                    if (auto cond = kind; loop->var) {
+                        std::string var_name = loop->var->stringify();
+                        ScopeGuard sg{this};
+
+                        for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
+                            addVar(var_name, loop_counter);
+
+                            ret = std::visit(*this, loop->body->variant());
+
+                            if (broken) break;
+                            // if (continued) continue;
+
+                            cond = std::visit(*this, loop->kind->variant());
+                        }
+
+                    }
+                    else for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
+                        ret = std::visit(*this, loop->body->variant());
+
+                        if (broken) break;
+
+                        cond = std::visit(*this, loop->kind->variant());
+                    }
+                } break;
+
+                case Type::PACK: {
+                    const auto& pack = get<PackList>(kind);
+                    if (pack->values.empty()) {
+                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        return std::visit(*this, loop->els->variant());
+                    }
+
+
+                    if (loop_counter = 0; loop->var) {
+                        std::string var_name = loop->var->stringify();
+                        ScopeGuard sg{this};
+
+                        for (const auto& elt : pack->values) {
+                            addVar(var_name, elt);
+
+                            ret = std::visit(*this, loop->body->variant());
+
+                            if (broken) break;
+
+                            ++loop_counter;
+                        }
+
+                    }
+                    else for ([[maybe_unused]] const auto& _ : pack->values) {
+                        ret = std::visit(*this, loop->body->variant());
+
+                        if (broken) break;
+
+                        ++loop_counter;
+                    }
+                } break;
+
+                // use iterators (future update)
+                case Type::OBJECT: error();
+                case Type::NONE:
+                    error("Loop type no supported: " + loop->stringify());
+            }
+        }
+        // loop till break
+        else if (loop->var) {
+            std::string var_name = loop->var->stringify();
+            ScopeGuard sg{this};
+
+            for (loop_counter = 0; ; ++loop_counter) {
+                addVar(var_name, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+
+                ret = std::visit(*this, loop->body->variant());
+
+                if (broken) break;
+            }
+
+        }
+        else for (loop_counter = 0; ; ++loop_counter) {
+            ret = std::visit(*this, loop->body->variant());
+
+            if (broken) break;
+        }
+
+        // pop
+        loop_counter = current_counter;
+
+        broken = continued = false;
+        return ret;
+    }
+
+
+    Value operator()(const expr::Break *brake) {
+        broken = true;
+        if (brake->expr) return std::visit(*this, brake->expr->variant());
+        // if (brake->expr) return eval(brake->expr);
+
+        return loop_counter;
+    }
+
+    Value operator()(const expr::Continue *cont) {
+        continued = true;
+        if (cont->expr) return std::visit(*this, cont->expr->variant());
+
+        return loop_counter;
+    }
+
+
+    //* only added to differentiate between expressions such as: 1 + 2 and (1 + 2)
     Value operator()(const expr::Grouping *g) {
         if (const auto& var = getVar(g->stringify()); var) return var->first;
 
@@ -1213,7 +1398,7 @@ struct Visitor {
 
 
     Value partialApplication(
-        const expr::Call* call,
+        const expr::Call *call,
         const expr::Closure& func,
         const size_t args_size,
         std::vector<std::pair<size_t, std::vector<Value>>> expand_at,
@@ -1655,13 +1840,9 @@ struct Visitor {
 
         expr::Closure closure = *c; // copy to use for fix the types
 
-        // take a snapshot of the current env (capture by value). comment this line if you want capture by reference..
-        // closure.capture(envStackToEnvMap());
-
 
         for (auto& type : closure.type.params) {
             type = validateType(std::move(type));
-            // // if(not validate(name->type)) error("Invalid Type: " + name->type->text());
 
             // replacing expressions that represnt types
             if (const auto& cls = getVar(type->text()); cls and std::holds_alternative<ClassValue>(cls->first))
@@ -1688,8 +1869,12 @@ struct Visitor {
         ScopeGuard sg{this};
 
         Value ret;
-        for (const auto& line : block->lines)
+        for (const auto& line : block->lines) {
             ret = std::visit(*this, line->variant()); // a scope's value is the last expression
+
+            // if any expression above breaks or continues, stop execution
+            if (broken or continued) break;
+        }
 
 
 
@@ -1723,11 +1908,21 @@ struct Visitor {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
         for(const auto& builtin : {
-            "print", "concat", //* variadic
-            "true", "false", "input_str", "input_int", //* nullary
-            "pack_len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string",     //* unary
-            "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  //* binary
-            "conditional" //* trinary
+            //* variadic
+            "print", "concat", 
+
+            //* nullary
+            "true", "false", "input_str", "input_int", 
+
+            //* unary
+            "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
+
+            //* binary
+            "str_get",
+            "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
+
+            //* trinary
+            "conditional" 
         })
             if (func == make_builtin(builtin)) return true;
 
@@ -1864,17 +2059,33 @@ struct Visitor {
             >{},
 
             MapEntry<
-                S<"pack_len">,
-                Func<"pack_len",
-                    decltype([](const auto& pack, const auto&) {
-                        return static_cast<ssize_t>(pack->values.size()); // have to narrow to `int` since I don't support any other integer type (nor big int)
+                S<"len">,
+                Func<"len",
+                    decltype([](const auto& x, const auto&) {
+                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
+                             return static_cast<ssize_t>(x.length());
+
+                        else return static_cast<ssize_t>(x->values.size());
                     }),
-                    TypeList<PackList>
+                    TypeList<PackList>,
+                    TypeList<std::string>
                 >
             >{},
 
 
             //* BINARY FUNCTIONS
+            MapEntry<
+                S<"str_get">,
+                Func<"str_get",
+                    decltype([](const auto& str, const auto& ind, const auto&) -> std::string {
+                        if (ind < 0 or size_t(ind) >= str.length())
+                            error("Accessing string '" + str + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
+                        return {str[ind]}; 
+                    }),
+                    TypeList<std::string, ssize_t>
+                >
+            >{},
+
             MapEntry<
                 S<"add">,
                 Func<"add",
@@ -2097,7 +2308,7 @@ struct Visitor {
         if (name == "eval"     ) return execute<1>(stdx::get<S<"eval"      >>(functions).value, {value1}, this);
         if (name == "neg"      ) return execute<1>(stdx::get<S<"neg"       >>(functions).value, {value1}, this);
         if (name == "not"      ) return execute<1>(stdx::get<S<"not"       >>(functions).value, {value1}, this);
-        if (name == "pack_len" ) return execute<1>(stdx::get<S<"pack_len"  >>(functions).value, {value1}, this);
+        if (name == "len"      ) return execute<1>(stdx::get<S<"len"       >>(functions).value, {value1}, this);
         if (name == "to_int"   ) return execute<1>(stdx::get<S<"to_int"    >>(functions).value, {value1}, this);
         if (name == "to_double") return execute<1>(stdx::get<S<"to_double" >>(functions).value, {value1}, this);
         if (name == "to_string") return execute<1>(stdx::get<S<"to_string" >>(functions).value, {value1}, this);
@@ -2107,12 +2318,14 @@ struct Visitor {
 
         using std::operator""sv;
 
-        const auto eager = {"add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
+        const auto eager = {"str_get"sv, "add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
         if (std::ranges::find(eager, name) != eager.end()) {
             arity_check(2);
             const auto& value2 = std::visit(*this, args[1]->variant());
 
             // this is disgusting..I know
+            if (name == "str_get") return execute<2>(stdx::get<S<"str_get">>(functions).value, {value1, value2}, this);
+
             if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
             if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);
             if (name == "mul") return execute<2>(stdx::get<S<"mul">>(functions).value, {value1, value2}, this);
@@ -2298,6 +2511,9 @@ struct Visitor {
             or name == "Syntax"; // names can't be variadics (thank god)
     }
 
+
+
+    Value eval(expr::ExprPtr& expr) { return std::visit(*this, expr->variant()); }
 
 private:
 

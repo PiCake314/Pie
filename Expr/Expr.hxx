@@ -342,6 +342,62 @@ private:
 };
 
 
+struct Loop : Expr {
+    ExprPtr kind;
+    ExprPtr var;
+    ExprPtr body;
+    ExprPtr els;
+
+    Loop(ExprPtr b, ExprPtr v = nullptr, ExprPtr k = nullptr, ExprPtr e = nullptr) noexcept
+    : kind{std::move(k)}, var{std::move(v)}, body{std::move(b)}, els{std::move(e)}
+    {}
+
+
+    std::string stringify(const size_t indent = 0) const override {
+        std::string s = "loop ";
+
+        if (kind) s += kind->stringify(indent + 4) + " => ";
+        if (var ) s += var ->stringify(indent + 4) + " ";
+
+        s += body->stringify(indent + 4);
+
+        if (els) s += " else " + els->stringify();
+
+        return s;
+    }
+
+    Node variant() const override { return this; }
+};
+
+struct Break : Expr {
+    ExprPtr expr;
+
+    explicit Break(ExprPtr e = nullptr) noexcept : expr{std::move(e)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        if (expr) return "break " + expr->stringify(indent + 4);
+
+        return "break";
+    }
+
+    Node variant() const override { return this; }
+};
+
+struct Continue : Expr {
+    ExprPtr expr;
+
+    explicit Continue(ExprPtr e = nullptr) noexcept : expr{std::move(e)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        if (expr) return "continue " + expr->stringify(indent + 4);
+
+        return "continue";
+    }
+
+    Node variant() const override { return this; }
+};
+
+
 struct Access : Expr {
     ExprPtr var;
     std::string name;

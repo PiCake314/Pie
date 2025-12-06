@@ -554,6 +554,7 @@ this isn't
 - `,`
 - `.`
 - `=`
+- `=>`
 - `:`
 - `;`
 
@@ -589,6 +590,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 #### in order of priority
 
 - [ ] Lexically Scoped Operators
+- [ ] Same for loop^^
 - [ ] Casting (maybe using `as`)
 - [ ] Remove preprocessor
 - [ ] Allow variadics of Syntax type
@@ -609,6 +611,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] Fix arbitrary names typing issue
 - [x] Implement separated fold expressions (like C++)
 - [x] Add fold expressions (like C++)
 - [x] Arbitrary function parameters
