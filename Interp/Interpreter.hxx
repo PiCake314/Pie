@@ -900,6 +900,8 @@ struct Visitor {
                         ScopeGuard sg{this};
 
                         for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
+                            continued = false;
+
                             addVar(var_name, loop_counter); // will change to "proper type" soon. for now, `Any` will do
 
                             ret = std::visit(*this, loop->body->variant());
@@ -909,6 +911,8 @@ struct Visitor {
                         }
                     }
                     else for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
+                        continued = false;
+
                         ret = std::visit(*this, loop->body->variant());
 
                         if (broken) break;
@@ -928,6 +932,8 @@ struct Visitor {
                         ScopeGuard sg{this};
 
                         for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
+                            continued = false;
+
                             addVar(var_name, loop_counter);
 
                             ret = std::visit(*this, loop->body->variant());
@@ -940,6 +946,8 @@ struct Visitor {
 
                     }
                     else for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
+                        continued = false;
+
                         ret = std::visit(*this, loop->body->variant());
 
                         if (broken) break;
@@ -956,27 +964,27 @@ struct Visitor {
                     }
 
 
-                    if (loop_counter = 0; loop->var) {
+                    if (loop->var) {
                         std::string var_name = loop->var->stringify();
                         ScopeGuard sg{this};
 
                         for (const auto& elt : pack->values) {
+                            continued = false;
+
                             addVar(var_name, elt);
 
                             ret = std::visit(*this, loop->body->variant());
 
                             if (broken) break;
-
-                            ++loop_counter;
                         }
 
                     }
                     else for ([[maybe_unused]] const auto& _ : pack->values) {
+                        continued = false;
+
                         ret = std::visit(*this, loop->body->variant());
 
                         if (broken) break;
-
-                        ++loop_counter;
                     }
                 } break;
 
@@ -988,6 +996,8 @@ struct Visitor {
         }
         // loop till break
         else if (loop->var) {
+            continued = false;
+
             std::string var_name = loop->var->stringify();
             ScopeGuard sg{this};
 
@@ -1001,6 +1011,8 @@ struct Visitor {
 
         }
         else for (loop_counter = 0; ; ++loop_counter) {
+            continued = false;
+
             ret = std::visit(*this, loop->body->variant());
 
             if (broken) break;
@@ -1912,7 +1924,7 @@ struct Visitor {
             "print", "concat", 
 
             //* nullary
-            "true", "false", "input_str", "input_int", 
+            "panic", "true", "false", "input_str", "input_int", 
 
             //* unary
             "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
@@ -1922,7 +1934,10 @@ struct Visitor {
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
 
             //* trinary
-            "conditional" 
+            "conditional",
+
+            //* quaternary 
+            "str_slice" // (str, start, end, step), should I add anothee overload for (str, start, length)??
         })
             if (func == make_builtin(builtin)) return true;
 
@@ -2216,57 +2231,55 @@ struct Visitor {
         //     if (not std::holds_alternative<ssize_t>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
         // };
 
-        if (name == "true" or name == "false") arity_check(0);
-        if (name == "true")  return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
-        if (name == "false") return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
 
-        if (name == "input_str") return execute<0>(stdx::get<S<"input_str">>(functions).value, {}, this);
-        if (name == "input_int") return execute<0>(stdx::get<S<"input_int">>(functions).value, {}, this);
+
+        if (name == "panic") {
+            for (const auto& arg : args) {
+                std::clog << stringify(std::visit(*this, arg->variant())) << ' ';
+            }
+            error("", {}, false);
+        }
+
+
+        if (name == "true")  {
+            arity_check(0);
+            return execute<0>(stdx::get<S<"true">>(functions).value, {}, this);
+        }
+
+        if (name == "false") {
+            arity_check(0);
+            return execute<0>(stdx::get<S<"false">>(functions).value, {}, this);
+        }
+
+        if (name == "input_str") {
+            arity_check(0);
+            return execute<0>(stdx::get<S<"input_str">>(functions).value, {}, this);
+        }
+
+        if (name == "input_int") {
+            arity_check(0);
+            return execute<0>(stdx::get<S<"input_int">>(functions).value, {}, this);
+        }
+
 
 
         // for now, can only implement variadic functions inlined in this function
-        if (name == "print") {
-            if (args.empty()) error("'print' requires at least 1 positional argument passed!");
-
-            using std::operator""sv;
-            const auto allowed_params = {"sep"sv, "end"sv};
-
-            for (const auto& [name, _] : named_args)
-                if (std::ranges::find(allowed_params, name) == allowed_params.end())
-                    error("Can only have the named argument 'end'/'sep' in call to '__builtin_print': found '" + name + "'!");
-
-
-            const Value sep = named_args.contains("sep") ? std::visit(*this, named_args.at("sep")->variant()) : " ";
-
-            constexpr bool no_newline = false;
-
-            std::optional<Value> separator;
-            Value ret;
-            for(size_t i{}, curr{}; auto& arg : args) {
-                if (curr < expand_at.size() and i++ == expand_at[curr].first) {
-                    for (const auto& e : expand_at[curr++].second) {
-                        if (separator) print(*separator, no_newline);
-
-                        print(e, no_newline);
-
-                        if (not separator) separator = sep;
-                    }
-                }
-                else {
-                    if (separator) print(*separator, no_newline);
-
-                    ret = std::visit(*this, arg->variant());
-                    print(ret, no_newline);
-
-                    if (not separator) separator = sep;
+        // seems like functions with default named parameters can only be implmented this way for now
+        // need a way to sepcify:
+        /* // TODO
+            {
+                name: "print",
+                arg_count: VARIADIC,
+                code: [] () {},
+                default named: {
+                    {"end", "\n"},
+                    {"sep", " "},
                 }
             }
-
-            if (named_args.contains("end"))
-                 print(std::visit(*this, named_args.at("end")->variant()), no_newline);
-            else puts(""); // print the new line in the end.
-
-            return ret;
+        */
+        // would be nice if the system above could be done for member functions on premitive types (Int, Double, String, etc...)
+        if (name == "print") {
+            return builtinPrint(args, expand_at, named_args);
         }
 
         if (name == "concat") {
@@ -2315,7 +2328,6 @@ struct Visitor {
 
 
         // all the rest of those funcs expect 2 arguments
-
         using std::operator""sv;
 
         const auto eager = {"str_get"sv, "add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
@@ -2376,12 +2388,93 @@ struct Visitor {
             return std::visit(*this, otherwise); // Oh ffs! [for cogs on discord!]
         }
 
+        if (name == "str_slice") {
+            arity_check(4);
+            const auto& start_v  = std::visit(*this, args[1]->variant());
+            const auto& end_v    = std::visit(*this, args[2]->variant());
+            const auto& stride_v = std::visit(*this, args[3]->variant());
+
+            if (
+                not std::holds_alternative<std::string>(value1) or
+                not std::holds_alternative<ssize_t>(start_v ) or
+                not std::holds_alternative<ssize_t>(end_v   ) or
+                not std::holds_alternative<ssize_t>(stride_v)
+            )
+            error(
+                "Invalid argument: __builtin_str_slice("
+                + args[0]->stringify() + ", "
+                + args[1]->stringify() + ", "
+                + args[2]->stringify() + ", "
+                + args[3]->stringify() + ", "
+            );
+
+            const auto& str   = get<std::string>(value1);
+                  auto start  = std::max<ssize_t>  (get<ssize_t>(start_v), 0);
+            const auto end    = std::clamp<ssize_t>(get<ssize_t>(  end_v), 0, ssize_t(str.length()));
+            const auto stride = get<ssize_t>(stride_v);
+
+            std::string ret;
+            for (; start < end; start += stride)
+                ret += str[start];
+
+            return ret;
+        }
+
 
         // const auto& value3 = std::visit(*this, call->args[2]->variant());
         // if (name == "conditional") return execute<3>(stdx::get<S<"conditional">>(functions).value, {value1, value2, value3}, this);
 
 
         error("Calling a builtin fuction that doesn't exist!");
+    }
+
+
+    Value builtinPrint(
+        const std::vector<expr::ExprPtr>& args,
+        const std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
+        const std::unordered_map<std::string, expr::ExprPtr>& named_args
+    ) {
+        if (args.empty()) error("'print' requires at least 1 positional argument passed!");
+
+        using std::operator""sv;
+        const auto allowed_params = {"sep"sv, "end"sv};
+
+        for (const auto& [name, _] : named_args)
+            if (std::ranges::find(allowed_params, name) == allowed_params.end())
+                error("Can only have the named argument 'end'/'sep' in call to '__builtin_print': found '" + name + "'!");
+
+
+        const Value sep = named_args.contains("sep") ? std::visit(*this, named_args.at("sep")->variant()) : " ";
+
+        constexpr bool no_newline = false;
+
+        std::optional<Value> separator;
+        Value ret;
+        for(size_t i{}, curr{}; auto& arg : args) {
+            if (curr < expand_at.size() and i++ == expand_at[curr].first) {
+                for (const auto& e : expand_at[curr++].second) {
+                    if (separator) print(*separator, no_newline);
+
+                    print(e, no_newline);
+
+                    if (not separator) separator = sep;
+                }
+            }
+            else {
+                if (separator) print(*separator, no_newline);
+
+                ret = std::visit(*this, arg->variant());
+                print(ret, no_newline);
+
+                if (not separator) separator = sep;
+            }
+        }
+
+        if (named_args.contains("end"))
+                print(std::visit(*this, named_args.at("end")->variant()), no_newline);
+        else puts(""); // print the new line in the end.
+
+        return ret;
     }
 
 

@@ -911,6 +911,18 @@ public:
 
 
 
+    void fixPrecedence(std::string& p) {
+        if (p == "(") { // precedence is `()`
+            consume(")");
+            p += ')';
+        }
+
+        else if (p == "[") { // precedence is `[]`
+            consume("]");
+            p += ']';
+        }
+    }
+
     // operator defintion
     // fix(PREC) op = (...) => ...
     expr::ExprPtr fixOperator(Token token) {
@@ -925,10 +937,7 @@ public:
 
         if (match(L_PAREN)) {
             low = consume().text;
-            if (low == "(") { // precedence is `()`
-                consume(")");
-                low += ')';
-            }
+            fixPrecedence(low);
 
             shift = parseOperatorShift();
 
@@ -1053,6 +1062,7 @@ public:
 
         consume(L_PAREN);
         std::string low = consume().text;
+        fixPrecedence(low);
 
         const int shift = parseOperatorShift();
 

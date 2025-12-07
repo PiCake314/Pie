@@ -14,10 +14,14 @@
 
 [[noreturn]] inline void error(
     const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
-    const std::source_location& location = std::source_location::current()
+    const std::source_location& location = std::source_location::current(),
+    bool print_loc = true
 ) noexcept {
 
-    std::println(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m {}", location.file_name(), location.line(), location.column(), msg);
+    if (print_loc)
+        std::print(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m ", location.file_name(), location.line(), location.column());
+
+    std::println(std::cerr, "{}", msg);
 
     exit(1);
 }
