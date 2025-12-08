@@ -31,6 +31,11 @@ struct Visitor {
     std::vector<Environment> env;
     const Operators ops;
 
+    // _this_ (or self) context
+    std::vector<Object> selves{};
+
+
+    // loop context
     ssize_t loop_counter{};
     bool broken{}, continued{};
 
@@ -63,6 +68,29 @@ struct Visitor {
     }
 
 
+    std::optional<Value> checkThis(const std::string& name) {
+        if (selves.empty()) return {};
+
+        for (const auto& [member, value] : selves.back().second->members) {
+            if (member.name == name) return value;
+        }
+
+        return {};
+    }
+
+    void changeThis(const std::string& name, Value val) {
+        if (selves.empty()) error();
+
+        for (auto& [member, value] : selves.back().second->members) {
+            if (member.name == name) {
+                value = val;
+                return;
+            }
+        }
+
+        error("Name '" + name + "' not found in object: " + stringify(selves.back()));
+    }
+
     Value operator()(const expr::Name *n) {
         // what should builtins evaluate to?
         // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :))))
@@ -70,10 +98,10 @@ struct Visitor {
         // how about a special value?
 
         if (not type::shouldReassign(n->type))
-            error("Declarations annotated with a type need to be assigned a value: " + n->stringify() + ": " + n->type->text());
+            error("Declarations annotated with a type need to be assigned a value: " + n->name + ": " + n->type->text());
 
-        if (const auto& var = getVar(n->stringify()); var) return var->first;
-
+        if (const auto& var = getVar(n->name); var) return var->first;
+        if (const auto var = checkThis(n->name); var) return *var;
 
         // for now, buitlin functions and typename just return their names as strings...
         // maybe i need to return some builtin type or smth. IDK
@@ -81,7 +109,7 @@ struct Visitor {
         if (isBuiltinTypeName(n->name)) return n->name;
 
 
-        error("Name \"" + n->stringify() + "\" is not defined");
+        error("Name \"" + n->name + "\" is not defined");
     }
 
 
@@ -433,6 +461,18 @@ struct Visitor {
 
 
     Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
+        if (auto name = dynamic_cast<const expr::Name*>(acc->var.get()); name and name->name == "self") {
+            if (selves.empty())
+                error("Can't use 'self' outside of class scope: " + ass->stringify());
+
+            if (not checkThis(acc->name))
+                error("Name '" + acc->name + "' not found in object '" + acc->var->stringify() + "' in assignment: " + ass->stringify());
+
+            const auto value = std::visit(*this, ass->rhs->variant());
+            changeThis(acc->name, value);
+            return value;
+        }
+
         const auto& left = std::visit(*this, acc->var->variant());
 
         if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
@@ -440,9 +480,9 @@ struct Visitor {
         const auto& obj = get<Object>(left);
 
         const auto& found = std::ranges::find_if(obj.second->members, [name = acc->name](const auto& member) { return member.first.stringify() == name; });
-        if (found == obj.second->members.end()) error("Name '" + acc->name + "' doesn't exist in object!");
+        if (found == obj.second->members.end()) error("In assignment '" + ass->stringify() + "', Name '" + acc->name + "' doesn't exist in object: " + stringify(obj));
 
-        Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+        const Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
         //TODO: Dry this out!
         if (const auto& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
@@ -524,6 +564,11 @@ struct Visitor {
                 type = var->second;
                 change = true;
             }
+            else if (checkThis(name->name)) {
+                const auto val = std::visit(*this, ass->rhs->variant());
+                changeThis(name->name, val);
+                return val;
+            }
             else { // New var
                 if (type::shouldReassign(type)) {
                     type = type::builtins::Any();
@@ -580,7 +625,7 @@ struct Visitor {
             if (change) {
                 if (not changeVar(name->name, value)) error();
             }
-            else        addVar(name->stringify(), value, type);
+            else addVar(name->stringify(), value, type);
 
             return value;
         }
@@ -652,19 +697,19 @@ struct Visitor {
 
 
     Value objectAccess(const Object& obj, const std::string& name) {
-
         const auto& found = std::ranges::find_if(obj.second->members, [&name] (const auto& member) { return member.first.stringify() == name; });
         if (found == obj.second->members.end()) error("Name '" + name + "' doesn't exist in object '" + /*acc->var->*/ stringify(obj) + '\'');
-
 
         if (std::holds_alternative<expr::Closure>(found->second)) {
             const auto& closure = get<expr::Closure>(found->second);
 
-            Environment capture_list;
-            for (const auto& [name, value] : obj.second->members)
-                capture_list[name.stringify()] = {value, typeOf(value)};
+            // Environment capture_list;
+            // for (const auto& [name, value] : obj.second->members)
+            //     capture_list[name.stringify()] = {value, typeOf(value)};
 
-            closure.capture(capture_list);
+            // closure.capture(capture_list);
+            closure.capture(obj);
+
 
             return closure;
         }
@@ -673,21 +718,20 @@ struct Visitor {
     }
 
 
-    // Value stringAccess(const std::string& str, const std::string& name) {
-    //     if (name == "at") {
-    //         const auto src = "__builtin";
-    //     }
-
-    //     error();
-    // }
-
-
     Value operator()(const expr::Access *acc) {
+        if (auto var = dynamic_cast<const expr::Name*>(acc->var.get()); var and var->name == "self") {
+            if (selves.empty())
+                error("Can't use 'self' outside of class scope: " + acc->stringify());
+
+            const auto value = checkThis(acc->name);
+            if (not value)
+                error("Name '" + acc->name + "' not found in object '" + acc->var->stringify());
+
+            return *value;
+        }
 
         const auto& left = std::visit(*this, acc->var->variant());
-
-        if (std::holds_alternative<     Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
-        // if (std::holds_alternative<std::string>(left)) return stringAccess(get<std::string>(left), acc->name);
+        if (std::holds_alternative<Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
 
 
         error("Can't access a non-class type!");
@@ -989,7 +1033,62 @@ struct Visitor {
                 } break;
 
                 // use iterators (future update)
-                case Type::OBJECT: error();
+                case Type::OBJECT: {
+                    const auto& obj = get<Object>(kind);
+
+                    // const auto& next_it    = std::ranges::find_if(obj.second->members, [](const auto& p) { return p.first.name == "next";    });
+                    // const auto& hasNext_it = std::ranges::find_if(obj.second->members, [](const auto& p) { return p.first.name == "hasNext"; });
+                    // if (next_it == obj.second->members.cend() or hasNext_it == obj.second->members.cend())
+                    //     error("Object in loop: " + loop->stringify() + "\ndoesn't follow the iterator protocol!");
+
+
+                    // // I know objectAccess errors if the accessee is not found, but more specific err messages are nicer
+                    const auto hasNext = objectAccess(obj, "hasNext");
+                    const auto    next = objectAccess(obj, "next");
+
+                    if (not std::holds_alternative<expr::Closure>(hasNext) or not std::holds_alternative<expr::Closure>(next))
+                        error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
+
+                    const auto& hasNext_func = get<expr::Closure>(hasNext);
+                    const auto&    next_func = get<expr::Closure>(next   );
+
+                    if (
+                        not hasNext_func.type.params.empty() or hasNext_func.type.ret->text() != "Bool"
+                        or not next_func.type.params.empty()
+                    )
+                    error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
+
+
+                    expr::Call hasNext_call{std::make_shared<expr::Closure>(hasNext_func)};
+                    expr::Call    next_call{std::make_shared<expr::Closure>(   next_func)};
+
+                    if (loop->var) {
+                        std::string var_name = loop->var->stringify();
+                        ScopeGuard sg{this};
+
+                        while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
+                            continued = false;
+
+                            addVar(var_name, std::visit(*this, next_call.variant()));
+
+                            ret = std::visit(*this, loop->body->variant());
+
+                            if (broken) break;
+                        }
+                    }
+                    else while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
+                        puts("idk");
+                        continued = false;
+
+                        std::visit(*this, next_call.variant());
+
+                        ret = std::visit(*this, loop->body->variant());
+
+                        if (broken) break;
+                    }
+
+                } break;
+
                 case Type::NONE:
                     error("Loop type no supported: " + loop->stringify());
             }
@@ -1559,7 +1658,6 @@ struct Visitor {
         ScopeGuard sg{this};
 
 
-
         const auto args = std::move(call)->args;
         std::vector<std::pair<size_t, std::vector<Value>>> expand_at;
 
@@ -1592,6 +1690,10 @@ struct Visitor {
         if (std::holds_alternative<expr::Closure>(var)) {
             const auto& func = std::get<expr::Closure>(var);
 
+            if (func.self) selves.push_back(*func.self);
+            Deferred d{[this, cond = static_cast<bool>(func.self)] { if (cond) selves.pop_back(); }};
+
+
             // check for invalid named arguments
             for (const auto& [name, _] : call->named_args) {
                 if (std::ranges::find(func.params, name) == func.params.end())
@@ -1608,118 +1710,80 @@ struct Visitor {
 
             // curry! 
             if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
-                return partialApplication(call, func, args_size, std::move(expand_at), std::move(args), is_variadic);
+                const auto val =  partialApplication(call, func, args_size, std::move(expand_at), std::move(args), is_variadic);
+                return val;
             }
-            else { //* full call. Don't curry!
-                Environment args_env;
-                for (const auto& [name, expr] : call->named_args) {
-                    type::TypePtr type;
-                    for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
-                        if (n == name) {
-                            type = t;
-                            break;
-                        }
+
+            //* full call. Don't curry!
+            Environment args_env;
+            for (const auto& [name, expr] : call->named_args) {
+                type::TypePtr type;
+                for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
+                    if (n == name) {
+                        type = t;
+                        break;
                     }
-
-                    if (not type) error(); //* should never happen anyway
-
-                    Value value;
-                    if (type->text() == "Syntax") value = expr->variant();
-                    else {
-                        value = std::visit(*this, expr->variant());
-
-                        // if the param type not a super type of arg type, error out
-                        if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                    }
-
-                    args_env[name] = {std::move(value), std::move(type)};
                 }
 
+                if (not type) error(); //* should never happen anyway
 
-                std::vector<std::pair<std::string, type::TypePtr>> pos_params;
-                for (const auto& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
+                Value value;
+                if (type->text() == "Syntax") value = expr->variant();
+                else {
+                    value = std::visit(*this, expr->variant());
 
-                std::erase_if(pos_params, [&named_args = call->named_args] (const auto& p) {
-                    return std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first; }) != named_args.cend();
-                });
+                    // if the param type not a super type of arg type, error out
+                    if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                }
 
-
-                if (is_variadic) {
-                    const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
-                    const size_t variadic_index = std::distance(pos_params.begin(), it);
-
-                    const auto pre_variadic = std::ranges::subrange(pos_params.begin(), it);
-                    const auto post_variadic  = std::ranges::subrange(it + 1, pos_params.end());
-
-                    const size_t pre_variadic_size = std::ranges::size(pre_variadic);
-                    const size_t post_variadic_size = std::ranges::size(post_variadic);
-                    const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
+                args_env[name] = {std::move(value), std::move(type)};
+            }
 
 
-                    if (variadic_size == 0) {
-                        args_env[pos_params[variadic_index].first] = {makePack(), std::move(pos_params)[variadic_index].second};
-                    }
+            std::vector<std::pair<std::string, type::TypePtr>> pos_params;
+            for (const auto& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
 
-                    auto pack = makePack();
-                    for (
-                        size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
-                        arg_index < args.size(); // can't be args_size since arg_index is only used to index into args
-                    ) {
-                        const auto& [name, type] = pos_params[param_index];
-                        Value value;
+            std::erase_if(pos_params, [&named_args = call->named_args] (const auto& p) {
+                return std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first; }) != named_args.cend();
+            });
 
-                        if (param_index == variadic_index){
-                            for (size_t i{}; i < variadic_size; ++i) {
 
-                                if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
-                                    value = std::move(expand_at[curr_expansion].second[pack_index++]);
+            if (is_variadic) {
+                const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
+                const size_t variadic_index = std::distance(pos_params.begin(), it);
 
-                                    if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                        error("Type mis-match! Parameter '" + name
-                                            + "' expected type: "+ type->text()
-                                            + ", got: " + type_of_value->text()
-                                        );
+                const auto pre_variadic = std::ranges::subrange(pos_params.begin(), it);
+                const auto post_variadic  = std::ranges::subrange(it + 1, pos_params.end());
 
-                                    if (pack_index >= expand_at[curr_expansion].second.size()) {
-                                        ++arg_index;
-                                        ++curr_expansion;
-                                        pack_index = 0;
-                                    }
-                                }
-                                else {
-                                    const auto& expr = args[arg_index];
+                const size_t pre_variadic_size = std::ranges::size(pre_variadic);
+                const size_t post_variadic_size = std::ranges::size(post_variadic);
+                const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
 
-                                    if (type->text() == "Syntax") {
-                                        error(); //* remove!
-                                        // value = expr->variant();L
-                                    }
-                                    else {
-                                        value = std::visit(*this, expr->variant());
 
-                                        // if the param type not a super type of arg type, error out
-                                        if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                            error("Type mis-match! Parameter '" + name
-                                                + "' expected type: "+ type->text() 
-                                                + ", got: " + type_of_value->text()
-                                            );
-                                    }
+                if (variadic_size == 0) {
+                    args_env[pos_params[variadic_index].first] = {makePack(), std::move(pos_params)[variadic_index].second};
+                }
 
-                                    ++arg_index;
-                                }
+                auto pack = makePack();
+                for (
+                    size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
+                    arg_index < args.size(); // can't be args_size since arg_index is only used to index into args
+                ) {
+                    const auto& [name, type] = pos_params[param_index];
+                    Value value;
 
-                                pack->values.push_back(std::move(value));
-                            }
+                    if (param_index == variadic_index){
+                        for (size_t i{}; i < variadic_size; ++i) {
 
-                            ++param_index;
-                            args_env[name] = {std::move(pack), std::move(type)};
-                        }
-                        else {
                             if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
-                                value = expand_at[curr_expansion].second[pack_index++];
+                                value = std::move(expand_at[curr_expansion].second[pack_index++]);
 
                                 if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                    error("Type mis-match! Parameter '" + name
+                                        + "' expected type: "+ type->text()
+                                        + ", got: " + type_of_value->text()
+                                    );
 
                                 if (pack_index >= expand_at[curr_expansion].second.size()) {
                                     ++arg_index;
@@ -1731,83 +1795,124 @@ struct Visitor {
                                 const auto& expr = args[arg_index];
 
                                 if (type->text() == "Syntax") {
-                                    value = expr->variant();
+                                    error(); //* remove!
+                                    // value = expr->variant();L
                                 }
                                 else {
                                     value = std::visit(*this, expr->variant());
 
+                                    // if the param type not a super type of arg type, error out
                                     if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                        error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                                        error("Type mis-match! Parameter '" + name
+                                            + "' expected type: "+ type->text() 
+                                            + ", got: " + type_of_value->text()
+                                        );
                                 }
 
                                 ++arg_index;
                             }
 
-                            ++param_index;
-                            args_env[name] = {std::move(value), std::move(type)};
+                            pack->values.push_back(std::move(value));
                         }
-                    }
-                }
-                // else for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
-                else for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
 
-                    if (curr < expand_at.size() and i == expand_at[curr].first) {
-                        for (const auto& val : expand_at[curr++].second) {
-                            const auto& [name, type] = pos_params[p];
-
-                            if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                                error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-
-                            ++p;
-                            args_env[name] = {std::move(val), std::move(type)};
-                        }
-                        --p;
+                        ++param_index;
+                        args_env[name] = {std::move(pack), std::move(type)};
                     }
                     else {
-                        const auto& [name, type] = pos_params[p];
-                        const auto& expr = args[i];
-                        Value value;
+                        if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
+                            value = expand_at[curr_expansion].second[pack_index++];
 
-                        if (type->text() == "Syntax") {
-                            value = expr->variant();
-                        }
-                        else {
-                            value = std::visit(*this, expr->variant());
-
-                            // if the param type not a super type of arg type, error out
                             if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
                                 error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                            if (pack_index >= expand_at[curr_expansion].second.size()) {
+                                ++arg_index;
+                                ++curr_expansion;
+                                pack_index = 0;
+                            }
+                        }
+                        else {
+                            const auto& expr = args[arg_index];
+
+                            if (type->text() == "Syntax") {
+                                value = expr->variant();
+                            }
+                            else {
+                                value = std::visit(*this, expr->variant());
+
+                                if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                    error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                            }
+
+                            ++arg_index;
                         }
 
+                        ++param_index;
                         args_env[name] = {std::move(value), std::move(type)};
                     }
                 }
-
-
-
-                //* should I capture the env and bundle it with the function before returning it?
-                if (func.type.ret->text() == "Syntax") return func.body->variant();
-
-                ScopeGuard sg1{this, func.env}; // in case the lambda had captures
-                ScopeGuard sg2{this, args_env};
-
-                const auto& ret = std::visit(*this, func.body->variant());
-
-                checkReturnType(ret, func.type.ret);
-
-                if (std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& closure = get<expr::Closure>(ret);
-
-                    closure.capture(args_env);   // to capture the arguments of the enclosing functions
-                    closure.capture(func.env);   // copy the environment of the parent function..
-
-                    closure.capture(env.back()); // in case any argument was reassigned
-                    // capturing env.back() after args_env ensures the latest binding gets chosen
-
-                }
-
-                return ret;
             }
+            // else for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
+            else for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
+
+                if (curr < expand_at.size() and i == expand_at[curr].first) {
+                    for (const auto& val : expand_at[curr++].second) {
+                        const auto& [name, type] = pos_params[p];
+
+                        if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                        ++p;
+                        args_env[name] = {std::move(val), std::move(type)};
+                    }
+                    --p;
+                }
+                else {
+                    const auto& [name, type] = pos_params[p];
+                    const auto& expr = args[i];
+                    Value value;
+
+                    if (type->text() == "Syntax") {
+                        value = expr->variant();
+                    }
+                    else {
+                        value = std::visit(*this, expr->variant());
+
+                        // if the param type not a super type of arg type, error out
+                        if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                            error("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                    }
+
+                    args_env[name] = {std::move(value), std::move(type)};
+                }
+            }
+
+
+
+            //* should I capture the env and bundle it with the function before returning it?
+            if (func.type.ret->text() == "Syntax") {
+                return func.body->variant();
+            }
+
+            ScopeGuard sg1{this, func.env}; // in case the lambda had captures
+            ScopeGuard sg2{this, args_env};
+
+            const auto& ret = std::visit(*this, func.body->variant());
+
+            checkReturnType(ret, func.type.ret);
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                const auto& closure = get<expr::Closure>(ret);
+
+                closure.capture(args_env);   // to capture the arguments of the enclosing functions
+                closure.capture(func.env);   // copy the environment of the parent function..
+
+                closure.capture(env.back()); // in case any argument was reassigned
+                // capturing env.back() after args_env ensures the latest binding gets chosen
+
+            }
+
+            return ret;
         }
 
         else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
@@ -1930,7 +2035,7 @@ struct Visitor {
             "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
 
             //* binary
-            "str_get",
+            "split", "str_get",
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
 
             //* trinary

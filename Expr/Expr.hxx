@@ -616,7 +616,7 @@ struct Call : Expr {
     std::vector<ExprPtr> args;
 
 
-    Call(ExprPtr function, std::unordered_map<std::string, ExprPtr> named, std::vector<ExprPtr> pos)
+    Call(ExprPtr function, std::unordered_map<std::string, ExprPtr> named = {}, std::vector<ExprPtr> pos = {})
     : func{std::move(function)}, named_args{std::move(named)}, args{std::move(pos)} { }
 
     std::string stringify(const size_t indent = 0) const override {
@@ -652,7 +652,9 @@ struct Closure : Expr {
     type::FuncType type;
     ExprPtr body;
 
+    // I need to un-mutable those vars
     mutable Environment env{};
+    mutable std::optional<Object> self{};
 
     Closure(std::vector<std::string> ps, type::FuncType t, ExprPtr b)
     : params{std::move(ps)}, type{std::move(t)}, body{std::move(b)} {
@@ -662,8 +664,11 @@ struct Closure : Expr {
 
     void capture(const Environment& e) const { // const as in doesn't change params or body.
         for(const auto& [key, value] : e)
-        env[key] = value;
+            env[key] = value;
     }
+
+    void capture(const Object& obj) const { self = obj; }
+
 
     std::string stringify(const size_t indent = 0) const override {
         std::string s = "(";

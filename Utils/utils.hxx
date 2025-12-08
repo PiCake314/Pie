@@ -6,6 +6,7 @@
 #include <variant>
 #include <format>
 #include <print>
+#include <concepts>
 #include <type_traits>
 
 #include "../Token/Token.hxx"
@@ -63,3 +64,13 @@ inline void trace() {
 
 
 
+template <typename F>
+struct Deferred {
+    F f;
+
+    Deferred(std::invocable auto func) : f{std::move(func)} {};
+    ~Deferred() { f(); }
+};
+
+template <typename F>
+Deferred(F) -> Deferred<F>;
