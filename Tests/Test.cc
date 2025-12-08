@@ -15,7 +15,7 @@ print = __builtin_print;
 
 printPack = (first, rest: ...Any) => __builtin_conditional(
     __builtin_eq(
-        __builtin_pack_len(rest), 0),
+        __builtin_len(rest), 0),
             print(first),
             {
                 print(first);
