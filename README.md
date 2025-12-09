@@ -590,16 +590,13 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 #### in order of priority
 
 - [ ] Lexically Scoped Operators
-- [ ] Same for loop^^
-- [ ] Casting (maybe using `as`)
 - [ ] Remove preprocessor
 - [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
 - [ ] File IO
-- [ ] Use Big Int instead of `int32_t`
 - [ ] Fix builin reset (value-reset, reset/name-reset) 
-- [ ] Looping....maybee
+- [ ] Use Big Int instead of `int32_t`
 - [ ] World domination
 - [ ] Improve error messages (add line and column numbers)
 - [ ] Add REPL
@@ -611,7 +608,10 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] Looping....maybee (added iterators!!!);
 - [x] Fix arbitrary names typing issue
+- [x] Same for loop^^
+- [x] Casting ~~(maybe using `as`)~~(using builtins)
 - [x] Implement separated fold expressions (like C++)
 - [x] Add fold expressions (like C++)
 - [x] Arbitrary function parameters

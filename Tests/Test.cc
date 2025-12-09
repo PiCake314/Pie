@@ -8,6 +8,88 @@
 
 
 
+TEST_CASE("Looping Over Pack Without Loop Var", "[Loop]") {
+    const auto src = R"(
+func = (pack: ...Any) => loop pack => __builtin_print(0);
+
+func(1, "Hi", 3.14);
+)";
+
+    REQUIRE(run(src) == R"(0
+0
+0)");
+}
+
+
+TEST_CASE("Looping Over Pack", "[Loop]") {
+    const auto src = R"(
+func = (pack: ...Any) => loop pack => e __builtin_print(e);
+
+func(1, "Hi", 3.14);
+)";
+
+    REQUIRE(run(src) == R"(1
+Hi
+3.140000)");
+}
+
+
+TEST_CASE("Looping Over Range Without Loop Var", "[Loop]") {
+    const auto src = R"(
+loop 5 => __builtin_print("fuck");
+)";
+
+    REQUIRE(run(src) == R"(fuck
+fuck
+fuck
+fuck
+fuck)");
+}
+
+
+TEST_CASE("Looping Over Range", "[Loop]") {
+    const auto src = R"(
+loop 5 => i __builtin_print(i);
+)";
+
+    REQUIRE(run(src) == R"(0
+1
+2
+3
+4)");
+}
+
+
+TEST_CASE("Iterator", "[Loop][Self Mutation]") {
+    const auto src = R"(
+Iota: Type = class {
+    limit = __builtin_neg(1);
+
+    i = 0;
+
+    hasNext = (): Bool => __builtin_not(__builtin_eq(i, limit));
+    next = () => {
+        x = i;
+        i = __builtin_add(i, 1);
+        x;
+    };
+};
+
+loop Iota(10) => num __builtin_print(num);
+)";
+
+    REQUIRE(run(src) == R"(0
+1
+2
+3
+4
+5
+6
+7
+8
+9)");
+}
+
 
 TEST_CASE("Empty Pack", "[General]") {
     const auto src = R"(
