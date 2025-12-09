@@ -1077,7 +1077,6 @@ struct Visitor {
                         }
                     }
                     else while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
-                        puts("idk");
                         continued = false;
 
                         std::visit(*this, next_call.variant());
