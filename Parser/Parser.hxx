@@ -538,13 +538,12 @@ public:
         if (match(R_BRACE)) [[unlikely]] return std::make_shared<expr::Union>(std::move(types));
 
         types.push_back(parseType());
+        consume(SEMI);
 
-        while (match("|")) {
-            auto type = parseType();
-            types.push_back(type);
+        while (not match(R_BRACE)) {
+            types.push_back(parseType());
+            consume(SEMI);
         }
-
-        consume(R_BRACE);
 
         return std::make_shared<expr::Union>(std::move(types));
     }

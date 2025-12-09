@@ -12,12 +12,14 @@
 - [Variables](#variables)
 - [Closures](#closures)
 - [Classes](#classes)
+- [Unions](#unions)
+- [Loops](#loops)
+- [Match Expressions](#match-expressions)
 - [Namespaces](#namespaces)
 - [Scopes](#scopes)
 - [Operators](#operators)
 - [Overloading](#overloading)
 - [Packs](#packs)
-- [Match Expressions](#match-expressions)
 - [Built-in Functions](#builtins)
 - [Types](#types)
 - [Keywords List](#keywords-list)
@@ -112,8 +114,126 @@ h.age = 10;
 h.prettyPrint();
 ```
 
-<!-- ## Unions -->
+## Unions
+Unions in Pie are what other languages call "Sum Types":
 
+```pie
+U: Type = Union { Int | Double | String };
+
+x: U = 1;
+y: U = 3.14;
+z: U = "Hello";
+```
+Note that they also work with user defined types.
+
+
+## Loop
+First, let's explore the general syntax of the loop construct, then we'll explore the other kinds.
+
+
+```pie
+loop 10 => {
+    __builtin_print("Hi");
+};
+```
+This programs prints "Hi" 10 times.\
+We can also introduce a loop variable:
+```pie
+loop 10 => i {
+    __builtin_print(i);
+};
+```
+Note that the braces can be omitted (with or without the loop variable).
+
+
+**Kinds of Loops:**
+There are 4 kinds of loops in Pie. They all utilize the `loop` keyword. The kind of the loops depends on the type of the loop operand
+
+#### For Loop
+When the type of the operand is an `Int`
+
+#### While Loop
+When the type of the operand is a `Bool`
+
+#### Pack Loop
+When the type of the operand is a pack of any kind (i.e. `...Any`)
+
+#### Iterator Loop
+When the type of the operand is an Object. The object **MUST** follow the **Iterator Protocol** which is defined as follows:
+For an object to be qualified as an iterator, it must define 2 methods:
+- `hasNext(): Bool`
+- `next()`
+
+`hasNext` must return a boolean indicating whether the loops should continue or terminate. `next` yields the next value.
+
+
+#### Break/Continue
+
+
+## Match Expressions
+
+Match expressions can match against 3 things.
+1. Value
+2. Type
+3. Structure
+
+
+**Value Matching**:
+```pie
+x = 1;
+
+match x {
+    =1 => print("one");
+    =2 => print("two");
+    ="hi" => print("some string");
+};
+```
+
+**Type Matching**:
+```pie
+x = 1;
+
+match x {
+    :String => print("str");
+    :Int => print("num");
+    :Double => print("float");
+};
+```
+
+
+**Type Matching**:
+```pie
+C = class { a = 0; b = "";};
+c = C(314, C(1, "two"));
+
+match c {
+    C(x: Int, ="two") => print(x);
+    C(y=3, :String = "something") => print(2);
+    C(n: Int = 314, C(=1, ="two")) => print(n);
+};
+```
+
+Note how you can match both the value and the type at the same time. You can even give the matched value a name.
+The collection of the tokens:\
+`<name>: <type> = <value>`\
+is called a `Single`.
+
+
+
+ **Guards and such**:
+ You can match against multiple patterns in a single case by using the pipe symbol `|` and you can guard against any case by using the ampersand `&`:
+
+ ```pie
+x = 5;
+
+match x {
+    =1 | =2 | =3 => print("one two three");
+    a & __builtin_lt(a, 0) => print("negative");
+    a & __builtin_gt(a, 0) => print("positive (not 1, 2, or 3)");
+};
+```
+
+Of course, you can have both conditions and pipes in the same case.
 
 
 ## Namespaces
@@ -321,70 +441,7 @@ This can be useful if you wanted to create a CSV entry from a bunch of strings f
 ##### Separated binary right fold
 `(sep + ... + pack + init)`
 
-## Match Expressions
 
-Match expressions can match against 3 things.
-1. Value
-2. Type
-3. Structure
-
-
-**Value Matching**:
-```pie
-x = 1;
-
-match x {
-    =1 => print("one");
-    =2 => print("two");
-    ="hi" => print("some string");
-};
-```
-
-**Type Matching**:
-```pie
-x = 1;
-
-match x {
-    :String => print("str");
-    :Int => print("num");
-    :Double => print("float");
-};
-```
-
-
-**Type Matching**:
-```pie
-C = class { a = 0; b = "";};
-c = C(314, C(1, "two"));
-
-match c {
-    C(x: Int, ="two") => print(x);
-    C(y=3, :String = "something") => print(2);
-    C(n: Int = 314, C(=1, ="two")) => print(n);
-};
-```
-
-Note how you can match both the value and the type at the same time. You can even give the matched value a name.
-The collection of the tokens:\
-`<name>: <type> = <value>`\
-is called a `Single`.
-
-
-
- **Guards and such**:
- You can match against multiple patterns in a single case by using the pipe symbol `|` and you can guard against any case by using the ampersand `&`:
-
- ```pie
-x = 5;
-
-match x {
-    =1 | =2 | =3 => print("one two three");
-    a & __builtin_lt(a, 0) => print("negative");
-    a & __builtin_gt(a, 0) => print("positive (not 1, 2, or 3)");
-};
-```
-
-Of course, you can have both conditions and pipes in the same case.
 
 # Import System
 
@@ -420,6 +477,8 @@ Pie reserves the names starting with `__builtin_`.
 
 - `__builtin_true`
 - `__builtin_false`
+- `__builtin_input_int`
+- `__builtin_input_str`
 
 ### Unary Functions
 
@@ -428,6 +487,12 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_mod`
 - `__builtin_reset`
 - `__builtin_eval`
+- `__builtin_len` (for strings and packs)
+- `__builtin_str_get`
+- `__builtin_split`
+- `__builtin_to_string`
+- `__builtin_to_int`
+- `__builtin_to_double`
 
 ### Binary Functions
 
@@ -447,6 +512,10 @@ Pie reserves the names starting with `__builtin_`.
 ### Trinary Functions
 
 - `__builtin_conditional`
+
+### Quaternary Functions
+
+- `__builtin_str_slice`
 
 ### Variadic Functions
 
@@ -479,7 +548,7 @@ The `Syntax` type is a special type that gives a handle onto the AST node used t
 Take this example:
 
 ```pie
-operator(+) + = (a, b) => __builtin_add(a, b);
+infix + = (a, b) => __builtin_add(a, b);
 
 x: Syntax = 1 + a;
 ```
@@ -538,8 +607,9 @@ this isn't
 
 ##### Object Orient Stuff
 - `class`
+- `union`
 - `match`
-<!-- - `union` -->
+- `loop`
 
 
 ###### Phantom keywords

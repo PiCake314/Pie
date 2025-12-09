@@ -318,8 +318,8 @@ Class = class {
     s: String = "";
 };
 
-Num = union { Int | Double };
-Union = union { Num | Class  };
+Num = union { Int; Double; };
+Union = union { Num; Class; };
 
 u: Union = 1;
 print(u);
@@ -327,7 +327,7 @@ u: Union = 1.4;
 print(u);
 u = Class(10, "hi");
 print(u);
-WithStr = union { Union | String };
+WithStr = union { Union; String; };
 u: WithStr = "a string";
 print(u);
 
@@ -342,7 +342,7 @@ Object {
 }
 a string
 union {
-    union { Int | Double };
+    union { Int; Double; };
     class {
         x: Int = 0;
         s: String = "";

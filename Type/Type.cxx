@@ -58,18 +58,16 @@ namespace type {
 
         for (std::string pipe{}; const auto& t : types) {
 
-            s += pipe + t->text(indent + 4);
-            pipe = " | ";
+            s += t->text(indent + 4) + "; ";
         }
 
 
-        return s + " }";
+        return s + '}';
     }
 
     bool UnionType::operator> (const Type& other) const {
         // for (const auto& type : types)
         //     if (*type > other) return true;
-
         // return false;
 
         return std::ranges::any_of(types, [&other](const auto& type) { return *type > other; });

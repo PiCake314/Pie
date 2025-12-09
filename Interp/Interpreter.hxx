@@ -2584,7 +2584,7 @@ struct Visitor {
 
 
 
-    void print(const Value& value, bool new_line = true) const {
+    void print(const Value& value, const bool new_line = true) const {
         std::print("{}{}", stringify(value), new_line? '\n' : '\0');
     }
 
