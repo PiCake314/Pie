@@ -410,9 +410,7 @@ public:
         using Single    = expr::Match::Case::Pattern::Single;
         using Patterns  = expr::Match::Case::Pattern::Patterns;
 
-        bool has_name{};
-        bool has_type{};
-        bool has_valu{};
+        bool has_name{}, has_type{}, has_valu{};
 
         std::string name;
         if (not check(ASSIGN) and not check(COLON)) {
