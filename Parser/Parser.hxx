@@ -61,12 +61,13 @@ public:
         return {expressions, std::move(ops)};
     }
 
+    template <bool in_match = false>
     expr::ExprPtr parseExpr(const int precedence = 0) {
 
         expr::ExprPtr left = prefix(consume());
 
         while (precedence < getPrecedence())
-            left = infix(std::move(left), consume());
+            left = infix<in_match>(std::move(left), consume());
 
         return left;
     }
@@ -202,6 +203,7 @@ public:
     }
 
 
+    template <bool in_match = false>
     expr::ExprPtr infix(expr::ExprPtr left, Token token) {
         switch (token.kind) {
             using enum TokenKind;
@@ -219,6 +221,8 @@ public:
             }
 
             case COLON: {
+                if constexpr (in_match) return left;
+
                 if (
                     check(COLON) and not (
                         dynamic_cast<expr::Name*>(left.get()) or
@@ -241,7 +245,8 @@ public:
                 return std::make_shared<expr::Name>(left->stringify(), parseType());
             }
 
-            case ASSIGN: 
+            case ASSIGN:
+                if constexpr (in_match) return left;
                 return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT_VALUE - 1));
 
 
@@ -410,10 +415,15 @@ public:
         bool has_valu{};
 
         std::string name;
-        if (check(NAME)) {
-            name = consume(NAME).text;
+        if (not check(ASSIGN) and not check(COLON)) {
+            constexpr auto in_match = true;
+            name = parseExpr<in_match>(0)->stringify();
             has_name = true;
         }
+        // if (check(NAME)) {
+        //     name = consume(NAME).text;
+        //     has_name = true;
+        // }
 
         // base case
         if (not match(L_PAREN)) {

@@ -127,7 +127,7 @@ z: U = "Hello";
 Note that they also work with user defined types.
 
 
-## Loop
+## Loops
 First, let's explore the general syntax of the loop construct, then we'll explore the other kinds.
 
 
@@ -212,6 +212,7 @@ match c {
     C(n: Int = 314, C(=1, ="two")) => print(n);
 };
 ```
+The code above ends up printing `314`.
 
 Note how you can match both the value and the type at the same time. You can even give the matched value a name.
 The collection of the tokens:\
@@ -609,6 +610,8 @@ this isn't
 - `class`
 - `union`
 - `match`
+
+##### Control Flow
 - `loop`
 
 
