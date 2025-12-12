@@ -1,7 +1,7 @@
 # Compiler configuration
 
 CC = g++
-# CC = g++-14
+# CC = g++-15
 VER = -std=c++23
 OPT = -O3
 ARGS = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough -Wno-missing-braces #-Wnrvo

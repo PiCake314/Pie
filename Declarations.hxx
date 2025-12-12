@@ -7,24 +7,27 @@ struct Dict;
 struct ClassValue { std::shared_ptr<Dict> blueprint; };
 struct NameSpace  { std::shared_ptr<Dict> members  ; };
 
-struct List;
-using PackList = std::shared_ptr<List>;
+struct Elements;
+struct ListValue { std::shared_ptr<Elements> elts; };
 
+using PackList = std::shared_ptr<Elements>;
 template <typename ...Ts>
-[[nodiscard]] inline std::shared_ptr<List> makePack(Ts&&... args) {
-    return std::make_shared<List>(std::forward<Ts>(args)...);
+[[nodiscard]] inline std::shared_ptr<Elements> makePack(Ts&&... args) {
+    return std::make_shared<Elements>(std::forward<Ts>(args)...);
 }
 
 namespace expr {
 
 // has to be pointers kuz we're forward declareing
 // has to be forward declared bc we're using in in the class bellow
+
 using Node = std::variant<
     const struct Num               *,
     const struct Bool              *,
     const struct String            *,
     const struct Name              *,
     // const struct Pack              *,
+    const struct List              *,
     const struct Expansion         *,
     const struct UnaryFold         *,
     const struct SeparatedUnaryFold*,
@@ -39,7 +42,7 @@ using Node = std::variant<
     const struct Access            *,
     const struct Namespace         *,
     const struct Use               *,
-//  const struct Import            *,
+//  const struct Import               *,
     const struct SpaceAccess       *,
     const struct Grouping          *,
     const struct UnaryOp           *,

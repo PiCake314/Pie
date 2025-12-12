@@ -17,16 +17,20 @@ struct Dict;
 struct ClassValue;
 using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 
-struct List;
 
 // using expr::Union instead of a separate class for Union since they'd probably be the same
 // it might come and bite me later, but I mean..
 // I've been using expr::Closure for a while now and it's been okay
 // + expr::Union doesn't have any ExprPtr in it anyway
-using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList>;
+using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue>;
 
 struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
-struct List { std::vector<Value> values; };
+struct Elements { std::vector<Value> values; };
+
+
+[[nodiscard]] inline ListValue makeList(std::vector<Value> values) {
+    return {std::make_shared<Elements>(std::move(values))};
+}
 
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
@@ -152,7 +156,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         const std::string space(indent + 4, ' ');
 
         s = "ASTNode {\n" + space + std::visit(
-            [indent] (auto&& v) { return v->stringify(indent + 4); },
+            [indent] (const auto& v) { return v->stringify(indent + 4); },
             get<expr::Node>(value)
         ) + '\n' + std::string(indent, ' ') + '}';
     }
@@ -163,6 +167,17 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
             s += comma + stringify(v);
             comma = ", ";
         }
+    }
+    else if (std::holds_alternative<ListValue>(value)) {
+        s += '{';
+
+        std::string comma = "";
+        for (auto&& v : get<ListValue>(value).elts->values) {
+            s += comma + stringify(v);
+            comma = ", ";
+        }
+
+        s += '}';
     }
 
     else error("Type not found!");

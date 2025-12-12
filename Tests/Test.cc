@@ -7,6 +7,68 @@
 #include "catch.hpp"
 
 
+TEST_CASE("Empty List", "[List]") {
+    const auto src = R"(
+print = __builtin_print;
+
+list1 = {};
+list2: {Int} = {};
+list3: {Any} = {};
+
+print(list1);
+print(list2);
+print(list3);
+)";
+
+    REQUIRE(run(src) == R"({}
+{}
+{})");
+}
+
+TEST_CASE("Looping Over List", "[List][Loop]") {
+    const auto src = R"(
+print = __builtin_print;
+
+list = {1, "Hi", 3.14, true, class {}};
+
+
+loop list => e print(e);
+)";
+
+    REQUIRE(run(src) == R"(1
+Hi
+3.140000
+true
+class { })");
+}
+
+
+TEST_CASE("List Types", "[Type]") {
+    auto Any  = type::builtins::Any();
+    auto Int  = type::builtins::Int();
+    auto Int_list = std::make_shared<type::ListType>(type::builtins::Int());
+    auto Any_list = std::make_shared<type::ListType>(type::builtins::Any());
+
+
+    REQUIRE_FALSE(*Int_list >  *Int);
+    REQUIRE_FALSE(*Int_list >= *Int);
+
+    REQUIRE(*Any_list >  *Int_list);
+    REQUIRE(*Any_list >= *Int_list);
+
+    REQUIRE_FALSE(*Any_list >  *Any);
+    REQUIRE_FALSE(*Any_list >= *Any);
+
+    REQUIRE(*Any >  *Any_list);
+    REQUIRE(*Any >= *Any_list);
+
+    REQUIRE_FALSE(*Int_list == *Int);
+    REQUIRE_FALSE(*Int == *Int_list);
+
+    REQUIRE_FALSE(*Int >  *Int_list);
+    REQUIRE_FALSE(*Int >= *Int_list);
+}
+
 
 TEST_CASE("See Through Value Mutability", "[Mutability]") {
     const auto src = R"(

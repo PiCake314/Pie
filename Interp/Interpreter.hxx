@@ -116,6 +116,18 @@ struct Visitor {
     // Value operator()(const expr::Pack*) { error(); }
     Value operator()(const expr::Expansion*) { error("Can only expand in function calls or fold expressions!"); }
 
+    Value operator()(const expr::List* list) {
+
+        std::vector<Value> values;
+        std::transform(
+            list->elements.cbegin(), list->elements.cend(), std::back_inserter(values),
+            [this] (const auto& expr) { return std::visit(*this, expr->variant()); }
+        );
+
+        return makeList(std::move(values));
+    }
+
+
     Value operator()(const expr::UnaryFold* fold) {
 
         Value pack = std::visit(*this, fold->pack->variant());
@@ -917,12 +929,13 @@ struct Visitor {
 
 
     Value operator()(const expr::Loop *loop) {
-        enum class Type { NONE = 0, INT, BOOL, PACK, OBJECT };
+        enum class Type { NONE = 0, INT, BOOL, LIST, PACK, OBJECT };
         const auto classify = [](const Value& v) {
-            if (std::holds_alternative<ssize_t> (v)) return Type::INT ;
-            if (std::holds_alternative<bool   > (v)) return Type::BOOL;
-            if (std::holds_alternative<PackList>(v)) return Type::PACK;
-            if (std::holds_alternative<Object > (v)) return Type::OBJECT;
+            if (std::holds_alternative<ssize_t  >(v)) return Type::INT ;
+            if (std::holds_alternative<bool     >(v)) return Type::BOOL;
+            if (std::holds_alternative<ListValue>(v)) return Type::LIST;
+            if (std::holds_alternative<PackList >(v)) return Type::PACK;
+            if (std::holds_alternative<Object   >(v)) return Type::OBJECT;
 
             return Type::NONE;
         };
@@ -1003,6 +1016,38 @@ struct Visitor {
                         if (broken) break;
 
                         cond = std::visit(*this, loop->kind->variant());
+                    }
+                } break;
+
+                case Type::LIST: {
+                    const auto& list = get<ListValue>(kind);
+                    if (list.elts->values.empty()) {
+                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        return std::visit(*this, loop->els->variant());
+                    }
+
+
+                    if (loop->var) {
+                        std::string var_name = loop->var->stringify();
+                        ScopeGuard sg{this};
+
+                        for (const auto& elt : list.elts->values) {
+                            continued = false;
+
+                            addVar(var_name, elt);
+
+                            ret = std::visit(*this, loop->body->variant());
+
+                            if (broken) break;
+                        }
+
+                    }
+                    else for ([[maybe_unused]] const auto& _ : list.elts->values) {
+                        continued = false;
+
+                        ret = std::visit(*this, loop->body->variant());
+
+                        if (broken) break;
                     }
                 } break;
 
@@ -1660,8 +1705,8 @@ struct Visitor {
     Value operator()(const expr::Call *call) {
         if (const auto& var = getVar(call->stringify()); var) return var->first;
 
-        const auto args = std::move(call)->args;
-
+        // const auto args = std::move(call)->args;
+        const auto args = call->args;
 
 
         // for pack expansions at call site (there could be multiple of em)
@@ -2053,7 +2098,7 @@ struct Visitor {
             "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
 
             //* binary
-            "split", "str_get",
+            "split", "get",
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
 
             //* trinary
@@ -2203,9 +2248,14 @@ struct Visitor {
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
                              return static_cast<ssize_t>(x.length());
 
-                        else return static_cast<ssize_t>(x->values.size());
+                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, PackList>)
+                            return static_cast<ssize_t>(x->values.size());
+
+                        else
+                            return static_cast<ssize_t>(x.elts->values.size());
                     }),
                     TypeList<PackList>,
+                    TypeList<ListValue>,
                     TypeList<std::string>
                 >
             >{},
@@ -2213,13 +2263,27 @@ struct Visitor {
 
             //* BINARY FUNCTIONS
             MapEntry<
-                S<"str_get">,
-                Func<"str_get",
-                    decltype([](const auto& str, const auto& ind, const auto&) -> std::string {
-                        if (ind < 0 or size_t(ind) >= str.length())
-                            error("Accessing string '" + str + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
-                        return {str[ind]}; 
+                S<"get">,
+                Func<"get",
+                    decltype([](const auto& a, const auto& ind, const auto&) -> Value {
+                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, ListValue>) {
+                            if (ind < 0 or size_t(ind) >= a.elts->values.size())
+                                error("Accessing list '" + stringify(a) + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
+
+                            return a.elts->values[ind]; 
+                        }
+
+                        // else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, std::string>) {
+                        else {
+                            if (ind < 0 or size_t(ind) >= a.length())
+                                error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
+                            return std::string{a[ind]}; 
+                        }
+
+
+
                     }),
+                    TypeList<ListValue, ssize_t>,
                     TypeList<std::string, ssize_t>
                 >
             >{},
@@ -2453,13 +2517,13 @@ struct Visitor {
         // all the rest of those funcs expect 2 arguments
         using std::operator""sv;
 
-        const auto eager = {"str_get"sv, "add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
+        const auto eager = {"get"sv, "add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
         if (std::ranges::find(eager, name) != eager.end()) {
             arity_check(2);
             const auto& value2 = std::visit(*this, args[1]->variant());
 
             // this is disgusting..I know
-            if (name == "str_get") return execute<2>(stdx::get<S<"str_get">>(functions).value, {value1, value2}, this);
+            if (name == "get") return execute<2>(stdx::get<S<"get">>(functions).value, {value1, value2}, this);
 
             if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
             if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);
@@ -2656,6 +2720,20 @@ struct Visitor {
 
             return type;
         }
+        else if (type::isList(type)) {
+            const auto list_type = dynamic_cast<type::ListType*>(type.get());
+
+            // todo: allow this in the future
+            if (list_type->type->text() == "Syntax") error("List of 'Syntax' is not allowed!");
+
+
+            if (type::isVariadic(list_type->type)) error("Lists of variadics types are not allowed!");
+
+
+            list_type->type = validateType(std::move(list_type)->type);
+
+            return type;
+        }
 
 
         error("'" + type->text() + "' does not name a type!");
@@ -2699,15 +2777,35 @@ struct Visitor {
                 }
             );
 
-            auto non_typed_pack = std::make_shared<type::VariadicType>(type::builtins::_());
-            if (values.empty()) return non_typed_pack;
+
+            if (values.empty()) return std::make_shared<type::VariadicType>(type::builtins::_());
 
             const bool same = std::ranges::all_of(values, [tp = values[0]] (const auto& t) { return *t == *tp; });
 
             if (same) return std::make_shared<type::VariadicType>(values[0]);
-            else return non_typed_pack;
 
+            return std::make_shared<type::VariadicType>(type::builtins::Any());
             // return same ? std::make_shared<type::VariadicType>(values[0]) : non_typed_pack;
+        }
+
+        if (std::holds_alternative<ListValue>(value)) {
+            auto values = std::ranges::fold_left(
+                get<ListValue>(value).elts->values,
+                std::vector<type::TypePtr>{},
+                [this] (auto acc, const auto& elt) {
+                    acc.push_back(typeOf(elt));
+                    return acc;
+                }
+            );
+
+
+            if (values.empty()) return std::make_shared<type::ListType>(type::builtins::_());
+
+            const bool same = std::ranges::all_of(values, [tp = values[0]] (const auto& t) { return *t == *tp; });
+
+            if (same) return std::make_shared<type::ListType>(values[0]);
+
+            return std::make_shared<type::ListType>(type::builtins::Any());;
         }
 
         if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();

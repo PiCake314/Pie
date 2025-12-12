@@ -34,7 +34,7 @@ namespace type {
     struct ExprType : Type {
         expr::ExprPtr t;
 
-        ExprType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
+        explicit ExprType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
 
         std::string text(const size_t indent = 0) const override;
 
@@ -46,7 +46,7 @@ namespace type {
     struct BuiltinType final : ExprType {
         std::string t;
 
-        BuiltinType(std::string s) noexcept : ExprType{nullptr}, t{std::move(s)} {}
+        explicit BuiltinType(std::string s) noexcept : ExprType{nullptr}, t{std::move(s)} {}
         std::string text(const size_t = 0) const;
     };
 
@@ -55,7 +55,7 @@ namespace type {
         std::shared_ptr<ClassValue> cls;
         // std::string t;
 
-        LiteralType(std::shared_ptr<ClassValue> c) noexcept : cls{std::move(c)} {}
+        explicit LiteralType(std::shared_ptr<ClassValue> c) noexcept : cls{std::move(c)} {}
 
         std::string text(const size_t indent = 0) const override;
 
@@ -67,7 +67,7 @@ namespace type {
     struct UnionType : Type {
         std::vector<TypePtr> types;
 
-        UnionType(std::vector<TypePtr> ts) noexcept : types{std::move(ts)} {}
+        explicit UnionType(std::vector<TypePtr> ts) noexcept : types{std::move(ts)} {}
 
         std::string text(const size_t indent = 0) const override;
 
@@ -103,8 +103,19 @@ namespace type {
     struct VariadicType final : Type {
         TypePtr type;
 
+        explicit VariadicType(TypePtr t) : type{std::move(t)} {}
 
-        VariadicType(TypePtr t) : type{std::move(t)} {}
+        std::string text(const size_t indent = 0) const override;
+
+        bool operator>(const Type& other) const override;
+
+        bool operator>=(const Type& other) const override;
+    };
+
+    struct ListType final : Type {
+        TypePtr type;
+
+        explicit ListType(TypePtr t) : type{std::move(t)} {}
 
         std::string text(const size_t indent = 0) const override;
 
@@ -141,6 +152,10 @@ namespace type {
 
     inline bool isVariadic(const TypePtr& t) noexcept {
         return dynamic_cast<const VariadicType*>(t.get());
+    }
+
+    inline bool isList(const TypePtr& t) noexcept {
+        return dynamic_cast<const ListType*>(t.get());
     }
 
     inline bool isBuiltin(const TypePtr& t) noexcept {

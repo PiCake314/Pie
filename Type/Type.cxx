@@ -126,7 +126,7 @@ namespace type {
     std::string VariadicType::text(const size_t indent) const { return "..." + type->text(indent); }
 
     bool VariadicType::operator>(const Type& other) const {
-        if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type >= *that->type;
+        if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type > *that->type;
 
         // variadic type of a type is a superset of that type
         return *type == other or *type > other;
@@ -136,6 +136,22 @@ namespace type {
         if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type >= *that->type;
 
         return *type >= other;
+    }
+
+
+
+
+    std::string ListType::text(const size_t indent) const { return '{' + type->text(indent) + '}'; }
+    bool ListType::operator>(const Type& other) const {
+        if (auto that = dynamic_cast<const ListType*>(&other)) return *type > *that->type;
+
+        return false;
+    }
+
+    bool ListType::operator>=(const Type& other) const {
+        if (auto that = dynamic_cast<const ListType*>(&other)) return *type >= *that->type;
+
+        return false;
     }
 
 } // namespace type

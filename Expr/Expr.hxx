@@ -23,7 +23,7 @@
 
 struct Dict;
 using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList>;
+using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 
@@ -102,6 +102,29 @@ struct Name : Expr {
 
 //     Node variant() const override { return this; }
 // };
+
+
+struct List : Expr {
+    std::vector<ExprPtr> elements;
+
+    explicit List(std::vector<ExprPtr> elts = {}) noexcept : elements{std::move(elts)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        if (elements.empty()) return "{}";
+
+
+        std::string s = "{";
+        for (const auto& elt : elements) {
+            s += elt->stringify(indent + 4) + ", ";
+        }
+
+        s.pop_back(); s.pop_back();
+
+        return s + "}";
+    }
+
+    Node variant() const override { return this; }
+};
 
 
 struct Expansion : Expr {

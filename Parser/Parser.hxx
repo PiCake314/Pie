@@ -88,11 +88,17 @@ public:
             case MATCH: return match();
 
             case LOOP:     return loop();
-            case BREAK:    return std::make_shared<expr::Break>(parseExpr());
+            case BREAK: 
+                // if (check(SEMI)) return std::make_shared<expr::Break>();
+                return std::make_shared<expr::Break>(parseExpr());
                 // if (check(SEMI)) return std::make_shared<expr::Break>(           );
                 // else             return std::make_shared<expr::Break>(parseExpr());
 
-            case CONTINUE: return std::make_shared<expr::Continue>();
+            case CONTINUE:
+                // if (check(SEMI))
+                return std::make_shared<expr::Continue>();
+                // return std::make_shared<expr::Continue>(parseExpr());
+
                 // if (check(SEMI)) return std::make_shared<expr::Continue>(           );
                 // else             return std::make_shared<expr::Continue>(parseExpr());
 
@@ -132,16 +138,33 @@ public:
             case EXFIX :
                 return fixOperator(std::move(token));
 
-            // block / scope
+            // block (scope) or list literal
             case L_BRACE: {
-                std::vector<expr::ExprPtr> lines;
-                do {
-                    lines.emplace_back(parseExpr());
-                    consume(SEMI);
-                }
-                while(not match(R_BRACE));
 
-                return std::make_shared<expr::Block>(std::move(lines));
+                if (match(R_BRACE)) return std::make_shared<expr::List>();
+
+                std::vector<expr::ExprPtr> exprs = {parseExpr()};
+
+                if (match(SEMI)) { // scope
+                    while(not match(R_BRACE)) {
+                        exprs.emplace_back(parseExpr());
+                        consume(SEMI);
+                    }
+
+
+                    return std::make_shared<expr::Block>(std::move(exprs));
+                }
+                else if (check(COMMA)) { // list literal
+                    do {
+                        consume(COMMA);
+                        exprs.emplace_back(parseExpr());
+                    }
+                    while(not match(R_BRACE));
+
+                    return std::make_shared<expr::List>(std::move(exprs));
+                }
+
+                error();
             }
 
             // either a grouping or a closure
@@ -285,7 +308,14 @@ public:
             type.ret = parseType();
             return std::make_shared<type::FuncType>(std::move(type));
         }
-        else if (check(NAME)) { // checking for builtin types..this is a quick hack I think
+
+        if (match(L_BRACE)) { // list type
+            const auto ret = std::make_shared<type::ListType>(parseType(false));
+            consume(R_BRACE);
+            return ret;
+        }
+
+        if (check(NAME)) { // checking for builtin types..this is a quick hack I think
             if (match("Int"   )) return type::builtins::Int();
             if (match("Double")) return type::builtins::Double();
             if (match("Bool"  )) return type::builtins::Bool();
