@@ -546,14 +546,7 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Assignment *ass) {
-        // assigning to x.y should never create a variable "x.y" bu access x and change y;
-        if (auto *acc = dynamic_cast<expr::Access*>     (ass->lhs.get())) return accessAssign(ass, acc);
-        // ns::x
-        if (auto *sa  = dynamic_cast<expr::SpaceAccess*>(ass->lhs.get())) return spaceAccessAssign(ass, sa);
-
-
-        if (const auto name = dynamic_cast<expr::Name*>(ass->lhs.get())){
+    Value nameAssign(const expr::Assignment *ass, const expr::Name* name) {
             // type::TypePtr type = type::builtins::Any();
             type::TypePtr type = name->type;
             bool change{};
@@ -628,13 +621,26 @@ struct Visitor {
             else addVar(name->stringify(), value, type);
 
             return value;
-        }
+    }
 
 
-        // assing to the serialization (stringification) of the AST node
+    Value operator()(const expr::Assignment *ass) {
+        // assigning to x.y should never create a variable "x.y" bu access x and change y;
+        if (auto *acc = dynamic_cast<expr::Access*>(ass->lhs.get())) return accessAssign(ass, acc);
+
+        // ns::x = 1;
+        if (auto *sa  = dynamic_cast<expr::SpaceAccess*>(ass->lhs.get())) return spaceAccessAssign(ass, sa);
+
+        // name = 1;
+        if (auto name = dynamic_cast<expr::Name*>(ass->lhs.get())) return nameAssign(ass, name);
+
+
+        // can't assign non-names to namespaces
+        // makes 1::2::3 impossible, which is consistent with the fact that 1 + 2::3 + 4; is ambiguous
         if (dynamic_cast<expr::Namespace*>(ass->rhs.get()) and not dynamic_cast<expr::Name*>(ass->lhs.get()))
             error("Cannot assign namespaces to non-names: " + ass->stringify());
-
+        
+        // assing to the serialization (stringification) of the AST node
         return addVar(ass->lhs->stringify(), std::visit(*this, ass->rhs->variant()));
     }
 
@@ -1654,18 +1660,19 @@ struct Visitor {
     Value operator()(const expr::Call *call) {
         if (const auto& var = getVar(call->stringify()); var) return var->first;
 
-        ScopeGuard sg{this};
-
-
         const auto args = std::move(call)->args;
-        std::vector<std::pair<size_t, std::vector<Value>>> expand_at;
 
+
+
+        // for pack expansions at call site (there could be multiple of em)
+        // i.e: func(args1..., "Hi", "hello", args2..., args3...)
+        std::vector<std::pair<size_t, std::vector<Value>>> expand_at;
         for (size_t i{}; i < args.size(); ++i) {
             if (const auto expand = dynamic_cast<const expr::Expansion*>(args[i].get())) {
                 const auto pack = std::visit(*this, expand->pack->variant());
 
                 if (not std::holds_alternative<PackList>(pack))
-                    error("Expansion applied on a non-pack variable: " + args[i]->stringify());
+                error("Expansion applied on a non-pack variable: " + args[i]->stringify());
 
                 expand_at.push_back({i, get<PackList>(pack)->values});
                 // args.erase(std::next(args.begin(), i--));
@@ -1673,18 +1680,20 @@ struct Visitor {
         }
 
         const size_t args_size =
-            args.size() +
-            std::ranges::fold_left(expand_at, size_t{}, [] (const auto& acc, const auto& elt) { return acc + elt.second.size(); }) // plus the expansions
-            - expand_at.size(); // minus redundant packs (already expanded)
-
+        args.size() +
+        std::ranges::fold_left(expand_at, size_t{}, [] (const auto& acc, const auto& elt) { return acc + elt.second.size(); }) // plus the expansions
+        - expand_at.size(); // minus redundant packs (already expanded)
 
         auto var = std::visit(*this, call->func->variant());
-
         if (std::holds_alternative<std::string>(var)) { // that dumb lol. but now it works
             const auto& name = std::get<std::string>(var);
             if (isBuiltin(name)) return evaluateBuiltin(args, expand_at, call->named_args, name);
         }
 
+
+        // {   // begin scope guard scope (lmao) 
+        //    // this is needed in order for the destructor to get called later before the function finishes
+        // ScopeGuard sg{this};
 
         if (std::holds_alternative<expr::Closure>(var)) {
             const auto& func = std::get<expr::Closure>(var);
@@ -1889,9 +1898,8 @@ struct Visitor {
 
 
             //* should I capture the env and bundle it with the function before returning it?
-            if (func.type.ret->text() == "Syntax") {
-                return func.body->variant();
-            }
+            if (func.type.ret->text() == "Syntax") return func.body->variant();
+
 
             ScopeGuard sg1{this, func.env}; // in case the lambda had captures
             ScopeGuard sg2{this, args_env};
@@ -1916,9 +1924,20 @@ struct Visitor {
 
         else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
 
+        // } // end of scope guard (destructor called!)
 
-        if (args.size() != 0) error("Can't pass arguments to values!");
-        return var;
+        if (args.empty()) return var; // get
+
+        if (args.size() == 1) {       // set
+            const auto val = std::visit(*this, args[0]->variant());
+
+            addVar(stringify(var), val, typeOf(val));
+            // addVar(call->func->stringify(), val, typeOf(val));
+
+            return var;
+        }
+
+         error("Can't pass arguments to values!");
     }
 
 

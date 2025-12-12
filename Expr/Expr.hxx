@@ -677,7 +677,7 @@ struct Closure : Expr {
         for(size_t i{1}; i < params.size(); ++i)
             s += ", " + params[i] + ": " + type.params[i]->text();
 
-        return s + "): " + type.ret->text() + " => " + body->stringify(indent + 4);
+        return s + "): " + type.ret->text() + " => " + body->stringify(indent);
     }
 
     Node variant() const override { return this; }

@@ -413,15 +413,29 @@ public:
         bool has_name{}, has_type{}, has_valu{};
 
         std::string name;
-        if (not check(ASSIGN) and not check(COLON)) {
-            constexpr auto in_match = true;
-            name = parseExpr<in_match>(0)->stringify();
-            has_name = true;
-        }
-        // if (check(NAME)) {
-        //     name = consume(NAME).text;
+
+        // const bool name_expr = not check(ASSIGN) and not check(COLON) and [this] {
+        //     for (size_t i{}; not atEnd(); ++i) {
+        //         if (check(  L_PAREN, i)) return false; // pattern, not a name
+        //         if (check(   ASSIGN, i)) return true;
+        //         if (check(    COLON, i)) return true;
+        //         if (check(FAT_ARROW, i)) return true;
+        //     }
+        //     return true;
+        // }();
+
+        // // if (not check(ASSIGN) and not check(COLON))
+        // if (name_expr) {
+        //     constexpr auto in_match = true;
+        //     name = parseExpr<in_match>(0)->stringify();
         //     has_name = true;
         // }
+        // else
+        if (check(NAME)) {
+            name = consume(NAME).text;
+            has_name = true;
+        }
+
 
         // base case
         if (not match(L_PAREN)) {
@@ -443,7 +457,7 @@ public:
                 error("Match expression case doesn't contain a pattern");
 
             return std::make_unique<Pattern>(
-                Single{
+                Single {
                     std::move(name),
                     std::move(type),
                     std::move(value)
