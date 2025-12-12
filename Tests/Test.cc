@@ -8,6 +8,40 @@
 
 
 
+TEST_CASE("See Through Value Mutability", "[Mutability]") {
+    const auto src = R"(
+print = __builtin_print;
+
+infix + = (a, b) => __builtin_add(a, b);
+
+
+x = 1;
+
+old = x("Hello 1");
+x = "Hello x"; .: different
+
+print(old);
+print(1);
+print(x);
+
+(6 + 7)("Hi");
+6 + 7 = "Bye";
+
+print(7 + 6); .: 13
+print(13); .: Hi
+print(6 + 7); .: Bye
+)";
+
+    REQUIRE(run(src) == R"(1
+Hello 1
+Hello x
+13
+Hi
+Bye)");
+}
+
+
+
 TEST_CASE("Looping Over Pack Without Loop Var", "[Loop]") {
     const auto src = R"(
 func = (pack: ...Any) => loop pack => __builtin_print(0);
