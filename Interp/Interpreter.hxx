@@ -71,7 +71,7 @@ struct Visitor {
     std::optional<Value> checkThis(const std::string& name) {
         if (selves.empty()) return {};
 
-        for (const auto& [member, value] : selves.back().second->members) {
+        for (const auto& [member, _, value] : selves.back().second->members) {
             if (member.name == name) return value;
         }
 
@@ -81,7 +81,7 @@ struct Visitor {
     void changeThis(const std::string& name, Value val) {
         if (selves.empty()) error();
 
-        for (auto& [member, value] : selves.back().second->members) {
+        for (auto& [member, _, value] : selves.back().second->members) {
             if (member.name == name) {
                 value = val;
                 return;
@@ -97,8 +97,8 @@ struct Visitor {
         // interesting!
         // how about a special value?
 
-        if (not type::shouldReassign(n->type))
-            error("Declarations annotated with a type need to be assigned a value: " + n->name + ": " + n->type->text());
+        // if (not type::shouldReassign(n->type))
+        //     error("Declarations annotated with a type need to be assigned a value: " + n->name + ": " + n->type->text());
 
         if (const auto& var = getVar(n->name); var) return var->first;
         if (const auto var = checkThis(n->name); var) return *var;
@@ -126,6 +126,8 @@ struct Visitor {
 
         return makeList(std::move(values));
     }
+
+    Value operator()(const expr::Map*) { error(); }
 
 
     Value operator()(const expr::UnaryFold* fold) {
@@ -491,18 +493,20 @@ struct Visitor {
 
         const auto& obj = get<Object>(left);
 
-        const auto& found = std::ranges::find_if(obj.second->members, [name = acc->name](const auto& member) { return member.first.stringify() == name; });
+        const auto& found = std::ranges::find_if(obj.second->members,
+            [name = acc->name] (const auto& member) { return get<expr::Name>(member).stringify() == name; }
+        );
         if (found == obj.second->members.end()) error("In assignment '" + ass->stringify() + "', Name '" + acc->name + "' doesn't exist in object: " + stringify(obj));
 
-        const Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+        const Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
         //TODO: Dry this out!
-        if (const auto& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
+        if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
             std::println(std::cerr, "In assignment: {}", ass->stringify());
-            error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
+            error("Type mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text());
         }
 
-        found->second = value;
+        get<Value>(*found) = value;
 
         return value;
     }
@@ -521,36 +525,44 @@ struct Visitor {
 
         const auto& ns = std::get<NameSpace>(space);
 
-        const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return member.first.stringify() == name; });
-
+        const auto& found = std::ranges::find_if(ns.members->members,
+            [&name = sa->member] (const auto& member) { return get<0>(member).stringify() == name;}
+        );
         if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
-        Value value = found->first.type->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+        // Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+
+        Value value;
+        if (get<type::TypePtr>(*found)->text() == "Syntax")
+            value = ass->rhs->variant();
+        else
+            value = std::visit(*this, ass->rhs->variant());
 
 
-        if (const auto& type_of_value = typeOf(value); not (*found->first.type >= *type_of_value)) { // if not a super type..
+
+        if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
             std::println(std::cerr, "In assignment: {}", ass->stringify());
-            error("Type mis-match! Expected: " + found->first.type->text() + ", got: " + type_of_value->text());
+            error("Type mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text());
         }
 
-        found->second = value;
+        get<Value>(*found) = value;
 
         return value;
     }
 
 
     Value spaceAssign(const NameSpace& ns1, const NameSpace& ns2) {
-        for (const auto& [decl, value] : ns2.members->members) {
+        for (const auto& [name, type, value] : ns2.members->members) {
             if (
-                const auto& it = std::ranges::find_if(ns1.members->members, [&decl] (const auto& e) { return e.first.name == decl.name; });
+                const auto& it = std::ranges::find_if(ns1.members->members, [&name] (const auto& e) { return get<expr::Name>(e).stringify() == name.stringify(); });
                 it != ns1.members->members.end()
             ) {
                 // explicit copying
-                it->first.type = decl.type;
-                it->second = value;
+                get<type::TypePtr>(*it) = type;
+                get<Value>(*it) = value;
             }
             // same here
-            else ns1.members->members.push_back({decl, value});
+            else ns1.members->members.push_back({name ,type, value});
         }
 
 
@@ -560,11 +572,12 @@ struct Visitor {
 
     Value nameAssign(const expr::Assignment *ass, const expr::Name* name) {
             // type::TypePtr type = type::builtins::Any();
-            type::TypePtr type = name->type;
+            // type::TypePtr type = name->type;
+            type::TypePtr type = ass->type;
             bool change{};
 
             // variable already exists. Check that type matches the rhs type
-            if (const auto& var = getVar(name->name); var and type::shouldReassign(name->type)) {
+            if (const auto& var = getVar(name->name); var and type::shouldReassign(type)) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
                 type = var->second;
                 change = true;
@@ -661,12 +674,12 @@ struct Visitor {
         if (const auto& var = getVar(cls->stringify()); var) return var->first;
 
 
-        std::vector<std::pair<expr::Name, Value>> members;
+        std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members;
 
         ScopeGuard sg{this};
-        for (const auto& field : cls->fields) {
+        for (const auto& [name, typ, expr] : cls->fields) {
 
-            type::TypePtr type = field.first.type;
+            type::TypePtr type = typ;
             if (type::shouldReassign(type)) type = type::builtins::Any();
 
             Value v;
@@ -674,7 +687,7 @@ struct Visitor {
             if (type->text() == "Syntax") {
                 // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
                 type = type::builtins::Syntax();
-                v = field.second->variant();
+                v = expr->variant();
             }
             else {
                 type = validateType(std::move(type));
@@ -684,20 +697,20 @@ struct Visitor {
                     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
 
-                v = std::visit(*this, field.second->variant());
+                v = std::visit(*this, expr->variant());
 
                 if (const auto& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
                     std::println(std::cerr, "In class member assignment: {}: {} = {}",
-                        field.first.name,
-                        field.first.type->text(),
-                        field.second->stringify());
+                        name.stringify(),
+                        typ->text(),
+                        expr->stringify());
                     error("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
                 }
             }
 
-            env.back()[field.first.name] = {v, type}; // so other members can refer to members before them.
+            env.back()[name.stringify()] = {v, type}; // so other members can refer to members before them.
             // .back() gets removed anyway (because of ScopeGuard!);
-            members.push_back({{field.first.name, type}, v});
+            members.push_back({expr::Name{name.stringify()}, type, v});
         }
 
         return ClassValue{std::make_shared<Dict>(std::move(members))};
@@ -715,11 +728,11 @@ struct Visitor {
 
 
     Value objectAccess(const Object& obj, const std::string& name) {
-        const auto& found = std::ranges::find_if(obj.second->members, [&name] (const auto& member) { return member.first.stringify() == name; });
+        const auto& found = std::ranges::find_if(obj.second->members, [&name] (const auto& member) { return get<0>(member).stringify() == name; });
         if (found == obj.second->members.end()) error("Name '" + name + "' doesn't exist in object '" + /*acc->var->*/ stringify(obj) + '\'');
 
-        if (std::holds_alternative<expr::Closure>(found->second)) {
-            const auto& closure = get<expr::Closure>(found->second);
+        if (std::holds_alternative<expr::Closure>(get<Value>(*found))) {
+            const auto& closure = get<expr::Closure>(get<Value>(*found));
 
             // Environment capture_list;
             // for (const auto& [name, value] : obj.second->members)
@@ -732,7 +745,7 @@ struct Visitor {
             return closure;
         }
 
-        return found->second;
+        return get<Value>(*found);
     }
 
 
@@ -769,11 +782,11 @@ struct Visitor {
 
         // then add the variables that resulted from that execution
 
-        std::vector<std::pair<expr::Name, Value>> members;
+        std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members;
         for (auto& [name, val] : env.back()) {
             auto& [value, type] = val;
 
-            members.push_back({{name, std::move(type)}, std::move(value)});
+            members.push_back({expr::Name{name}, std::move(type), std::move(value)});
         }
 
 
@@ -790,8 +803,8 @@ struct Visitor {
         const auto& space = get<NameSpace>(ns);
 
         Value ret;
-        for (const auto& [decl, value] : space.members->members)
-            ret = addVar(decl.name, value, decl.type);
+        for (const auto& [name, type, value] : space.members->members)
+            ret = addVar(name.stringify(), value, type);
 
         return ret;
     }
@@ -832,16 +845,16 @@ struct Visitor {
 
         const auto& ns = std::get<NameSpace>(space);
 
-        const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return member.first.stringify() == name; });
+        const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return get<expr::Name>(member).stringify() == name; });
 
         if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
 
-        if (std::holds_alternative<expr::Closure>(found->second)) {
-            const auto& closure = get<expr::Closure>(found->second);
+        if (std::holds_alternative<expr::Closure>(get<Value>(*found))) {
+            const auto& closure = get<expr::Closure>(get<Value>(*found));
 
             Environment capture_list;
-            for (const auto& [name, value] : ns.members->members)
+            for (const auto& [name, type, value] : ns.members->members)
                 capture_list[name.stringify()] = {value, typeOf(value)};
 
             closure.capture(capture_list);
@@ -849,7 +862,7 @@ struct Visitor {
             return closure;
         }
 
-        return found->second;
+        return get<Value>(*found);
     }
 
 
@@ -894,7 +907,7 @@ struct Visitor {
         if (obj.second->members.size() != obj.second->members.size()) error("idek what error message this should be..!");
 
         for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
-            if (not match(member.second, *pat)) return false;
+            if (not match(get<Value>(member), *pat)) return false;
         }
 
         return true;
@@ -2001,14 +2014,14 @@ struct Visitor {
         for (size_t i{}; i < call->args.size(); ++i) {
             const auto& v = std::visit(*this, call->args[i]->variant());
 
-            if (not (*obj.second->members[i].first.type >= *typeOf(v)))
+            if (not (*get<type::TypePtr>(obj.second->members[i]) >= *typeOf(v)))
                 error(
                     "Type mis-match in constructor of:\n" + stringify(cls) + "\nMember `" +
-                    obj.second->members[i].first.stringify() + "` expected: " + obj.second->members[i].first.type->text() +
+                    get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() +
                     "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
                 );
 
-            obj.second->members[i].second = v;
+            get<Value>(obj.second->members[i]) = v;
         }
 
         return obj;

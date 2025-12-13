@@ -8,6 +8,7 @@
 #include <utility>
 #include <span>
 #include <vector>
+#include <tuple>
 #include <unordered_map>
 #include <deque>
 #include <algorithm>
@@ -35,6 +36,14 @@ class Parser {
     std::deque<Token> red; // past tense of read lol
 
     std::filesystem::path root;
+
+
+    enum class Context {
+        NONE,
+        MATCH,
+        MAP,
+    };
+
 public:
     Parser(Tokens t, std::filesystem::path r) noexcept
     : tokens{std::move(t)}, token_iterator{tokens.begin()}, root{r.remove_filename()}
@@ -61,17 +70,20 @@ public:
         return {expressions, std::move(ops)};
     }
 
-    template <bool in_match = false>
+    template <bool PARSE_TYPE = true, Context CTX = Context::NONE>
     expr::ExprPtr parseExpr(const int precedence = 0) {
 
-        expr::ExprPtr left = prefix(consume());
+        expr::ExprPtr left = prefix<PARSE_TYPE>(consume());
 
-        while (precedence < getPrecedence())
-            left = infix<in_match>(std::move(left), consume());
+        while (precedence < getPrecedence()) {
+            if constexpr (not PARSE_TYPE) if (check(TokenKind::COLON)) break;
+            left = infix<CTX>(std::move(left), consume());
+        }
 
         return left;
     }
 
+    template <bool PARSE_TYPE = true>
     expr::ExprPtr prefix(Token token) {
         switch (token.kind) {
             using enum TokenKind;
@@ -81,7 +93,9 @@ public:
             case BOOL  : return std::make_shared<expr::Bool>(token.text == "true" ? true : false);
             case STRING: return std::make_shared<expr::String>(std::move(token).text);
 
-            case NAME: return prefixName(std::move(token));
+            case NAME:
+                if constexpr (not PARSE_TYPE) return std::make_shared<expr::Name>(std::move(token).text);
+                return prefixName(std::move(token));
 
             case CLASS: return klass();
             case UNION: return onion();
@@ -140,8 +154,12 @@ public:
 
             // block (scope) or list literal
             case L_BRACE: {
-
                 if (match(R_BRACE)) return std::make_shared<expr::List>();
+
+                if (match(COLON)) {
+                    consume(R_BRACE);
+                    return std::make_shared<expr::Map>();
+                }
 
                 std::vector<expr::ExprPtr> exprs = {parseExpr()};
 
@@ -189,32 +207,26 @@ public:
 
                 if (fold_expr) return parseFoldExpr();
 
-                auto exprs = parseCommaList();
+                // auto exprs = parseCommaList();
 
-                if (check(COLON) or check(FAT_ARROW)) return closure(std::move(exprs));
 
-                // could still be closure or groupings
-                // const bool is_closure = (
-                //         (check(R_PAREN, 1) and (check(FAT_ARROW, 2) or check(COLON, 2))) or // (a) =>
-                //         (check(COMMA, 1))  // (a, 
-                //     );
+                const bool closure_expr = [this] {
+                    size_t i{};
+                    for (; not atEnd() and not check(R_PAREN , i); ++i);
+                    ++i;
 
-                // if (is_closure) return closure();
-                // still unsure
+                    return check(COLON, i) or check(FAT_ARROW, i); // ( ... ): OR ( ... ) =>
+                }();
 
-                // auto expr = parseExpr();
-                // // (a: 
-                // if (check(NAME) and check(COLON, 1)) {
-                //     auto type = parseType();
-                // }
+                // if (check(COLON) or check(FAT_ARROW)) return closure();
+                if (closure_expr) return closure();
 
-                // // tt's just grouping,
-                // // can have (a). Fine. But (a, b) is not fine for now. maybe it should be...
-                // consume(R_PAREN);
+                // if (exprs.size() != 1) error("Comma operator not supported!!");
 
-                if (exprs.size() != 1) error("Comma operator not supported!!");
-
-                return std::move(exprs[0]);
+                // return std::move(exprs[0]);
+                auto expr = parseExpr();
+                consume(R_PAREN);
+                return expr;
             }
 
             case R_BRACE: error("Can't have empty block!");
@@ -226,7 +238,7 @@ public:
     }
 
 
-    template <bool in_match = false>
+    template <Context CTX = Context::NONE>
     expr::ExprPtr infix(expr::ExprPtr left, Token token) {
         switch (token.kind) {
             using enum TokenKind;
@@ -244,7 +256,7 @@ public:
             }
 
             case COLON: {
-                if constexpr (in_match) return left;
+                if constexpr (CTX == Context::MATCH or CTX == Context::MAP) return left;
 
                 if (
                     check(COLON) and not (
@@ -262,15 +274,27 @@ public:
 
                     return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
                 }
-                // either a type
-                // or and else for loop
 
-                return std::make_shared<expr::Name>(left->stringify(), parseType());
+                // return std::make_shared<expr::Name>(left->stringify(), parseType());
+                return left;
             }
 
             case ASSIGN:
-                if constexpr (in_match) return left;
-                return std::make_shared<expr::Assignment>(std::move(left), parseExpr(prec::ASSIGNMENT_VALUE - 1));
+                if constexpr (CTX == Context::MATCH) return left;
+
+                if (match(COLON))
+                    return std::make_shared<expr::Assignment>(
+                        std::move(left),
+                        parseType(),
+                        parseExpr(prec::ASSIGNMENT_VALUE - 1)
+                    );
+
+                else
+                    return std::make_shared<expr::Assignment>(
+                        std::move(left),
+                        type::builtins::_(),
+                        parseExpr(prec::ASSIGNMENT_VALUE - 1)
+                    );
 
 
             case L_PAREN: return call(std::move(left));
@@ -281,13 +305,14 @@ public:
     }
 
 
-    type::TypePtr parseType(const bool allow_variadic = true) {
+    template <bool allow_variadic = true>
+    type::TypePtr parseType() {
         using enum TokenKind;
 
         if (match(ELLIPSIS)) {
             if (not allow_variadic) error("Can't have a variadic of a variadic type!");
 
-            return std::make_shared<type::VariadicType>(parseType(false));
+            return std::make_shared<type::VariadicType>(parseType<false>());
         }
 
         // either a function type
@@ -310,7 +335,7 @@ public:
         }
 
         if (match(L_BRACE)) { // list type
-            const auto ret = std::make_shared<type::ListType>(parseType(false));
+            const auto ret = std::make_shared<type::ListType>(parseType<false>());
             consume(R_BRACE);
             return ret;
         }
@@ -554,25 +579,29 @@ public:
 
         consume(L_BRACE);
 
-        std::vector<std::pair<expr::Name, expr::ExprPtr>> fields;
+        std::vector<std::tuple<expr::Name, type::TypePtr, expr::ExprPtr>> fields;
 
         while (not match(R_BRACE)) {
             auto expr = parseExpr();
             consume(SEMI);
 
-            const auto& ass = dynamic_cast<const expr::Assignment*>(expr.get());
+            auto ass = dynamic_cast<expr::Assignment*>(expr.get());
             if (not ass) error("Can only have assignments in class definition!");
 
-            const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
-            if (not n) error("Can only assign to names in class definition!");
-            auto name = *n; // copy so I can modify
-
+            // const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
+            // if (not n) error("Can only assign to names in class definition!");
+            // auto name = *n; // copy so I can modify
+;
             // Can't reassign variables in a class definition
             // This just means the type was not annotated. Default to "Any"
-            if (type::shouldReassign(name.type)) name.type = type::builtins::Any();
+            // if (type::shouldReassign(type)) type = type::builtins::Any();
 
 
-            fields.push_back({name, std::move(ass->rhs)});
+            if (type::shouldReassign(ass->type))
+                fields.push_back({expr::Name{ass->lhs->stringify()}, type::builtins::Any(), std::move(ass)->rhs});
+
+            else
+                fields.push_back({expr::Name{ass->lhs->stringify()}, std::move(ass)->type , std::move(ass)->rhs});
         }
 
         return std::make_shared<expr::Class>(std::move(fields));
@@ -750,21 +779,47 @@ public:
     }
 
 
-    expr::ExprPtr closure(std::vector<expr::ExprPtr> exprs) {
+        // std::vector<expr::ExprPtr> exprs;
+        // if (match(TokenKind::R_PAREN)) return exprs;
+        // do exprs.push_back(parseExpr()); while(match(TokenKind::COMMA));
+        // consume(TokenKind::R_PAREN);
+        // return exprs;
+
+    expr::ExprPtr closure() {
         using enum TokenKind;
 
-        constexpr auto fix_type = [] (const auto& e) -> type::TypePtr {
-            if (auto name = dynamic_cast<expr::Name*>(e.get()); name and not type::shouldReassign(name->type))
-                return name->type;
-
-            return type::builtins::Any();
-        };
+        // std::vector<std::pair<expr::ExprPtr, type::TypePtr>> exprs;
 
         std::vector<std::string> params;
         std::vector<type::TypePtr> params_types;
 
-        std::ranges::transform(exprs, std::back_inserter(params), [] (const auto& e) { return e->stringify(); });
-        std::ranges::transform(exprs, std::back_inserter(params_types), fix_type);
+        if (not match(R_PAREN)) {
+            do {
+                params.push_back(parseExpr<false>()->stringify());
+
+                if (match(COLON))
+                    params_types.push_back(parseType());
+                else 
+                    params_types.push_back(type::builtins::Any());
+            }
+            while (match(COMMA));
+
+            consume(R_PAREN);
+        }
+
+
+
+        // constexpr auto fix_type = [] (const auto& e) -> type::TypePtr {
+        //     if (auto name = dynamic_cast<expr::Name*>(e.get()); name and not type::shouldReassign(name->type))
+        //         return name->type;
+
+        //     return type::builtins::Any();
+        // };
+
+
+        // std::ranges::transform(exprs, std::back_inserter(params), [] (const auto& e) { return e.first->stringify(); });
+
+        // std::ranges::transform(exprs, std::back_inserter(params_types), fix_type);
 
         // do {
         //     Token name = consume(NAME);
@@ -844,15 +899,25 @@ public:
     expr::ExprPtr prefixName(Token token) {
         if (ops.contains(token.text)) return parseOperator(std::move(token));
 
+        // if constexpr (not PARSE_TYPE) return std::make_shared<expr::Name>(std::move(token).text);
+
 
         if (check(TokenKind::COLON) and not check(TokenKind::COLON, 1)){ // making sure it's not a namespace access like "n::x"
             consume(/* COLON */);
             auto type = parseType();
+            consume(TokenKind::ASSIGN);
+            // auto lhs = parseExpr();
 
-            return std::make_shared<expr::Name>(token.text, std::move(type));
+            return std::make_shared<expr::Assignment>(
+                std::make_shared<expr::Name>(std::move(token).text),
+                std::move(type),
+                parseExpr()
+            );
+            // return std::make_shared<expr::Name>(token.text, std::move(type));
         }
 
-        return std::make_shared<expr::Name>(token.text, type::builtins::_());
+        // return std::make_shared<expr::Name>(token.text, type::builtins::_());
+        return std::make_shared<expr::Name>(std::move(token).text);
     }
 
 

@@ -24,7 +24,7 @@ using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
 // + expr::Union doesn't have any ExprPtr in it anyway
 using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue>;
 
-struct Dict { std::vector<std::pair<expr::Name, Value>> members; };
+struct Dict { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
 struct Elements { std::vector<Value> values; };
 
 
@@ -74,8 +74,8 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
             s = "class {\n";
 
             const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.blueprint->members) {
-                s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
+            for (const auto& [name, type, value] : v.blueprint->members) {
+                s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
                 if (is_string) s += '\"';
@@ -106,8 +106,8 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
             s = "namespace {\n";
 
             const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.members->members) {
-                s += space + name.stringify() + ": " + name.type->text(indent + 4) + " = ";
+            for (const auto& [name, type, value] : v.members->members) {
+                s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
                 if (is_string) s += '\"';
@@ -133,7 +133,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
             s = "Object {\n";
 
             const std::string space(indent + 4, ' ');
-            for (const auto& [name, value] : v.second->members) {
+            for (const auto& [name, _, value] : v.second->members) {
                 s += space + name.stringify() + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
@@ -219,9 +219,9 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
                 get<ClassValue>(rhs).blueprint->members
             ),
 
-            [] (auto&& pair) {
-                return get<0>(pair).first.stringify() == get<1>(pair).first.stringify()
-                   and get<0>(pair).second == get<1>(pair).second;
+            [] (auto&& tuple) {
+                return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
+                   and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
             }
         );
     }
@@ -235,9 +235,9 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
                     b.second->members
                 ),
 
-                [] (auto&& pair) {
-                    return get<0>(pair).first.stringify() == get<1>(pair).first.stringify()
-                    and get<0>(pair).second == get<1>(pair).second;
+                [] (auto&& tuple) {
+                    return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
+                    and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
                 }
             );
     }

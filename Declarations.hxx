@@ -28,6 +28,7 @@ using Node = std::variant<
     const struct Name              *,
     // const struct Pack              *,
     const struct List              *,
+    const struct Map               *,
     const struct Expansion         *,
     const struct UnaryFold         *,
     const struct SeparatedUnaryFold*,

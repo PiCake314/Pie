@@ -68,10 +68,11 @@ struct String : Expr {
 
 struct Name : Expr {
     std::string name;
-    type::TypePtr type;
+    // type::TypePtr type;
 
 
-    Name(std::string n, type::TypePtr t = type::builtins::Any()) noexcept : name{std::move(n)}, type{std::move(t)} {}
+    // Name(std::string n, type::TypePtr t = type::builtins::Any()) noexcept : name{std::move(n)}, type{std::move(t)} {}
+    explicit Name(std::string n) noexcept : name{std::move(n)} {}
 
     std::string stringify(const size_t = 0) const override {
         return name;
@@ -116,6 +117,29 @@ struct List : Expr {
         std::string s = "{";
         for (const auto& elt : elements) {
             s += elt->stringify(indent + 4) + ", ";
+        }
+
+        s.pop_back(); s.pop_back();
+
+        return s + "}";
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct Map : Expr {
+    std::vector<std::pair<ExprPtr, ExprPtr>> elements;
+
+    explicit Map(std::vector<std::pair<ExprPtr, ExprPtr>> elts = {}) noexcept : elements{std::move(elts)} {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        if (elements.empty()) return "{:}";
+
+
+        std::string s = "{";
+        for (const auto& [key, value] : elements) {
+            s += key->stringify(indent + 4) + ": " + value->stringify(indent + 4) + ", ";
         }
 
         s.pop_back(); s.pop_back();
@@ -211,16 +235,17 @@ struct BinaryFold : Expr {
 struct Assignment : Expr {
     // std::string name;
     ExprPtr lhs;
+    type::TypePtr type;
     ExprPtr rhs;
 
 
-    Assignment(ExprPtr l, ExprPtr r) noexcept
-    : lhs{std::move(l)}, rhs{std::move(r)}
+    Assignment(ExprPtr l, type::TypePtr t, ExprPtr r) noexcept
+    : lhs{std::move(l)}, type{std::move(t)}, rhs{std::move(r)}
     {}
 
     std::string stringify(const size_t indent = 0) const override {
-        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and not type::shouldReassign(name->type)) {
-            return '(' + name->stringify(indent) + ": " + name->type->text() + " = " + rhs->stringify(indent) + ')';
+        if (auto name = dynamic_cast<const Name*>(lhs.get()); name and not type::shouldReassign(type)) {
+            return '(' + name->stringify(indent) + ": " + type->text() + " = " + rhs->stringify(indent) + ')';
         }
 
         return '(' + lhs->stringify(indent) + " = " + rhs->stringify(indent) + ')';
@@ -231,9 +256,9 @@ struct Assignment : Expr {
 
 
 struct Class : Expr {
-    std::vector<std::pair<Name, ExprPtr>> fields;
+    std::vector<std::tuple<Name, type::TypePtr, ExprPtr>> fields;
 
-    explicit Class(std::vector<std::pair<Name, ExprPtr>> f) noexcept
+    explicit Class(std::vector<std::tuple<Name, type::TypePtr, ExprPtr>> f) noexcept
     : fields{std::move(f)} {}
 
 
@@ -243,8 +268,8 @@ struct Class : Expr {
 
         const std::string space(indent + 4, ' ');
         for (const auto& field : fields) {
-            s += space + field.first.name + ": " + field.first.type->text(indent + 4)
-            + " = " + field.second->stringify(indent + 4) + ";\n";
+            s += space + get<0>(field).stringify() + ": " + get<1>(field)->text(indent + 4)
+            + " = " + get<2>(field)->stringify(indent + 4) + ";\n";
         }
 
 
