@@ -662,6 +662,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
+- [ ] add `lex` and `value` namespaces to codebase
 - [ ] Lexically Scoped Operators
 - [ ] Remove preprocessor
 - [ ] Allow variadics of Syntax type
