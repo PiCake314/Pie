@@ -672,7 +672,6 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - [ ] Use Big Int instead of `int32_t`
 - [ ] World domination
 - [ ] Improve error messages (add line and column numbers)
-- [ ] Add REPL
 - [ ] Add recursive operators
 - [ ] Remove depedency on stdx and boost
 - [ ] Compile to WASM & a web interface
@@ -681,6 +680,8 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] Add REPL
+- [x] Changed error system to exceptions (will allow REPL)
 - [x] Looping....maybee (added iterators!!!);
 - [x] Fix arbitrary names typing issue
 - [x] Same for loop^^
