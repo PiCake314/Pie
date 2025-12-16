@@ -7,6 +7,51 @@
 #include "catch.hpp"
 
 
+
+
+TEST_CASE("Empty List", "[List][Map]") {
+    const auto src = R"(
+print = __builtin_print;
+name1 = 1;
+name3 = 3;
+name4 = 4;
+
+scope =  {    name1: Int = name3; };
+map1   =  {    name1: String = name3  };
+map2   =  {    name1: String: Int = name3  };
+list  =  { 1, name1: Int = name3  };
+
+print(scope);
+print(map1);
+print(map2);
+print(list);
+)";
+
+    REQUIRE(run(src) == R"(3
+{1: 3}
+{1: 3}
+{1, 3})");
+}
+
+
+TEST_CASE("Single Element List", "[List]") {
+    const auto src = R"(
+print = __builtin_print;
+
+list1 = {1};
+list2: {Int} = {2};
+list3: {Any} = {3};
+
+print(list1);
+print(list2);
+print(list3);
+)";
+
+    REQUIRE(run(src) == R"({1}
+{2}
+{3})");
+}
+
 TEST_CASE("Empty List", "[List]") {
     const auto src = R"(
 print = __builtin_print;
@@ -472,7 +517,7 @@ TEST_CASE("recursive namespaces", "[Namespace]") {
     const auto src = R"(
 print = __builtin_print;
 
-x = namespace {
+x = space {
     a = 1;
     y = 1;
 };
@@ -490,7 +535,7 @@ TEST_CASE("namespaces2", "[Namespace]") {
     const auto src = R"(
 print = __builtin_print;
 
-x = namespace {
+x = space {
     cls = class { meow: Int = 0; };
 
     v: String = "hi";
@@ -501,7 +546,7 @@ x = namespace {
 
     infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
 
-    y = namespace {
+    y = space {
         n = 1;
     };
 };
@@ -527,7 +572,7 @@ TEST_CASE("namespaces1", "[Namespace]") {
     const auto src = R"(
 print = __builtin_print;
 
-x = namespace {
+x = space {
     cls = class { meow: Int = 0; };
 
     v: String = "hi";
@@ -538,7 +583,7 @@ x = namespace {
 
     infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
 
-    y = namespace {
+    y = space {
         n = 1;
     };
 };

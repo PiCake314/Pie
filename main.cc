@@ -2,7 +2,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
+#include <filesystem>
 #include <utility>
+#include <stdexcept>
 
 #include "Lexer/Lexer.hxx"
 #include "Preprocessor/Preprocessor.hxx"
@@ -23,53 +25,132 @@
 }
 
 
-int main(int argc, char *argv[]) {
-    using std::operator""sv;
-    if (argc < 2) error("Please pass a file name!");
+void REPL(
+    const std::filesystem::path canonical_root,
+    const bool print_preprocessed,
+    const bool print_tokens,
+    const bool print_parsed,
+    const bool run
+) {
+    Parser parser{canonical_root};
+    Visitor visitor;
+
+    for (;;) try {
+        std::string line;
+        std::print(">>> ");
+        std::getline(std::cin, line);
+
+        constexpr auto REPL = true;
+        auto processed_line = preprocess<REPL>(std::move(line), canonical_root); // root in repl mode is where we ran the interpret
+        if (print_preprocessed) std::println(std::clog, "{}", processed_line);
+
+        Tokens v = lex(std::move(processed_line));
+        if (print_tokens) std::println(std::clog, "{}", v);
+
+        if (v.empty()) continue;
+
+        auto [exprs, ops] = parser.parse(std::move(v));
+
+        if (print_parsed) for(const auto& expr : exprs) std::println(std::clog, "{};", expr->stringify(0));
+
+        if(run and (print_parsed or print_preprocessed or print_tokens)) puts("Output:\n");
 
 
-    bool print_tokens{};
-    bool print_parsed{};
-    bool print_preprocessed{};
-    bool run = true;
+        if (run) {
+            // parser.addOperators(std::move(ops));
+            // visitor assumes the operators already exist
+            visitor.addOperators(std::move(ops));
 
-    // this would leave file name at argv[1]
-    for(; argc > 2; --argc, ++argv) {
-        if (argv[1] == "-token"sv) print_tokens       = true ;
-        if (argv[1] == "-ast"sv)   print_parsed       = true ;
-        if (argv[1] == "-pre"sv)   print_preprocessed = true;
-        if (argv[1] == "-run"sv)   run                = false;
+            if (not exprs.empty()) {
+                Value value;
+                for (auto&& expr : exprs) value = std::visit(visitor, std::move(expr)->variant());
+
+                std::clog << stringify(value) << std::endl;
+            }
+        }
     }
+    catch(const std::exception &e) {
+        std::clog << e.what() << std::endl;
+    }
+}
 
 
-    auto src = readFile(argv[1]);
+void runFile(
+    char* argv1,
+    const bool print_preprocessed,
+    const bool print_tokens,
+    const bool print_parsed,
+    const bool run
+) {
+    auto src = readFile(argv1);
 
-    auto processed_src = preprocess(std::move(src), argv[1]);
-
-    if (print_preprocessed)
-        std::println(std::clog, "{}", processed_src);
+    auto processed_src = preprocess(std::move(src), argv1);
+    if (print_preprocessed) std::println(std::clog, "{}", processed_src);
 
     Tokens v = lex(std::move(processed_src));
     if (print_tokens) std::println(std::clog, "{}", v);
 
-    if (v.empty()) return 0;
+    if (v.empty()) return;
 
-    Parser p{std::move(v), argv[1]};
-
+    Parser p{std::move(v), argv1};
 
     auto [exprs, ops] = p.parse();
 
-
-    if (print_parsed) {
+    if (print_parsed)
         for(const auto& expr : exprs)
             std::println(std::clog, "{};", expr->stringify(0));
 
-    }
     if(run and (print_parsed or print_preprocessed or print_tokens)) puts("Output:\n");
 
     if (run) {
         Visitor visitor{std::move(ops)};
         for (auto&& expr : exprs)
             std::visit(visitor, std::move(expr)->variant());
+    }
+}
+
+
+int main(int argc, char *argv[]) {
+    // if (argc < 2) error("Please pass a file name!");
+
+    using std::operator""sv;
+    const auto canonical_root = std::filesystem::canonical(*argv);;
+
+    bool print_preprocessed = false;
+    bool print_tokens       = false;
+    bool print_parsed       = false;
+    bool print_opt          = false;
+    bool run                = true;
+    bool repl               = false;
+
+    // this would leave file name at argv[1]
+    for(; argc > 1; --argc, ++argv) {
+        if (argv[1] == "-token"sv) print_tokens       = true ;
+        if (argv[1] == "-ast"sv  ) print_parsed       = true ;
+        if (argv[1] == "-pre"sv  ) print_preprocessed = true ;
+        if (argv[1] == "-opt"sv  ) print_opt          = true ;
+        if (argv[1] == "-run"sv  ) run                = false;
+        if (argv[1] == "-repl"sv ) repl               = true ;
+    }
+
+
+    if (print_opt) {
+        std::clog << std::boolalpha;
+        std::clog << "print tokens:        " << print_tokens       << std::endl;
+        std::clog << "print parsed:        " << print_parsed       << std::endl;
+        std::clog << "print pre-processed: " << print_preprocessed << std::endl;
+        std::clog << "run?                 " << run                << std::endl;
+        std::clog << "repl?                " << repl               << std::endl;
+    }
+
+
+    if (argc == 1 or repl) {
+        REPL(
+            std::move(canonical_root),
+            print_preprocessed, print_tokens, print_parsed, run
+        );
+    }
+    else {
+        runFile(argv[1], print_preprocessed, print_tokens, print_parsed, run);
     }
 }

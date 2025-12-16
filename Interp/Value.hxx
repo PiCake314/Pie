@@ -13,19 +13,43 @@
 #include "../Utils/utils.hxx"
 
 
-struct Dict;
+struct Members;
 struct ClassValue;
-using Object = std::pair<ClassValue, std::shared_ptr<Dict>>;
+using Object = std::pair<ClassValue, std::shared_ptr<Members>>;
 
 
 // using expr::Union instead of a separate class for Union since they'd probably be the same
 // it might come and bite me later, but I mean..
 // I've been using expr::Closure for a while now and it's been okay
 // + expr::Union doesn't have any ExprPtr in it anyway
-using Value = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue>;
+using Value = std::variant<
+    ssize_t,
+    double,
+    bool,
+    std::string,
+    expr::Closure,
+    ClassValue,
+    expr::Union,
+    NameSpace,
+    Object,
+    expr::Node,
+    PackList,
+    ListValue,
+    MapValue
+>;
 
-struct Dict { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
+struct Members { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
 struct Elements { std::vector<Value> values; };
+
+inline std::string stringify(const Value& value, const size_t indent = {});
+
+template<>
+struct std::hash<Value> {
+    size_t operator()(const Value& value) const { return std::hash<std::string>{}(stringify(value)); }
+};
+
+
+struct Items { std::unordered_map<Value, Value> map; };
 
 
 [[nodiscard]] inline ListValue makeList(std::vector<Value> values) {
@@ -35,7 +59,7 @@ struct Elements { std::vector<Value> values; };
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 
-inline std::string stringify(const Value& value, const size_t indent = {}) {
+inline std::string stringify(const Value& value, const size_t indent) {
     std::string s;
 
     if (std::holds_alternative<bool>(value)) {
@@ -101,9 +125,9 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         const auto& v = get<NameSpace>(value);
 
         if (v.members->members.empty())
-            s = "namespace { }";
+            s = "space { }";
         else {
-            s = "namespace {\n";
+            s = "pace {\n";
 
             const std::string space(indent + 4, ' ');
             for (const auto& [name, type, value] : v.members->members) {
@@ -155,7 +179,7 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
     else if(std::holds_alternative<expr::Node>(value)) {
         const std::string space(indent + 4, ' ');
 
-        s = "ASTNode {\n" + space + std::visit(
+        s = "Syntax {\n" + space + std::visit(
             [indent] (const auto& v) { return v->stringify(indent + 4); },
             get<expr::Node>(value)
         ) + '\n' + std::string(indent, ' ') + '}';
@@ -163,8 +187,8 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
 
     else if (std::holds_alternative<PackList>(value)) {
         std::string comma = "";
-        for (auto&& v : get<PackList>(value)->values) {
-            s += comma + stringify(v);
+        for (const auto& v : get<PackList>(value)->values) {
+            s += comma + stringify(v, indent + 4);
             comma = ", ";
         }
     }
@@ -172,8 +196,19 @@ inline std::string stringify(const Value& value, const size_t indent = {}) {
         s += '{';
 
         std::string comma = "";
-        for (auto&& v : get<ListValue>(value).elts->values) {
-            s += comma + stringify(v);
+        for (const auto& v : get<ListValue>(value).elts->values) {
+            s += comma + stringify(v, indent + 4);
+            comma = ", ";
+        }
+
+        s += '}';
+    }
+    else if (std::holds_alternative<MapValue>(value)) {
+        s += '{';
+
+        std::string comma = "";
+        for (const auto& [key, value] : get<MapValue>(value).items->map) {
+            s += comma + stringify(key, indent + 4) + ": " + stringify(value, indent + 4);
             comma = ", ";
         }
 

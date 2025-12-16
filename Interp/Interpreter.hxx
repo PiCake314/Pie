@@ -29,7 +29,7 @@
 
 struct Visitor {
     std::vector<Environment> env;
-    const Operators ops;
+    Operators ops;
 
     // _this_ (or self) context
     std::vector<Object> selves{};
@@ -43,7 +43,21 @@ struct Visitor {
     // inline static const std::unordered_map<const char*, 
 
 
-    Visitor(Operators ops) noexcept : env(1), ops{std::move(ops)} { }
+    Visitor(Operators ops = {}) noexcept : env(1), ops{std::move(ops)} { }
+
+    void addOperators(Operators os) {
+        // ops.insert(os.begin(), os.end());
+        // ops.merge(std::move(os));
+
+        for (auto& [name, fix] : os) {
+            if (ops.contains(name)) {
+                for (auto& func : fix->funcs) {
+                    ops.at(name)->funcs.push_back(std::move(func));
+                }
+            }
+            else ops[std::move(name)] = std::move(fix);
+        }
+    }
 
 
     Value operator()(const expr::Num *n) {
@@ -127,7 +141,22 @@ struct Visitor {
         return makeList(std::move(values));
     }
 
-    Value operator()(const expr::Map*) { error(); }
+    Value operator()(const expr::Map* map) {
+        MapValue map_value{std::make_shared<Items>()};
+
+        for (auto [key, expr] : map->items) {
+            // evaluating key here first instead of at function arguments
+            // because functions arguments are indeterminantly evaluated
+
+            auto key_value = std::visit(*this, std::move(key)->variant());
+            map_value.items->map.insert_or_assign(
+                std::move(key_value),
+                std::visit(*this, std::move(expr)->variant())
+            );
+        }
+
+        return map_value;
+    }
 
 
     Value operator()(const expr::UnaryFold* fold) {
@@ -615,7 +644,7 @@ struct Visitor {
             // reassigning to an existing namespace. special
             if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) {
                 if (not std::holds_alternative<NameSpace>(getVar(name->name)->first))
-                    changeVar(name->name, NameSpace{std::make_shared<Dict>()});
+                    changeVar(name->name, NameSpace{std::make_shared<Members>()});
 
                 return spaceAssign(get<NameSpace>(getVar(name->name)->first), get<NameSpace>(value));
             }
@@ -713,7 +742,7 @@ struct Visitor {
             members.push_back({expr::Name{name.stringify()}, type, v});
         }
 
-        return ClassValue{std::make_shared<Dict>(std::move(members))};
+        return ClassValue{std::make_shared<Members>(std::move(members))};
     }
 
 
@@ -791,7 +820,7 @@ struct Visitor {
 
 
         std::ranges::reverse(members);
-        return NameSpace{std::make_shared<Dict>(std::move(members))};
+        return NameSpace{std::make_shared<Members>(std::move(members))};
     }
 
 
@@ -2007,7 +2036,7 @@ struct Visitor {
             error("Too many arguments passed to constructor of class: " + stringify(cls));
 
         // copying defaults field values from class definition
-        Object obj{cls, std::make_shared<Dict>(cls.blueprint->members) };
+        Object obj{cls, std::make_shared<Members>(cls.blueprint->members) };
 
         // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
         // const auto& [arg, value] : std::views::zip(call->args, obj->members)
@@ -2747,6 +2776,23 @@ struct Visitor {
 
             return type;
         }
+        else if (type::isMap(type)) {
+            const auto map_type = dynamic_cast<type::MapType*>(type.get());
+
+            // todo: allow this in the future
+            if (map_type->key_type->text() == "Syntax") error("Map of 'Syntax' is not allowed!");
+            if (map_type->val_type->text() == "Syntax") error("Map of 'Syntax' is not allowed!");
+
+
+            if (type::isVariadic(map_type->key_type)) error("Map of variadics types are not allowed!");
+            if (type::isVariadic(map_type->val_type)) error("Map of variadics types are not allowed!");
+
+
+            map_type->key_type = validateType(std::move(map_type)->key_type);
+            map_type->val_type = validateType(std::move(map_type)->val_type);
+
+            return type;
+        }
 
 
         error("'" + type->text() + "' does not name a type!");
@@ -2795,7 +2841,7 @@ struct Visitor {
 
             const bool same = std::ranges::all_of(values, [tp = values[0]] (const auto& t) { return *t == *tp; });
 
-            if (same) return std::make_shared<type::VariadicType>(values[0]);
+            if (same) return std::make_shared<type::VariadicType>(std::move(values)[0]);
 
             return std::make_shared<type::VariadicType>(type::builtins::Any());
             // return same ? std::make_shared<type::VariadicType>(values[0]) : non_typed_pack;
@@ -2816,9 +2862,36 @@ struct Visitor {
 
             const bool same = std::ranges::all_of(values, [tp = values[0]] (const auto& t) { return *t == *tp; });
 
-            if (same) return std::make_shared<type::ListType>(values[0]);
+            if (same) return std::make_shared<type::ListType>(std::move(values)[0]);
 
-            return std::make_shared<type::ListType>(type::builtins::Any());;
+            return std::make_shared<type::ListType>(type::builtins::Any());
+        }
+
+        if (std::holds_alternative<MapValue>(value)) {
+            auto values = std::ranges::fold_left(
+                get<MapValue>(value).items->map,
+                std::vector<std::pair<type::TypePtr, type::TypePtr>>{},
+                [this] (auto acc, const auto& elt) {
+                    acc.push_back({typeOf(elt.first), typeOf(elt.second), });
+
+                    return acc;
+                }
+            );
+
+
+            if (values.empty()) return std::make_shared<type::MapType>(type::builtins::_(), type::builtins::_());
+
+            const bool same_key = std::ranges::all_of(values, [tp = values[0].first ] (const auto& t) { return *t.first  == *tp; });
+            const bool same_val = std::ranges::all_of(values, [tp = values[0].second] (const auto& t) { return *t.second == *tp; });
+
+            if (same_key and same_val)
+                return std::make_shared<type::MapType>(std::move(values)[0].first, std::move(values)[0].second);
+            if (same_key)
+                return std::make_shared<type::MapType>(std::move(values)[0].first, type::builtins::Any()       );
+            if (same_val)
+                return std::make_shared<type::MapType>(type::builtins::Any()     , std::move(values)[0].second);
+
+                return std::make_shared<type::MapType>(type::builtins::Any()     , type::builtins::Any()      );
         }
 
         if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();

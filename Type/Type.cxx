@@ -140,8 +140,8 @@ namespace type {
 
 
 
-
     std::string ListType::text(const size_t indent) const { return '{' + type->text(indent) + '}'; }
+
     bool ListType::operator>(const Type& other) const {
         if (auto that = dynamic_cast<const ListType*>(&other)) return *type > *that->type;
 
@@ -150,6 +150,26 @@ namespace type {
 
     bool ListType::operator>=(const Type& other) const {
         if (auto that = dynamic_cast<const ListType*>(&other)) return *type >= *that->type;
+
+        return false;
+    }
+
+
+
+    std::string MapType::text(const size_t indent) const {
+        return '{' + key_type->text(indent + 4) + ": " + val_type->text(indent + 4) + '}';
+    }
+
+    bool MapType::operator>(const Type& other) const {
+        if (auto that = dynamic_cast<const MapType*>(&other))
+            return *key_type > *that->key_type and *val_type > *that->val_type;
+
+        return false;
+    }
+
+    bool MapType::operator>=(const Type& other) const {
+        if (auto that = dynamic_cast<const MapType*>(&other))
+            return *key_type >= *that->key_type and *val_type >= *that->val_type;
 
         return false;
     }

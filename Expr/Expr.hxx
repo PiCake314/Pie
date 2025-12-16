@@ -21,14 +21,21 @@
 #include "../Declarations.hxx"
 #include "../Type/Type.hxx"
 
-struct Dict;
-using Object      = std::pair<ClassValue, std::shared_ptr<Dict>>;
-using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue>;
+struct Members;
+using Object      = std::pair<ClassValue, std::shared_ptr<Members>>;
+using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue, MapValue>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 
 namespace expr { struct Fix; }
 using Operators  = std::unordered_map<std::string, std::unique_ptr<expr::Fix>>;
+
+
+
+// template <>
+// struct std::hash<expr::ExprPtr> {
+//     size_t operator()(const expr::ExprPtr& expr) const { return std::hash<std::string>{}(expr->stringify()); }
+// };
 
 
 namespace expr {
@@ -129,16 +136,17 @@ struct List : Expr {
 
 
 struct Map : Expr {
-    std::vector<std::pair<ExprPtr, ExprPtr>> elements;
+    std::vector<std::pair<ExprPtr, ExprPtr>> items;
 
-    explicit Map(std::vector<std::pair<ExprPtr, ExprPtr>> elts = {}) noexcept : elements{std::move(elts)} {}
+    explicit Map(std::vector<std::pair<ExprPtr, ExprPtr>> elts = {}) noexcept : items{std::move(elts)} {}
+    // explicit Map(std::unordered_map<ExprPtr, ExprPtr> elts = {}) noexcept : elements{std::move(elts)} {}
 
     std::string stringify(const size_t indent = 0) const override {
-        if (elements.empty()) return "{:}";
+        if (items.empty()) return "{:}";
 
 
         std::string s = "{";
-        for (const auto& [key, value] : elements) {
+        for (const auto& [key, value] : items) {
             s += key->stringify(indent + 4) + ": " + value->stringify(indent + 4) + ", ";
         }
 
@@ -941,3 +949,4 @@ struct Operator : Fix {
 
 
 } // namespace expr
+

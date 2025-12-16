@@ -8,6 +8,7 @@
 #include <unordered_set>
 #include <filesystem>
 #include <ranges>
+#include <stdexcept>
 
 
 [[nodiscard]] inline std::string readFile2(const std::string& fname) {
@@ -15,7 +16,7 @@
 
     if (not fin.is_open()) {
         std::println(std::cerr, "{}", "File \"" + fname + " \"not found!");
-        exit(1);
+        throw std::runtime_error{"file '" + fname + "' not found!"};
     }
 
     std::stringstream ss;
@@ -55,7 +56,6 @@ void removeAllBetween(std::string& s, const std::string_view begin, const std::s
 
 
 std::string removeComments(std::string src) {
-
     // removing block comments
     // doing that first so that we don't confuse ".:" with ".::"
     removeAllBetween(src, ".::", "::.");
@@ -65,15 +65,19 @@ std::string removeComments(std::string src) {
     return src;
 }
 
+template <bool = false>
 std::string preprocess(std::string src, const std::filesystem::path& root = ".");
 
+template <bool REPL = false>
 std::string process(std::string src, const std::filesystem::path& root) {
     static std::unordered_set<std::string> cache;
 
     auto canonical = std::filesystem::canonical(root);
-    if (cache.contains(canonical.string())) return "";
-    // std::clog << "caching: " << canonical.string() << std::endl;
-    cache.insert(canonical.string());
+
+    if constexpr (not REPL) {
+        if (cache.contains(canonical.string())) return "";
+        cache.insert(canonical.string());
+    }
 
 
     auto mainfile = root;
@@ -109,6 +113,7 @@ std::string process(std::string src, const std::filesystem::path& root) {
 }
 
 
+template <bool REPL>
 std::string preprocess(std::string src, const std::filesystem::path& root) {
-    return process(removeComments(std::move(src)), root);
+    return process<REPL>(removeComments(std::move(src)), root);
 }

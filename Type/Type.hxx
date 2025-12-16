@@ -124,6 +124,19 @@ namespace type {
         bool operator>=(const Type& other) const override;
     };
 
+    struct MapType final : Type {
+        TypePtr key_type;
+        TypePtr val_type;
+
+        MapType(TypePtr t1, TypePtr t2) : key_type{std::move(t1)}, val_type{std::move(t2)} {}
+
+        std::string text(const size_t indent = 0) const override;
+
+        bool operator>(const Type& other) const override;
+
+        bool operator>=(const Type& other) const override;
+    };
+
 
     struct TryReassign : Type {
         std::string text(const size_t = 0) const override { return ""; }
@@ -156,6 +169,10 @@ namespace type {
 
     inline bool isList(const TypePtr& t) noexcept {
         return dynamic_cast<const ListType*>(t.get());
+    }
+
+    inline bool isMap(const TypePtr& t) noexcept {
+        return dynamic_cast<const MapType*>(t.get());
     }
 
     inline bool isBuiltin(const TypePtr& t) noexcept {

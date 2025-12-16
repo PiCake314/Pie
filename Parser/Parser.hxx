@@ -14,6 +14,7 @@
 #include <algorithm>
 #include <functional>
 #include <numeric>
+#include <iterator>
 #include <ranges>
 #include <cassert>
 
@@ -33,26 +34,37 @@ class Parser {
     Operators ops;
 
     // deque instead of vector for pop_front
-    std::deque<Token> red; // past tense of read lol
+    std::deque<Token> red; // past tense of rea d lol
 
     std::filesystem::path root;
 
 
     enum class Context {
-        NONE,
+        NONE = 0,
         MATCH,
         MAP,
+        CALL,
     };
 
 public:
+
     Parser(Tokens t, std::filesystem::path r) noexcept
     : tokens{std::move(t)}, token_iterator{tokens.begin()}, root{r.remove_filename()}
     {}
 
-    [[nodiscard]] bool atEnd() const noexcept { return token_iterator == tokens.end() or token_iterator->kind == TokenKind::END; }
+
+    explicit Parser(std::filesystem::path r) noexcept : root{r.remove_filename()} {}
 
 
-    std::pair<std::vector<expr::ExprPtr>, Operators> parse() {
+    [[nodiscard]] bool atEnd(size_t offset = 0) const noexcept { return std::next(token_iterator, offset) == tokens.end() or token_iterator->kind == TokenKind::END; }
+
+
+    std::pair<std::vector<expr::ExprPtr>, Operators> parse(Tokens t = {}) {
+        if (not t.empty()) {
+            tokens = std::move(t);
+            token_iterator = tokens.begin();
+        }
+
         std::vector<expr::ExprPtr> expressions;
 
         while (not atEnd()) {
@@ -67,23 +79,27 @@ public:
             }
         }
 
-        return {expressions, std::move(ops)};
+
+        Operators os;
+        for (const auto& [name, op] : ops) os[name] = op->clone();
+
+        return {expressions, std::move(os)};
     }
 
     template <bool PARSE_TYPE = true, Context CTX = Context::NONE>
     expr::ExprPtr parseExpr(const int precedence = 0) {
 
-        expr::ExprPtr left = prefix<PARSE_TYPE>(consume());
+        expr::ExprPtr left = prefix<PARSE_TYPE, CTX>(consume());
 
         while (precedence < getPrecedence()) {
-            if constexpr (not PARSE_TYPE) if (check(TokenKind::COLON)) break;
+            if constexpr (not PARSE_TYPE or CTX == Context::MAP) if (check(TokenKind::COLON)) break;
             left = infix<CTX>(std::move(left), consume());
         }
 
         return left;
     }
 
-    template <bool PARSE_TYPE = true>
+    template <bool PARSE_TYPE = true, Context CTX = Context::NONE>
     expr::ExprPtr prefix(Token token) {
         switch (token.kind) {
             using enum TokenKind;
@@ -161,23 +177,74 @@ public:
                     return std::make_shared<expr::Map>();
                 }
 
-                std::vector<expr::ExprPtr> exprs = {parseExpr()};
+                const bool map_expr = [this] {
+
+                    for (size_t i{}; not atEnd(i); ++i) {
+                        // if you find a colon first, then
+                        // it could be a map {x: y};
+                        // OR it could be a declaration {x: y = 1;};
+                        // must find an assignment to make sure...
+
+                        // { (name1: Int = name3): name4 }
+                        // { name1: Int = name3 }
+                        if (check(COLON, i)) {
+                            for (size_t a = i + 1; not atEnd(a); ++a) {
+                                if (check(COMMA  , a)) return true ; // onto next element, it's a map
+                                if (check(R_BRACE, a)) return true ; // closed the map, it's a map
+                                if (check(COLON  , a)) return true ; // this time the colon indicates a declaration {n1: n2: n3 = 4};
+                                if (check(SEMI   , a)) return false; // proly a declaration, it's a scope..i think :c
+
+                                if (check(L_BRACE, a)) while (not check(R_BRACE, a)) ++a;
+                                if (check(L_PAREN, a)) while (not check(R_PAREN, a)) ++a;
+                            }
+                        }
+
+                        if (check(COMMA  , i)) return false; // if you find a comma first, it's a list {1, 2};
+                        if (check(R_BRACE, i)) return false; // finding a `}` before finding `:` means it's a list with potentially one element
+                        if (check(SEMI   , i)) return false; // finding a `;` means it's a scope, and that was the end of an expression...
+
+                        if (check(L_BRACE, i)) while (not check(R_BRACE, i)) ++i;
+                        if (check(L_PAREN, i)) while (not check(R_PAREN, i)) ++i;
+                    }
+
+                    return false; // argubaly, should be `error()`
+                }();
+
+                if (map_expr) {
+
+                    auto key = parseExpr<false, Context::MAP>();
+                    consume(COLON);
+                    std::vector<std::pair<expr::ExprPtr, expr::ExprPtr>> exprs = { {std::move(key), parseExpr(), }, };
+                    // std::unordered_map<expr::ExprPtr, expr::ExprPtr> exprs = { {parseExpr<false>(), parseExpr(), }, };
+
+                    while (match(COMMA)) {
+                        key = parseExpr<false, Context::MAP>();
+                        consume(COLON);
+                        exprs.push_back({ std::move(key), parseExpr(), });
+
+                        // auto key = parseExpr<false>();
+                        // exprs[std::move(key)] = parseExpr();
+                        // exprs.insert_or_assign(std::move(key), parseExpr());?
+                    }
+
+                    consume(R_BRACE);
+
+                    return std::make_shared<expr::Map>(std::move(exprs));
+                }
+
+                std::vector<expr::ExprPtr> exprs = { parseExpr(), };
 
                 if (match(SEMI)) { // scope
                     while(not match(R_BRACE)) {
                         exprs.emplace_back(parseExpr());
                         consume(SEMI);
                     }
-
-
                     return std::make_shared<expr::Block>(std::move(exprs));
                 }
-                else if (check(COMMA)) { // list literal
-                    do {
-                        consume(COMMA);
-                        exprs.emplace_back(parseExpr());
-                    }
-                    while(not match(R_BRACE));
+                else { // list literals
+                    while (match(COMMA)) exprs.emplace_back(parseExpr()); 
+
+                    consume(R_BRACE);
 
                     return std::make_shared<expr::List>(std::move(exprs));
                 }
@@ -192,15 +259,19 @@ public:
 
                     consume(FAT_ARROW);
                     // It's a closure
-                    auto body = parseExpr();
+                    auto body = parseExpr<PARSE_TYPE>();
                     return std::make_shared<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
                 }
 
                 const bool fold_expr = [this] {
-                    for (size_t i{}; not atEnd(); ++i) {
+                    for (size_t i{}; not atEnd(i); ++i) {
                         if (check(R_PAREN , i)) return false;
                         if (check(COLON   , i)) return false;
                         if (check(ELLIPSIS, i)) return true ;
+
+
+                        if (check(L_BRACE, i)) while (not check(R_BRACE, i)) ++i;
+                        if (check(L_PAREN, i)) while (not check(R_PAREN, i)) ++i;
                     }
                     return false;
                 }();
@@ -212,11 +283,15 @@ public:
 
                 const bool closure_expr = [this] {
                     size_t i{};
-                    for (; not atEnd() and not check(R_PAREN , i); ++i);
+                    for (; not atEnd(i) and not check(R_PAREN , i); ++i) {
+                        if (check(L_BRACE, i)) while (not check(R_BRACE, i)) ++i;
+                        if (check(L_PAREN, i)) while (not check(R_PAREN, i)) ++i;
+                    }
                     ++i;
 
-                    return check(COLON, i) or check(FAT_ARROW, i); // ( ... ): OR ( ... ) =>
+                    return (CTX != Context::MAP and check(COLON, i)) or check(FAT_ARROW, i); // ( ... ): OR ( ... ) =>
                 }();
+
 
                 // if (check(COLON) or check(FAT_ARROW)) return closure();
                 if (closure_expr) return closure();
@@ -224,6 +299,9 @@ public:
                 // if (exprs.size() != 1) error("Comma operator not supported!!");
 
                 // return std::move(exprs[0]);
+
+
+                // just a grouping (1)
                 auto expr = parseExpr();
                 consume(R_PAREN);
                 return expr;
@@ -232,7 +310,7 @@ public:
             case R_BRACE: error("Can't have empty block!");
 
             default:
-                log();
+                log(true);
                 error("Couldn't parse \"" + token.text + "\"!");
         }
     }
@@ -256,7 +334,7 @@ public:
             }
 
             case COLON: {
-                if constexpr (CTX == Context::MATCH or CTX == Context::MAP) return left;
+                // if constexpr (CTX == Context::MATCH or CTX == Context::MAP) return left;
 
                 if (
                     check(COLON) and not (
@@ -275,7 +353,7 @@ public:
                     return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
                 }
 
-                // return std::make_shared<expr::Name>(left->stringify(), parseType());
+
                 return left;
             }
 
@@ -299,6 +377,9 @@ public:
 
             case L_PAREN: return call(std::move(left));
 
+            case ELLIPSIS:
+                if (CTX == Context::CALL) return left; // in expansion
+                [[fallthrough]];
 
             default: error("Couldn't parse \"" + token.text + "\"!!");
         }
@@ -334,10 +415,18 @@ public:
             return std::make_shared<type::FuncType>(std::move(type));
         }
 
-        if (match(L_BRACE)) { // list type
-            const auto ret = std::make_shared<type::ListType>(parseType<false>());
+        if (match(L_BRACE)) { // list or map type
+            constexpr auto NO_VARIADICS = false;
+
+
+            auto type1 = parseType<NO_VARIADICS>();
+            if (match(R_BRACE)) return std::make_shared<type::ListType>(std::move(type1));
+
+            consume(COLON);
+            auto type2 = parseType<NO_VARIADICS>();
             consume(R_BRACE);
-            return ret;
+
+            return std::make_shared<type::MapType>(std::move(type1), std::move(type2));
         }
 
         if (check(NAME)) { // checking for builtin types..this is a quick hack I think
@@ -861,32 +950,62 @@ public:
 
         if (not match(R_PAREN)) { // while not closing the paren for the call
 
-            do if (check(NAME)) {
-                std::string name = consume().text;
-                if (match(ASSIGN)) {
+            do {
+                constexpr auto PARSE_TYPE = true;
+                auto arg = parseExpr<PARSE_TYPE, Context::CALL>();
+
+                if (auto ass = dynamic_cast<expr::Assignment*>(arg.get())) {
+                    if (match(ELLIPSIS)) error("Cannot expand pack in named argument: " + ass->stringify());
+
+                    if (not type::shouldReassign(ass->type)) error("Can't have type annotation for named arguments: " + ass->stringify());
+
+                    const auto name = ass->lhs->stringify();
                     if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
-                        error("Named parameter '" + name + "' passed more than once!");
+                        error("Named parameter '" + name + "' passed more than once: " + ass->stringify());
 
-
-                    named_args[std::move(name)] = parseExpr();
-
-                    if (match(ELLIPSIS)) error("Cannot expand pack in named argument!");
+                    named_args[std::move(name)] = std::move(ass)->rhs;
                 }
-                else {
-                    ----token_iterator; //? back track the consumption of the name..?
-                    red.pop_front();
-                    auto expr = parseExpr();
-                    if (match(ELLIPSIS)) {
-                        expr = std::make_shared<expr::Expansion>(std::move(expr));
-                        while(match(ELLIPSIS)) // allows back to back expansions (args... ...);
-                        expr = std::make_shared<expr::Expansion>(std::move(expr));
 
-                        args.emplace_back(std::move(expr));
-                    }
-                    else args.emplace_back(std::move(expr));
+                else if (match(ELLIPSIS)) {
+                    arg = std::make_shared<expr::Expansion>(std::move(arg));
+
+                    while(match(ELLIPSIS)) // allows back to back expansions (args... ...);
+                        arg = std::make_shared<expr::Expansion>(std::move(arg));
+
+
+                    args.emplace_back(std::move(arg));
                 }
+                else args.emplace_back(std::move(arg));
+
+
+                // std::string name = consume().text;
+                // if (match(ASSIGN)) {
+                //     if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
+                //         error("Named parameter '" + name + "' passed more than once!");
+
+
+                //     named_args[std::move(name)] = parseExpr();
+
+                //     if (match(ELLIPSIS)) error("Cannot expand pack in named argument!");
+                // }
+                // else {
+                //     std::clog << "NAME: " << name << std::endl;
+                //     log();
+                //     std::clog << *token_iterator << std::endl;
+                //     std::clog << *--token_iterator << std::endl;
+                //     std::clog << *--token_iterator << std::endl;
+                //     // ----token_iterator; //? back track the consumption of the name..?
+                //     red.pop_front();
+                //     log();
+                //     auto expr = parseExpr();
+                //     if (match(ELLIPSIS)) {
+                //         expr = std::make_shared<expr::Expansion>(std::move(expr));
+                //         while(match(ELLIPSIS)) // allows back to back expansions (args... ...);
+                //         expr = std::make_shared<expr::Expansion>(std::move(expr));
+                //     }
+                //     args.emplace_back(std::move(expr));;
+                // }
             }
-            else args.emplace_back(parseExpr()); 
             while (match(COMMA));
 
             consume(R_PAREN);
@@ -906,7 +1025,6 @@ public:
             consume(/* COLON */);
             auto type = parseType();
             consume(TokenKind::ASSIGN);
-            // auto lhs = parseExpr();
 
             return std::make_shared<expr::Assignment>(
                 std::make_shared<expr::Name>(std::move(token).text),

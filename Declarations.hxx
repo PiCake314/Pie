@@ -3,12 +3,15 @@
 #include <memory>
 
 
-struct Dict;
-struct ClassValue { std::shared_ptr<Dict> blueprint; };
-struct NameSpace  { std::shared_ptr<Dict> members  ; };
+struct Members;
+struct ClassValue { std::shared_ptr<Members> blueprint; };
+struct NameSpace  { std::shared_ptr<Members> members  ; };
 
 struct Elements;
 struct ListValue { std::shared_ptr<Elements> elts; };
+
+struct Items;
+struct MapValue { std::shared_ptr<Items> items; };
 
 using PackList = std::shared_ptr<Elements>;
 template <typename ...Ts>
