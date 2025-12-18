@@ -2308,24 +2308,34 @@ struct Visitor {
                 S<"get">,
                 Func<"get",
                     decltype([](const auto& a, const auto& ind, const auto&) -> Value {
-                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, ListValue>) {
+                        using T = std::remove_cvref_t<decltype(a)>;
+
+                        if constexpr (std::is_same_v<T, ListValue>) {
                             if (ind < 0 or size_t(ind) >= a.elts->values.size())
                                 error("Accessing list '" + stringify(a) + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
 
                             return a.elts->values[ind]; 
                         }
 
-                        // else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, std::string>) {
-                        else {
+                        else if constexpr (std::is_same_v<T, MapValue>) {
+                            auto key = stringify(ind);
+                            if (not a.items->map.contains(key))
+                                error("Accessing Map '" + stringify(a) + "' at key '" + key + "' which doesn't exist!");
+
+                            return a.items->map.at(key);
+                        }
+
+                        else { // if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, std::string>) {
                             if (ind < 0 or size_t(ind) >= a.length())
                                 error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
-                            return std::string{a[ind]}; 
+                            return std::string{a[ind]};
                         }
 
 
 
                     }),
                     TypeList<ListValue, ssize_t>,
+                    TypeList<MapValue, Any>,
                     TypeList<std::string, ssize_t>
                 >
             >{},

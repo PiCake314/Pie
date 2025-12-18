@@ -8,8 +8,61 @@
 
 
 
+TEST_CASE("Lists vs Maps 2", "[List][Map]") {
+    const auto src = R"(
+print = __builtin_print;
 
-TEST_CASE("Empty List", "[List][Map]") {
+
+m: {Any: Any} = {"one": 2, class {}: 3, 4: "five", 0: () => 1, () => 0: 1};
+
+print(m);
+
+
+name1 = 1;
+name3 = 3;
+name4 = 4;
+
+res = { name1: Int = name3; }; 
+print(res);
+
+res = { name1: String = "hello" }; 
+print(res);
+
+res = { (name1: Int = name3): name4 }; .: { expr: expr }; MAP
+print(res);
+
+res = { class { }; };
+print(res);
+
+res = { class { func = (): Int => 1; }; };
+print(res);
+
+res = { class { func = (): Int => 1; } };
+print(res);
+
+res = { class { func = (): Int => 1; }: 1 };
+print(res);
+)";
+
+    REQUIRE(run(src) == R"({(): Any => 0: 1, 0: (): Any => 1, 4: five, class { }: 3, one: 2}
+3
+{1: hello}
+{3: 4}
+class { }
+class {
+    func: Any = (): Int => 1;
+}
+{class {
+        func: Any = (): Int => 1;
+    }}
+{class {
+        func: Any = (): Int => 1;
+    }: 1})");
+}
+
+
+
+TEST_CASE("Lists vs Maps", "[List][Map]") {
     const auto src = R"(
 print = __builtin_print;
 name1 = 1;
@@ -17,8 +70,8 @@ name3 = 3;
 name4 = 4;
 
 scope =  {    name1: Int = name3; };
-map1   =  {    name1: String = name3  };
-map2   =  {    name1: String: Int = name3  };
+map1  =  {    name1: String = name3  };
+map2  =  {    name1: String: Int = name3  };
 list  =  { 1, name1: Int = name3  };
 
 print(scope);
@@ -844,7 +897,7 @@ TEST_CASE("Invalid Named Arguments", "[Parameters]") {
     const auto src1 =
 R"(
 print = __builtin_print;
-add = (z: Double): Int => 0;
+add = (a, z: Double): Int => 0;
 
 add(h = 1);
 )";
@@ -852,7 +905,7 @@ add(h = 1);
     const auto src2 =
 R"(
 print = __builtin_print;
-add = (z: Double): Int => 0;
+add = (a, z: Double): Int => 0;
 
 add(z = 1);
 )";

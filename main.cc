@@ -57,15 +57,13 @@ void REPL(
 
 
         if (run) {
-            // parser.addOperators(std::move(ops));
-            // visitor assumes the operators already exist
             visitor.addOperators(std::move(ops));
 
             if (not exprs.empty()) {
                 Value value;
                 for (auto&& expr : exprs) value = std::visit(visitor, std::move(expr)->variant());
 
-                std::clog << stringify(value) << std::endl;
+                std::println("{}", stringify(value));
             }
         }
     }
