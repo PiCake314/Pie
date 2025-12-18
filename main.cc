@@ -76,15 +76,15 @@ void REPL(
 
 
 void runFile(
-    char* argv1,
+    const std::filesystem::path fname,
     const bool print_preprocessed,
     const bool print_tokens,
     const bool print_parsed,
     const bool run
 ) {
-    auto src = readFile(argv1);
+    auto src = readFile(fname);
 
-    auto processed_src = preprocess(std::move(src), argv1);
+    auto processed_src = preprocess(std::move(src), fname);
     if (print_preprocessed) std::println(std::clog, "{}", processed_src);
 
     Tokens v = lex(std::move(processed_src));
@@ -92,7 +92,7 @@ void runFile(
 
     if (v.empty()) return;
 
-    Parser p{std::move(v), argv1};
+    Parser p{std::move(v), fname};
 
     auto [exprs, ops] = p.parse();
 
@@ -123,14 +123,17 @@ int main(int argc, char *argv[]) {
     bool run                = true;
     bool repl               = false;
 
+    std::filesystem::path fname;
+
     // this would leave file name at argv[1]
     for(; argc > 1; --argc, ++argv) {
         if (argv[1] == "-token"sv) print_tokens       = true ;
-        if (argv[1] == "-ast"sv  ) print_parsed       = true ;
-        if (argv[1] == "-pre"sv  ) print_preprocessed = true ;
-        if (argv[1] == "-opt"sv  ) print_opt          = true ;
-        if (argv[1] == "-run"sv  ) run                = false;
-        if (argv[1] == "-repl"sv ) repl               = true ;
+        else if (argv[1] == "-ast"sv  ) print_parsed       = true ;
+        else if (argv[1] == "-pre"sv  ) print_preprocessed = true ;
+        else if (argv[1] == "-opt"sv  ) print_opt          = true ;
+        else if (argv[1] == "-run"sv  ) run                = false;
+        else if (argv[1] == "-repl"sv ) repl               = true ;
+        else fname = argv[1];
     }
 
 
@@ -144,13 +147,13 @@ int main(int argc, char *argv[]) {
     }
 
 
-    if (argc == 1 or repl) {
+    if (fname.empty() or repl) {
         REPL(
             std::move(canonical_root),
             print_preprocessed, print_tokens, print_parsed, run
         );
     }
     else {
-        runFile(argv[1], print_preprocessed, print_tokens, print_parsed, run);
+        runFile(std::move(fname), print_preprocessed, print_tokens, print_parsed, run);
     }
 }

@@ -48,7 +48,7 @@ class Parser {
 
 public:
 
-    Parser(Tokens t, std::filesystem::path r) noexcept
+    Parser(Tokens t, std::filesystem::path r = ".") noexcept
     : tokens{std::move(t)}, token_iterator{tokens.begin()}, root{r.remove_filename()}
     {}
 
@@ -56,7 +56,7 @@ public:
     explicit Parser(std::filesystem::path r) noexcept : root{r.remove_filename()} {}
 
 
-    [[nodiscard]] bool atEnd(size_t offset = 0) const noexcept { return std::next(token_iterator, offset) == tokens.end() or token_iterator->kind == TokenKind::END; }
+    [[nodiscard]] bool atEnd(size_t offset = 0) const noexcept { return std::next(token_iterator, offset) == tokens.end() or std::next(token_iterator, offset)->kind == TokenKind::END; }
 
 
     std::pair<std::vector<expr::ExprPtr>, Operators> parse(Tokens t = {}) {
@@ -179,7 +179,7 @@ public:
 
                 const bool map_expr = [this] {
 
-                    for (size_t i{}; not atEnd(i); ++i) {
+                    for (size_t i{}; /* not atEnd(i) */ ; ++i) {
                         // if you find a colon first, then
                         // it could be a map {x: y};
                         // OR it could be a declaration {x: y = 1;};
@@ -188,7 +188,7 @@ public:
                         // { (name1: Int = name3): name4 }
                         // { name1: Int = name3 }
                         if (check(COLON, i)) {
-                            for (size_t a = i + 1; not atEnd(a); ++a) {
+                            for (size_t a = i + 1; /* not atEnd(a) */; ++a) {
                                 if (check(COMMA  , a)) return true ; // onto next element, it's a map
                                 if (check(R_BRACE, a)) return true ; // closed the map, it's a map
                                 if (check(COLON  , a)) return true ; // this time the colon indicates a declaration {n1: n2: n3 = 4};
@@ -264,7 +264,7 @@ public:
                 }
 
                 const bool fold_expr = [this] {
-                    for (size_t i{}; not atEnd(i); ++i) {
+                    for (size_t i{}; /* not atEnd(i) */; ++i) {
                         if (check(R_PAREN , i)) return false;
                         if (check(COLON   , i)) return false;
                         if (check(ELLIPSIS, i)) return true ;
@@ -283,7 +283,7 @@ public:
 
                 const bool closure_expr = [this] {
                     size_t i{};
-                    for (; not atEnd(i) and not check(R_PAREN , i); ++i) {
+                    for (; /* not atEnd(i) and */ not check(R_PAREN , i); ++i) {
                         if (check(L_BRACE, i)) while (not check(R_BRACE, i)) ++i;
                         if (check(L_PAREN, i)) while (not check(R_PAREN, i)) ++i;
                     }
@@ -458,7 +458,7 @@ public:
         using std::operator""s;
 
 		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
-            // log();
+            log();
             expected(exp, token, loc);
         }
 

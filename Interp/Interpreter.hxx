@@ -1241,7 +1241,7 @@ struct Visitor {
     }
 
 
-    static void checkNoSyntaxType(const std::vector<expr::ExprPtr>& funcs) noexcept {
+    static void checkNoSyntaxType(const std::vector<expr::ExprPtr>& funcs) {
         for (const auto& func : funcs) {
             const auto& closure = dynamic_cast<const expr::Closure*>(func.get());
             for (const auto& param_type : closure->type.params) {
@@ -2126,7 +2126,7 @@ struct Visitor {
     }
 
 
-    [[nodiscard]] bool isBuiltin(const std::string_view func) const noexcept {
+    [[nodiscard]] bool isBuiltin(const std::string_view func) const {
         const auto make_builtin = [] (const std::string& n) { return "__builtin_" + n; };
 
         for(const auto& builtin : {
@@ -2149,7 +2149,7 @@ struct Visitor {
             //* quaternary 
             "str_slice" // (str, start, end, step), should I add anothee overload for (str, start, length)??
         })
-            if (func == make_builtin(builtin)) return true;
+            if (make_builtin(builtin) == func) return true;
 
         return false;
     }
@@ -2466,7 +2466,7 @@ struct Visitor {
             for (const auto& arg : args) {
                 std::clog << stringify(std::visit(*this, arg->variant())) << ' ';
             }
-            error("", {}, false);
+            error<false>("", {});
         }
 
 
@@ -2713,7 +2713,7 @@ struct Visitor {
     }
 
 
-    type::TypePtr validateType(const type::TypePtr& type) noexcept {
+    type::TypePtr validateType(const type::TypePtr& type) {
 
         //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (const auto& var = getVar(type->text()); var) {
@@ -2799,7 +2799,7 @@ struct Visitor {
     }
 
 
-    type::TypePtr typeOf(const Value& value) noexcept {
+    type::TypePtr typeOf(const Value& value) {
         if (std::holds_alternative<expr::Node > (value)) return type::builtins::Syntax();
         if (std::holds_alternative<ssize_t    > (value)) return type::builtins::Int();
         if (std::holds_alternative<double     > (value)) return type::builtins::Double();
@@ -2841,9 +2841,11 @@ struct Visitor {
 
             const bool same = std::ranges::all_of(values, [tp = values[0]] (const auto& t) { return *t == *tp; });
 
-            if (same) return std::make_shared<type::VariadicType>(std::move(values)[0]);
+            // if (same) return std::make_shared<type::VariadicType>(std::move(values)[0]);
+            if (same) return type::VariadicOf(std::move(values)[0]);
 
-            return std::make_shared<type::VariadicType>(type::builtins::Any());
+            // return std::make_shared<type::VariadicType>(type::builtins::Any());
+            return type::VariadicOf(type::builtins::Any());
             // return same ? std::make_shared<type::VariadicType>(values[0]) : non_typed_pack;
         }
 
@@ -2858,13 +2860,15 @@ struct Visitor {
             );
 
 
-            if (values.empty()) return std::make_shared<type::ListType>(type::builtins::_());
+            // if (values.empty()) return std::make_shared<type::ListType>(type::builtins::_());
+            if (values.empty()) return type::ListOf(type::builtins::_());
 
             const bool same = std::ranges::all_of(values, [tp = values[0]] (const auto& t) { return *t == *tp; });
 
-            if (same) return std::make_shared<type::ListType>(std::move(values)[0]);
+            // if (same) return std::make_shared<type::ListType>(std::move(values)[0]);
+            if (same) return type::ListOf(std::move(values)[0]);
 
-            return std::make_shared<type::ListType>(type::builtins::Any());
+            return type::ListOf(type::builtins::Any());
         }
 
         if (std::holds_alternative<MapValue>(value)) {
@@ -2885,13 +2889,19 @@ struct Visitor {
             const bool same_val = std::ranges::all_of(values, [tp = values[0].second] (const auto& t) { return *t.second == *tp; });
 
             if (same_key and same_val)
-                return std::make_shared<type::MapType>(std::move(values)[0].first, std::move(values)[0].second);
-            if (same_key)
-                return std::make_shared<type::MapType>(std::move(values)[0].first, type::builtins::Any()       );
-            if (same_val)
-                return std::make_shared<type::MapType>(type::builtins::Any()     , std::move(values)[0].second);
+                // return std::make_shared<type::MapType>(std::move(values)[0].first, std::move(values)[0].second);
+                return type::MapOf(std::move(values)[0].first, std::move(values)[0].second);
 
-                return std::make_shared<type::MapType>(type::builtins::Any()     , type::builtins::Any()      );
+            if (same_key)
+                // return std::make_shared<type::MapType>(std::move(values)[0].first, type::builtins::Any()       );
+                return type::MapOf(std::move(values)[0].first, type::builtins::Any()       );
+
+            if (same_val)
+                // return std::make_shared<type::MapType>(type::builtins::Any()     , std::move(values)[0].second);
+                return type::MapOf(type::builtins::Any()     , std::move(values)[0].second);
+
+                // return std::make_shared<type::MapType>(type::builtins::Any()     , type::builtins::Any()      );
+                return type::MapOf(type::builtins::Any()     , type::builtins::Any()      );
         }
 
         if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();

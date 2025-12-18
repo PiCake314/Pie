@@ -149,15 +149,30 @@ namespace type {
     //* these builtins could be their own types!
     namespace builtins {
         inline TypePtr Int    () { return std::make_shared<BuiltinType>("Int"   ); }
-        inline TypePtr Double () { return std::make_shared<BuiltinType>("Double"); };
-        inline TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); };
-        inline TypePtr String () { return std::make_shared<BuiltinType>("String"); };
-        inline TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); };
-        inline TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); };
-        inline TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); };
+        inline TypePtr Double () { return std::make_shared<BuiltinType>("Double"); }
+        inline TypePtr Bool   () { return std::make_shared<BuiltinType>("Bool"  ); }
+        inline TypePtr String () { return std::make_shared<BuiltinType>("String"); }
+        inline TypePtr Any    () { return std::make_shared<BuiltinType>("Any"   ); }
+        inline TypePtr Syntax () { return std::make_shared<BuiltinType>("Syntax"); }
+        inline TypePtr Type   () { return std::make_shared<BuiltinType>("Type"  ); }
 
         inline TypePtr _      () { return std::make_shared<TryReassign>(); };
     }
+
+
+    inline TypePtr VariadicOf(TypePtr type) {
+        return std::make_shared<VariadicType>(std::move(type));
+    }
+
+    inline TypePtr ListOf(TypePtr type) {
+        return std::make_shared<ListType>(std::move(type));
+    }
+
+    inline TypePtr MapOf(TypePtr type1, TypePtr type2) {
+        return std::make_shared<MapType>(std::move(type1), std::move(type2));
+    }
+
+
 
     inline bool isFunction(const TypePtr& t) noexcept {
         return dynamic_cast<const FuncType*>(t.get());

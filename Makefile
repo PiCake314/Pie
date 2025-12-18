@@ -29,7 +29,7 @@ debug: checklibs main.cc
 	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 main.cc -o Pie $(SAN)
 
 test: checklibs Tests/Test.cc
-	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) && ./run_tests
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) -DNO_ERR_LOC && ./run_tests
 
 # Check and clone libraries if they don't exist
 checklibs:

@@ -74,7 +74,7 @@ std::string run(const char* src) {
 
     if (v.empty()) return "";
 
-    Parser p{std::move(v), "."};
+    Parser p{std::move(v)};
 
     auto [exprs, ops] = p.parse();
 

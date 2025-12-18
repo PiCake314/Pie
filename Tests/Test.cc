@@ -1,10 +1,10 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
+
 #include "TestSuite.hxx"
+#include <stdexcept>
 
 #include "../Type/Type.hxx"
-
-#include "catch.hpp"
 
 
 
@@ -838,7 +838,32 @@ TEST_CASE("Variadics", "[Type]") {
     REQUIRE_FALSE(*Int >= *Int_var);
 }
 
-TEST_CASE("Named Arguments") {
+
+
+TEST_CASE("Invalid Named Arguments", "[Parameters]") {
+    const auto src1 =
+R"(
+print = __builtin_print;
+add = (z: Double): Int => 0;
+
+add(h = 1);
+)";
+
+    const auto src2 =
+R"(
+print = __builtin_print;
+add = (z: Double): Int => 0;
+
+add(z = 1);
+)";
+
+
+    REQUIRE_THROWS_MATCHES(run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument" )));
+    REQUIRE_THROWS_MATCHES(run(src2), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+}
+
+
+TEST_CASE("Named Arguments", "[Parameters]") {
 
     const auto src =
 R"(
@@ -851,7 +876,4 @@ print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
 
     REQUIRE(run(src) == "0");
 }
-
-
-
 
