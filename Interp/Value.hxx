@@ -127,7 +127,7 @@ inline std::string stringify(const Value& value, const size_t indent) {
         if (v.members->members.empty())
             s = "space { }";
         else {
-            s = "pace {\n";
+            s = "space {\n";
 
             const std::string space(indent + 4, ' ');
             for (const auto& [name, type, value] : v.members->members) {
