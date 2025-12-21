@@ -14,8 +14,9 @@
 
 
 struct Members;
-struct ClassValue;
-using Object = std::pair<ClassValue, std::shared_ptr<Members>>;
+// struct ClassValue;
+// using Object = std::pair<ClassValue, std::shared_ptr<Members>>;
+using Object = std::pair<type::TypePtr, std::shared_ptr<Members>>;
 
 
 // using expr::Union instead of a separate class for Union since they'd probably be the same
@@ -28,8 +29,9 @@ using Value = std::variant<
     bool,
     std::string,
     expr::Closure,
-    ClassValue,
-    expr::Union,
+    // ClassValue,
+    // expr::Union,
+    type::TypePtr,
     NameSpace,
     Object,
     expr::Node,
@@ -89,36 +91,44 @@ inline std::string stringify(const Value& value, const size_t indent) {
         s = v.stringify(indent);
     }
 
-    else if (std::holds_alternative<ClassValue>(value)) {
-        const auto& v = std::get<ClassValue>(value);
+    // else if (std::holds_alternative<ClassValue>(value)) {
+    //     const auto& v = std::get<ClassValue>(value);
 
-        if (v.blueprint->members.empty())
-            s = "class { }";
-        else {
-            s = "class {\n";
+    //     if (v.blueprint->members.empty())
+    //         s = "class { }";
+    //     else {
+    //         s = "class {\n";
 
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, type, value] : v.blueprint->members) {
-                s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
+    //         const std::string space(indent + 4, ' ');
+    //         for (const auto& [name, type, value] : v.blueprint->members) {
+    //             s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
+    //             const bool is_string = std::holds_alternative<std::string>(value);
+    //             if (is_string) s += '\"';
 
-                s += stringify(value, indent + 4);
+    //             s += stringify(value, indent + 4);
 
-                if (is_string) s += '\"';
+    //             if (is_string) s += '\"';
 
-                s += ";\n";
-            }
+    //             s += ";\n";
+    //         }
 
-            s += std::string(indent, ' ') + '}';
-        }
-    }
+    //         s += std::string(indent, ' ') + '}';
+    //     }
+    // }
 
-    else if (std::holds_alternative<expr::Union>(value)) {
-        const auto& v = std::get<expr::Union>(value);
+    // else if (std::holds_alternative<expr::Union>(value)) {
+    //     const auto& v = std::get<expr::Union>(value);
 
-        s = v.stringify(indent);
+    //     s = v.stringify(indent);
+    // }
+
+
+    else if (std::holds_alternative<type::TypePtr>(value)) {
+        // const auto& v = std::get<expr::Union>(value);
+
+        // s = v.stringify(indent);
+        s = get<type::TypePtr>(value)->text();
     }
 
     else if (std::holds_alternative<NameSpace>(value)) {
@@ -247,18 +257,36 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     if (std::holds_alternative<expr::Closure>(lhs) and std::holds_alternative<expr::Closure>(rhs))
         return get<expr::Closure>(lhs).stringify() == get<expr::Closure>(rhs).stringify();
 
-    if (std::holds_alternative<ClassValue>(lhs) and std::holds_alternative<ClassValue>(rhs)) {
-        return std::ranges::all_of(
-            std::views::zip(
-                get<ClassValue>(lhs).blueprint->members,
-                get<ClassValue>(rhs).blueprint->members
-            ),
+    // if (std::holds_alternative<ClassValue>(lhs) and std::holds_alternative<ClassValue>(rhs)) {
+    //     return std::ranges::all_of(
+    //         std::views::zip(
+    //             get<ClassValue>(lhs).blueprint->members,
+    //             get<ClassValue>(rhs).blueprint->members
+    //         ),
 
-            [] (auto&& tuple) {
-                return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
-                   and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
-            }
-        );
+    //         [] (auto&& tuple) {
+    //             return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
+    //                and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
+    //         }
+    //     );
+    // }
+
+    if (std::holds_alternative<type::TypePtr>(lhs) and std::holds_alternative<type::TypePtr>(rhs)) {
+        if (type::isClass(get<type::TypePtr>(lhs)) and type::isClass(get<type::TypePtr>(rhs))) {
+            return std::ranges::all_of(
+                std::views::zip(
+                    dynamic_cast<type::LiteralType&>(*get<type::TypePtr>(lhs).get()).cls->blueprint->members,
+                    dynamic_cast<type::LiteralType&>(*get<type::TypePtr>(rhs).get()).cls->blueprint->members
+                ),
+
+                [] (auto&& tuple) {
+                    return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
+                       and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
+                }
+            );
+        }
+
+        error(); // fix this
     }
 
     if (std::holds_alternative<Object>(lhs) and std::holds_alternative<Object>(rhs)) {

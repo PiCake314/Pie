@@ -131,6 +131,7 @@ struct Visitor {
     Value operator()(const expr::Expansion*) { error("Can only expand in function calls or fold expressions!"); }
 
     Value operator()(const expr::List* list) {
+        if (const auto& var = getVar(list->stringify()); var) return var->first;
 
         std::vector<Value> values;
         std::transform(
@@ -159,7 +160,9 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::UnaryFold* fold) {
+    Value operator()(const expr::UnaryFold *fold) {
+        if (const auto& var = getVar(fold->stringify()); var) return var->first;
+
 
         Value pack = std::visit(*this, fold->pack->variant());
 
@@ -254,6 +257,9 @@ struct Visitor {
 
 
     Value operator()(const expr::SeparatedUnaryFold *fold) {
+        if (const auto& var = getVar(fold->stringify()); var) return var->first;
+
+
         Value lhs = std::visit(*this, fold->lhs->variant());
         Value rhs = std::visit(*this, fold->rhs->variant());
 
@@ -382,7 +388,10 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::BinaryFold* fold) {
+    Value operator()(const expr::BinaryFold *fold) {
+        if (const auto& var = getVar(fold->stringify()); var) return var->first;
+
+
         Value pack = std::visit(*this, fold->pack->variant());
         Value init = std::visit(*this, fold->init->variant());
 
@@ -623,13 +632,13 @@ struct Visitor {
                 else {
                     type = validateType(std::move(type));
 
-                   if (const auto& c = getVar(type->text()); c) {
-                       if (std::holds_alternative<ClassValue>(c->first))
-                           type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                //    if (const auto& c = getVar(type->text()); c) {
+                //        if (std::holds_alternative<ClassValue>(c->first))
+                //            type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
-                       if (std::holds_alternative<expr::Union>(c->first))
-                           type = std::make_shared<type::UnionType>(get<expr::Union>(c->first).types);
-                   }
+                //        if (std::holds_alternative<expr::Union>(c->first))
+                //            type = std::make_shared<type::UnionType>(get<expr::Union>(c->first).types);
+                //    }
                 }
             }
 
@@ -693,7 +702,7 @@ struct Visitor {
         // makes 1::2::3 impossible, which is consistent with the fact that 1 + 2::3 + 4; is ambiguous
         if (dynamic_cast<expr::Namespace*>(ass->rhs.get()) and not dynamic_cast<expr::Name*>(ass->lhs.get()))
             error("Cannot assign namespaces to non-names: " + ass->stringify());
-        
+
         // assing to the serialization (stringification) of the AST node
         return addVar(ass->lhs->stringify(), std::visit(*this, ass->rhs->variant()));
     }
@@ -722,8 +731,8 @@ struct Visitor {
                 type = validateType(std::move(type));
 
 
-                if (const auto& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                    type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                // if (const auto& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
+                //     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
 
                 v = std::visit(*this, expr->variant());
@@ -742,17 +751,28 @@ struct Visitor {
             members.push_back({expr::Name{name.stringify()}, type, v});
         }
 
-        return ClassValue{std::make_shared<Members>(std::move(members))};
+        // return ClassValue{std::make_shared<Members>(std::move(members))};
+        return // getting lispy :sob: fuck this memory ass shit
+            std::make_shared<type::LiteralType>(
+                std::make_shared<ClassValue>(
+                    std::make_shared<Members>(
+                        std::move(members)
+                    )
+                )
+            );
     }
 
 
     Value operator()(const expr::Union *uni) {
         expr::Union unio = *uni;
 
+        std::vector<type::TypePtr> types;
         for (auto& type : unio.types)
-            type = validateType(type);
+            // type = validateType(std::move(type));
+            types.push_back(validateType(std::move(type)));
 
-        return unio;
+        // return unio;
+        return std::make_shared<type::UnionType>(std::move(types));
     }
 
 
@@ -920,16 +940,21 @@ struct Visitor {
             error("Pattern in match expression does not name a constructor: " + type_name);
 
         const Value type_value = var->first;
-        if (not std::holds_alternative<ClassValue>(type_value))
+        // if (not std::holds_alternative<ClassValue>(type_value))
+        if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
             error("Name '" + type_name + "' in match expression does not name a constructor: " + type_name);
 
 
-        const auto& cls = get<ClassValue>(type_value);
-        const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
+        // const auto& cls = get<ClassValue>(type_value);
+        // const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
+        const auto& type = get<type::TypePtr>(type_value);
         if (not (*type >= *typeOf(value))) return false;
 
-        if (patterns.size() > cls.blueprint->members.size())
-            error("Number of singles is greater than number of fields in class " + stringify(cls));
+        if (
+            type::isClass(type) and
+            patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->members.size()
+        )
+            error("Number of singles is greater than number of fields in class " + stringify(type));
 
 
         const auto& obj = get<Object>(value);
@@ -1292,9 +1317,8 @@ struct Visitor {
 
         const auto& type_of_return_value = typeOf(ret);
 
-        // auto return_type = ret_type;
-        if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
-            return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+        // if (const auto& c = getVar(return_type->text()); c and std::holds_alternative<ClassValue>(c->first))
+        //     return_type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
 
 
         if (not (*return_type >= *type_of_return_value))
@@ -2009,7 +2033,9 @@ struct Visitor {
             return ret;
         }
 
-        else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
+        // else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
+        else if (std::holds_alternative<type::TypePtr>(var) and type::isClass(get<type::TypePtr>(var)))
+            return constructorCall(call, std::move(var));
 
         // } // end of scope guard (destructor called!)
 
@@ -2030,13 +2056,14 @@ struct Visitor {
 
     Value constructorCall(const expr::Call *call, Value var) {
         // if (not call->args.empty()) error("Can't pass arguments to classes!");
-        const auto& cls = std::get<ClassValue>(var);
+        const auto& type = std::get<type::TypePtr>(var);
+        const auto  cls  = dynamic_cast<const type::LiteralType*>(type.get())->cls.get();
 
-        if (call->args.size() > cls.blueprint->members.size())
-            error("Too many arguments passed to constructor of class: " + stringify(cls));
+        if (call->args.size() > cls->blueprint->members.size())
+            error("Too many arguments passed to constructor of class: " + stringify(type));
 
         // copying defaults field values from class definition
-        Object obj{cls, std::make_shared<Members>(cls.blueprint->members) };
+        Object obj{type, std::make_shared<Members>(cls->blueprint->members) };
 
         // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
         // const auto& [arg, value] : std::views::zip(call->args, obj->members)
@@ -2045,7 +2072,7 @@ struct Visitor {
 
             if (not (*get<type::TypePtr>(obj.second->members[i]) >= *typeOf(v)))
                 error(
-                    "Type mis-match in constructor of:\n" + stringify(cls) + "\nMember `" +
+                    "Type mis-match in constructor of:\n" + stringify(type) + "\nMember `" +
                     get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() +
                     "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
                 );
@@ -2067,18 +2094,18 @@ struct Visitor {
             type = validateType(std::move(type));
 
             // replacing expressions that represnt types
-            if (const auto& cls = getVar(type->text()); cls and std::holds_alternative<ClassValue>(cls->first))
-                // type = std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(clos->first))));
-                type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(cls->first)));
+            // if (const auto& cls = getVar(type->text()); cls and std::holds_alternative<ClassValue>(cls->first))
+            //     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(cls->first)));
         }
 
-        if (const auto& return_type = getVar(closure.type.ret->text());
-            return_type and std::holds_alternative<ClassValue>(return_type->first)
-        )
-        closure.type.ret =
-            // std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(return_type->first))));
-            std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(return_type->first)));
+        // if (const auto& return_type = getVar(closure.type.ret->text());
+        //     return_type and std::holds_alternative<ClassValue>(return_type->first)
+        // )
+        // closure.type.ret =
+        //     // std::make_shared<type::VarType>(std::make_shared<expr::Name>(stringify(get<ClassValue>(return_type->first))));
+        //     std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(return_type->first)));
 
+        closure.type.ret = validateType(std::move(closure.type.ret));
 
         return closure;
     }
@@ -2144,11 +2171,15 @@ struct Visitor {
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
 
             //* trinary
-            // "set",
+            "set",
             "conditional",
 
             //* quaternary 
-            "str_slice" // (str, start, end, step), should I add anothee overload for (str, start, length)??
+            "str_slice", // (str, start, end, step), should I add anothee overload for (str, start, length)??
+
+
+            //* File IO
+            "read_whole", "read_line", "read_lines"
         })
             if (make_builtin(builtin) == func) return true;
 
@@ -2331,15 +2362,49 @@ struct Visitor {
                                 error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
                             return std::string{a[ind]};
                         }
-
-
-
                     }),
                     TypeList<ListValue, ssize_t>,
                     TypeList<MapValue, Any>,
                     TypeList<std::string, ssize_t>
                 >
             >{},
+
+            MapEntry<
+                S<"set">,
+                Func<"set",
+                    decltype([](const auto& cont, const auto& at, const auto& elt, const auto&) -> Value {
+                        using T = std::remove_cvref_t<decltype(cont)>;
+
+                        if constexpr (std::is_same_v<T, ListValue>) {
+                            if (at < 0 or size_t(at) >= cont.elts->values.size())
+                                error("Accessing list '" + stringify(cont) + "' at index '" + std::to_string(at) + "' which is out of bounds!");
+
+                            return cont.elts->values[at] = elt;
+                        }
+
+                        else if constexpr (std::is_same_v<T, MapValue>) {
+                            auto key = stringify(at);
+                            // if (not cont.items->map.contains(key))
+                            //     error("Accessing Map '" + stringify(cont) + "' at key '" + key + "' which doesn't exist!");
+
+                            return cont.items->map[key] = elt;
+                        }
+
+                        // else { // if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, std::string>) {
+                        //     if (ind < 0 or size_t(ind) >= a.length())
+                        //         error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
+                        //     return std::string{a[ind]};
+                        // }
+
+
+
+                    }),
+                    TypeList<ListValue, ssize_t, Any>,
+                    TypeList<MapValue, Any, Any>
+                    // TypeList<std::string, ssize_t>
+                >
+            >{},
+
 
             MapEntry<
                 S<"add">,
@@ -2625,7 +2690,15 @@ struct Visitor {
             if(get<bool>(value1)) return std::visit(*this, then);
 
 
-            return std::visit(*this, otherwise); // Oh ffs! [for cogs on discord!]
+            return std::visit(*this, otherwise);
+        }
+
+        if (name == "set") {
+            arity_check(3);
+            const auto& value2 = std::visit(*this, args[1]->variant());
+            const auto& value3 = std::visit(*this, args[2]->variant());
+
+            return execute<3>(stdx::get<S<"set">>(functions).value, {value1, value2, value3}, this);
         }
 
         if (name == "str_slice") {
@@ -2730,12 +2803,15 @@ struct Visitor {
         if (const auto& var = getVar(type->text()); var) {
             if (typeOf(var->first)->text() != "Type") error("'" + stringify(var->first) + "' does not name a type!");
 
-            // todo: I could prolly just "return type"
-            if (std::holds_alternative<ClassValue>(var->first))
-                return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(var->first)));
+            if (std::holds_alternative<type::TypePtr>(var->first))
+                return get<type::TypePtr>(var->first);
 
-            if (std::holds_alternative<expr::Union>(var->first))
-                return std::make_shared<type::UnionType>(get<expr::Union>(var->first).types);
+            // // todo: I could prolly just "return type"
+            // if (std::holds_alternative<ClassValue>(var->first))
+            //     return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(var->first)));
+
+            // if (std::holds_alternative<expr::Union>(var->first))
+            //     return std::make_shared<type::UnionType>(get<expr::Union>(var->first).types);
         }
 
         if (const auto var_type = dynamic_cast<type::ExprType*>(type.get())) {
@@ -2743,12 +2819,15 @@ struct Visitor {
 
             const auto& value = std::visit(*this, var_type->t->variant()); // evaluate type expression
 
-            // todo: I could prolly just "return type"
-            if (std::holds_alternative<ClassValue>(value))
-                return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(value)));
+            if (std::holds_alternative<type::TypePtr>(value))
+                return get<type::TypePtr>(value);
 
-            if (std::holds_alternative<expr::Union>(value))
-                return std::make_shared<type::UnionType>(get<expr::Union>(value).types);
+            // // todo: I could prolly just "return type"
+            // if (std::holds_alternative<ClassValue>(value))
+            //     return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(value)));
+
+            // if (std::holds_alternative<expr::Union>(value))
+            //     return std::make_shared<type::UnionType>(get<expr::Union>(value).types);
         }
 
         else if (dynamic_cast<type::LiteralType*>(type.get())) return type;
@@ -2818,8 +2897,9 @@ struct Visitor {
         if (std::holds_alternative<std::string> (value)) return type::builtins::String();
 
         // Type types
-        if (std::holds_alternative<ClassValue > (value)) return type::builtins::Type();
-        if (std::holds_alternative<expr::Union> (value)) return type::builtins::Type();
+        // if (std::holds_alternative<ClassValue > (value)) return type::builtins::Type();
+        // if (std::holds_alternative<expr::Union> (value)) return type::builtins::Type();
+        if (std::holds_alternative<type::TypePtr> (value)) return type::builtins::Type();
 
         if (std::holds_alternative<expr::Closure>(value)) {
             const auto& func = get<expr::Closure>(value);
@@ -2834,7 +2914,13 @@ struct Visitor {
         }
 
         if (std::holds_alternative<Object>(value)) {
-            return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<Object>(value).first));
+            // return std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<Object>(value).first));
+            // ! check if type isn't a class value
+            return std::make_shared<type::LiteralType>(
+                std::make_shared<ClassValue>(
+                    *dynamic_cast<const type::LiteralType*>(get<Object>(value).first.get())->cls
+                )
+            );
         }
 
         if (std::holds_alternative<PackList>(value)) {

@@ -31,7 +31,32 @@ namespace type {
     std::string BuiltinType::text(const size_t) const { return t; }
 
     std::string LiteralType::text(const size_t indent) const {
-        return stringify(*cls, indent);
+        // return stringify(*cls, indent);
+        std::string s;
+
+        if (cls->blueprint->members.empty())
+            s = "class { }";
+        else {
+            s = "class {\n";
+
+            const std::string space(indent + 4, ' ');
+            for (const auto& [name, type, value] : cls->blueprint->members) {
+                s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
+
+                const bool is_string = std::holds_alternative<std::string>(value);
+                if (is_string) s += '\"';
+
+                s += stringify(value, indent + 4);
+
+                if (is_string) s += '\"';
+
+                s += ";\n";
+            }
+
+            s += std::string(indent, ' ') + '}';
+        }
+
+        return s;
     }
 
 

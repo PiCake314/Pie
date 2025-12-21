@@ -53,11 +53,11 @@ class {
     func: Any = (): Int => 1;
 }
 {class {
-        func: Any = (): Int => 1;
-    }}
+    func: Any = (): Int => 1;
+}}
 {class {
-        func: Any = (): Int => 1;
-    }: 1})");
+    func: Any = (): Int => 1;
+}: 1})");
 }
 
 
@@ -535,13 +535,10 @@ Object {
     s = "hi";
 }
 a string
-union {
-    union { Int; Double; };
-    class {
+union { union { Int; Double; }; class {
         x: Int = 0;
         s: String = "";
-    };
-})");
+    }; })");
 
 }
 

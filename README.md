@@ -13,6 +13,8 @@
 - [Closures](#closures)
 - [Classes](#classes)
 - [Unions](#unions)
+- [Lists](#lists)
+- [Maps](#maps)
 - [Loops](#loops)
 - [Match Expressions](#match-expressions)
 - [Namespaces](#namespaces)
@@ -117,14 +119,24 @@ h.prettyPrint();
 ## Unions
 Unions in Pie are what other languages call "Sum Types":
 
+depricated:
+~~U: Type = Union { Int | Double | String };~~
 ```pie
-U: Type = Union { Int | Double | String };
+U: Type = Union { Int; Double; String; };
 
 x: U = 1;
 y: U = 3.14;
 z: U = "Hello";
 ```
 Note that they also work with user defined types.
+
+
+## Lists
+`name: {type} = {expr1, expr2, expr3};`
+
+
+## Maps
+`name: {type1: type2} = {key1: value1, key2: value2};`
 
 
 ## Loops
@@ -239,17 +251,17 @@ Of course, you can have both conditions and pipes in the same case.
 
 ## Namespaces
 
-Like everything else in this language, `namespace`'s are expressions too, and they yield a value!
-To name a `namespace`, assign it to a variable:
+Like everything else in this language, Namespaces are expressions too, and they yield a value!
+Declare a namespace by using the `space` keyword. Assign a namespace to a variable in order to name it:
 
 ```pie
-my_space = namespace {
+my_space = space {
     __builtin_print("start");
 
     decl1: Int = 1;
     ID: (Any): Any = (x) => x;
 
-    nested = namespace {
+    nested = space {
         __builtin_print("inner");
         decl2 = "Hi";
     };
@@ -258,25 +270,25 @@ my_space = namespace {
 };
 ```
 
-`namespace`'s could seem like just a syntactic for `class`'s, but they're not! There is a major difference which is the fact that you can run arbitrary code inside of `namespace`'s. A `class` can only have assignments.
+Namespaces could seem like just a syntactic for `class`'s, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may only have assignments.
 
 To access a member of a `namespace`, use the "scope resolution operator", or `::`:
 
 ```pie
-x = namespace { a = 1; };
+x = space { a = 1; };
 __builtin_print(x::a);
 ```
 
-Assigning a `namespace` to an existing `namespace` consolidates the 2 `namespace` onto the first:
+Assigning a namespace to an existing namespace will consolidate the two namespaces onto the first:
 
 ```pie
-ns = namespace {
+ns = space {
     a = 1;
     b = 2;
     c = 3;
 };
 
-ns = namespace {
+ns = space {
     a = 5;
     x = 10;
     y = 20;
@@ -286,14 +298,14 @@ __builtin_print(ns::a); .: prints 5
 __builtin_print(ns::b); .: prints 2
 __builtin_print(ns::x); .: prints 10
 ```
-This allows you to split code that belongs to a single `namespace` in multiple different files and have all the declarations be in the same `namespace`.
+This allows you to split code that belongs to a single namespace in multiple different files and have all the declarations be in the same namespace.
 
-**Keep in mind**, if you assign a `namespace` to another value, it loses it's content:
+**Keep in mind**, if you assign a namespace to another value, it loses it's content:
 
 ```pie
-x = namespace { a = 1; };
+x = space { a = 1; };
 x = 5;
-x = namespace { b = 1; };
+x = space { b = 1; };
 
 __builtin_print(x::a); .: ERROR!
 ```
@@ -301,7 +313,7 @@ __builtin_print(x::a); .: ERROR!
 
 The `use` directive pulls all the names in from a namespace into the current namespace.
 ```pie
-ns = namespace {
+ns = space {
     x = 1;
     y = "hi";
     z = 3.14;
@@ -595,7 +607,7 @@ this isn't
 
 ##### Modules
 - `import`
-- `namespace`
+- `space`
 - `use`
 <!-- - `space` -->
 

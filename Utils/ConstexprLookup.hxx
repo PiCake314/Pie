@@ -149,13 +149,7 @@ Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto
         return func.func(v1, v2, that);
     }
 
-    std::clog << "Function: ";
-    for (const char c: NAME)
-        std::clog << c;
-    puts("\nArgs:");
-    that->print(args[0]);
-    that->print(args[1]);
-    error("Wrong type passed to function!");
+    else error("Wrong type passed to function!");
 }
 
 template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>

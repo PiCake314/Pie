@@ -22,8 +22,8 @@
 #include "../Type/Type.hxx"
 
 struct Members;
-using Object      = std::pair<ClassValue, std::shared_ptr<Members>>;
-using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure, ClassValue, expr::Union, NameSpace, Object, expr::Node, PackList, ListValue, MapValue>;
+using Object      = std::pair<type::TypePtr, std::shared_ptr<Members>>;
+using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure /*, ClassValue, expr::Union, */, type::TypePtr, NameSpace, Object, expr::Node, PackList, ListValue, MapValue>;
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
 

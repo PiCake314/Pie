@@ -178,6 +178,14 @@ namespace type {
         return dynamic_cast<const FuncType*>(t.get());
     }
 
+    inline bool isClass(const TypePtr& t) noexcept {
+        return dynamic_cast<const LiteralType*>(t.get());
+    }
+
+    inline bool isUnion(const TypePtr& t) noexcept {
+        return dynamic_cast<const UnionType*>(t.get());
+    }
+
     inline bool isVariadic(const TypePtr& t) noexcept {
         return dynamic_cast<const VariadicType*>(t.get());
     }

@@ -224,7 +224,11 @@ inline bool validNameChar(const char c) noexcept {
 
                 break;
 
-            case ':': lines.back().push_back({COLON, {src[index]}}); break;
+            case ':': 
+                if (src.at(index + 1) == ':') lines.back().push_back({SCOPE_RESOLVE, {':', src[++index]}});
+                else                          lines.back().push_back({COLON, ":"});
+
+                break;
 
             case ';':
                 lines.back().push_back({SEMI, {src[index]}});

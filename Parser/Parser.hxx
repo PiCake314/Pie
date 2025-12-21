@@ -8,6 +8,7 @@
 #include <utility>
 #include <span>
 #include <vector>
+#include <queue>
 #include <tuple>
 #include <unordered_map>
 #include <deque>
@@ -105,8 +106,8 @@ public:
             using enum TokenKind;
 
             case FLOAT :
-            case INT   : return std::make_shared<expr::Num>(std::move(token).text);
-            case BOOL  : return std::make_shared<expr::Bool>(token.text == "true" ? true : false);
+            case INT   : return std::make_shared<expr::Num   >(std::move(token).text);
+            case BOOL  : return std::make_shared<expr::Bool  >(token.text == "true" ? true : false);
             case STRING: return std::make_shared<expr::String>(std::move(token).text);
 
             case NAME:
@@ -116,8 +117,8 @@ public:
             case CLASS: return klass();
             case UNION: return onion();
             case MATCH: return match();
+            case LOOP:  return loop ();
 
-            case LOOP:     return loop();
             case BREAK: 
                 // if (check(SEMI)) return std::make_shared<expr::Break>();
                 return std::make_shared<expr::Break>(parseExpr());
@@ -151,8 +152,9 @@ public:
             //     return std::make_shared<expr::Import>(std::move(path));
             // }
 
-            case COLON: {
-                consume(COLON);
+            // global namespace
+            case SCOPE_RESOLVE: {
+                // consume(COLON);
 
                 auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
@@ -333,11 +335,11 @@ public:
                 return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr)->name);
             }
 
-            case COLON: {
+            // case COLON: {
+            case SCOPE_RESOLVE: {
                 // if constexpr (CTX == Context::MATCH or CTX == Context::MAP) return left;
 
-                if (
-                    check(COLON) and not (
+                if (not (
                         dynamic_cast<expr::Name*>(left.get()) or
                         dynamic_cast<expr::SpaceAccess*>(left.get()) or
                         dynamic_cast<expr::Namespace*>(left.get())
@@ -345,16 +347,22 @@ public:
                 )
                     error("Can only space-access names or namespaces: " + left->stringify());
 
-                if (match(COLON)) { // namespace
-                    auto right = parseExpr(prec::HIGH_VALUE);
-                    auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                    if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+                auto right = parseExpr(prec::HIGH_VALUE);
+                auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
+                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
-                    return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
-                }
+                return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
+
+                // if (match(COLON)) { // namespace
+                //     auto right = parseExpr(prec::HIGH_VALUE);
+                //     auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
+                //     if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+
+                //     return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
+                // }
 
 
-                return left;
+                // return left;
             }
 
             case ASSIGN:
@@ -429,18 +437,29 @@ public:
             return std::make_shared<type::MapType>(std::move(type1), std::move(type2));
         }
 
+        // auto type = parseExpr(prec::ASSIGNMENT_VALUE);
+
         if (check(NAME)) { // checking for builtin types..this is a quick hack I think
-            if (match("Int"   )) return type::builtins::Int();
+        // if (dynamic_cast<expr::Name*>(type.get())) { // checking for builtin types..this is a quick hack I think
+            // auto name = type->stringify();
+            // if (name == "Int"    ) return type::builtins::Int   ();
+            // if (name == "Double" ) return type::builtins::Double();
+            // if (name == "Bool"   ) return type::builtins::Bool  ();
+            // if (name == "String" ) return type::builtins::String();
+            // if (name == "Any"    ) return type::builtins::Any   ();
+            // if (name == "Syntax" ) return type::builtins::Syntax();
+            // if (name == "Type"   ) return type::builtins::Type  ();
+            if (match("Int"   )) return type::builtins::Int   ();
             if (match("Double")) return type::builtins::Double();
-            if (match("Bool"  )) return type::builtins::Bool();
+            if (match("Bool"  )) return type::builtins::Bool  ();
             if (match("String")) return type::builtins::String();
-            if (match("Any"   )) return type::builtins::Any();
+            if (match("Any"   )) return type::builtins::Any   ();
             if (match("Syntax")) return type::builtins::Syntax();
-            if (match("Type"  )) return type::builtins::Type();
+            if (match("Type"  )) return type::builtins::Type  ();
         }
         // or an expression
         return std::make_shared<type::ExprType>(parseExpr(prec::ASSIGNMENT_VALUE));
-        // if (check(NAME) or check(INT)) return std::make_shared<type::VarType>(consume().text);
+        // return std::make_shared<type::ExprType>(std::move(type));
 
         // log();
         error("Invalid type!");
@@ -516,7 +535,8 @@ public:
             // right associative
             case ASSIGN: return prec::ASSIGNMENT_VALUE;
 
-            case COLON : return prec::SCOPE_RESOLUTION_VALUE;
+            // case COLON : return prec::SCOPE_RESOLUTION_VALUE;
+            case SCOPE_RESOLVE : return prec::SCOPE_RESOLUTION_VALUE;
 
             case DOT   : return prec::MEMBER_ACCESS_VALUE;
 
@@ -1021,8 +1041,9 @@ public:
         // if constexpr (not PARSE_TYPE) return std::make_shared<expr::Name>(std::move(token).text);
 
 
-        if (check(TokenKind::COLON) and not check(TokenKind::COLON, 1)){ // making sure it's not a namespace access like "n::x"
-            consume(/* COLON */);
+        // if (check(TokenKind::COLON) and not check(TokenKind::COLON, 1)){ // making sure it's not a namespace access like "n::x"
+        if (match(TokenKind::COLON)){
+            // consume(/* COLON */);
             auto type = parseType();
             consume(TokenKind::ASSIGN);
 
@@ -1313,6 +1334,9 @@ public:
 
         std::vector<bool> op_pos;
         std::string first;
+
+        if (match(SCOPE_RESOLVE)) error();
+
         if (match(COLON)) {
             op_pos.push_back(false);
             first = consume(NAME).text;
@@ -1326,7 +1350,10 @@ public:
         std::vector<std::string> rest;
 
         while (not check(ASSIGN)) {
-            op_pos.push_back(not match(COLON));
+                 if (match(SCOPE_RESOLVE)) op_pos.push_back(false), op_pos.push_back(false);
+            else if (match(COLON))         op_pos.push_back(false);
+            else                           op_pos.push_back(true );
+
             if (op_pos.back()) rest.push_back(consume(NAME).text);
         }
 

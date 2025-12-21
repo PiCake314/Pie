@@ -45,6 +45,7 @@ enum class TokenKind {
 
     SEMI,
     COLON,
+    SCOPE_RESOLVE,
 
     END,
 };
@@ -61,16 +62,17 @@ constexpr const char* stringify(const TokenKind token) noexcept {
         case END:           return "END";
 
         // punctuation
-        case L_BRACE:       return "L_BRACE";
-        case R_BRACE:       return "R_BRACE";
-        case L_PAREN:       return "L_PAREN";
-        case R_PAREN:       return "R_PAREN";
-        case COMMA:         return "COMMA";
-        case CASCADE:       return "CASCADE";
+        case L_BRACE :      return "L_BRACE";
+        case R_BRACE :      return "R_BRACE";
+        case L_PAREN :      return "L_PAREN";
+        case R_PAREN :      return "R_PAREN";
+        case COMMA   :      return "COMMA";
+        case CASCADE :      return "CASCADE";
         case ELLIPSIS:      return "ELLIPSIS";
-        case DOT:           return "DOT";
-        case SEMI:          return "SEMI";
-        case COLON:         return "COLON";
+        case DOT     :      return "DOT";
+        case SEMI    :      return "SEMI";
+        case COLON   :      return "COLON";
+        case SCOPE_RESOLVE: return "SCOPE_RESOLVE";
 
         // should make them weak keywords
         case ASSIGN:        return "ASSIGN";
