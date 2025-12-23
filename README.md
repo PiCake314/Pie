@@ -133,11 +133,15 @@ Note that they also work with user defined types.
 
 
 ## Lists
-`name: {type} = {expr1, expr2, expr3};`
+```pie
+name: {type} = {expr1, expr2, expr3};
+```
 
 
 ## Maps
-`name: {type1: type2} = {key1: value1, key2: value2};`
+```pie
+name: {type1: type2} = {key1: value1, key2: value2};
+```
 
 
 ## Loops
