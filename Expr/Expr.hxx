@@ -21,11 +21,16 @@
 #include "../Declarations.hxx"
 #include "../Type/Type.hxx"
 
-struct Members;
-using Object      = std::pair<type::TypePtr, std::shared_ptr<Members>>;
-using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure /*, ClassValue, expr::Union, */, type::TypePtr, NameSpace, Object, expr::Node, PackList, ListValue, MapValue>;
-using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
+
+inline namespace pie {
+
+inline namespace value {
+    struct Members;
+    using Object      = std::pair<type::TypePtr, std::shared_ptr<Members>>;
+    using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure /*, ClassValue, expr::Union, */, type::TypePtr, NameSpace, Object, expr::Node, PackList, ListValue, MapValue>;
+    using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
+}
 
 namespace expr { struct Fix; }
 using Operators  = std::unordered_map<std::string, std::unique_ptr<expr::Fix>>;
@@ -388,7 +393,7 @@ private:
 
         std::string s = name + '(';
 
-        for (std::string comma = ""; auto&& pat : patterns) {
+        for (std::string comma = ""; const auto& pat : patterns) {
             s += comma + stringifyPattern(*pat, indent);
             comma = ", ";
         }
@@ -960,3 +965,4 @@ struct Operator : Fix {
 
 } // namespace expr
 
+} // namespace pie

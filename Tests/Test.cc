@@ -8,6 +8,38 @@
 
 
 
+TEST_CASE("Multiple Named Arguments", "[Func]") {
+    const auto src = R"(
+func = (T, T: T) => T;
+
+func(T=Type, T=Int);
+)";
+
+    REQUIRE_THROWS(run(src));
+}
+
+
+TEST_CASE("Invalid Lazy Type Parameters", "[Type]") {
+    const auto src = R"(
+func = (T, T: T) => T;
+
+func(Type, T=Int);
+)";
+
+    REQUIRE_THROWS(run(src));
+}
+
+TEST_CASE("Lazy Type Parameters", "[Type]") {
+    const auto src = R"(
+func = (T, T: T) => T;
+
+func(Type, Int);
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+
 TEST_CASE("Type Alias 3", "[Type]") {
     const auto src = R"(
 print = __builtin_print;

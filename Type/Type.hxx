@@ -8,14 +8,14 @@
 
 // #include "../Declarations.hxx"
 
+inline namespace pie {
 
 namespace expr {
     struct Expr;
     using ExprPtr = std::shared_ptr<expr::Expr>;
 }
 
-struct ClassValue;
-// using NameSpace = ClassValue;
+inline namespace value { struct ClassValue; }
 
 namespace type {
     struct Type {
@@ -209,3 +209,5 @@ namespace type {
     }
 }
 
+
+} // namespace pie

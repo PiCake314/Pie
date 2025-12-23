@@ -701,7 +701,6 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
-- [ ] add `lex` and `value` namespaces to codebase
 - [ ] Lexically Scoped Operators
 - [ ] Remove preprocessor
 - [ ] Allow variadics of Syntax type
@@ -720,6 +719,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [x] add `lex` and `value` namespaces to codebase
 - [x] Add REPL
 - [x] Changed error system to exceptions (will allow REPL)
 - [x] Looping....maybee (added iterators!!!);

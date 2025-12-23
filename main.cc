@@ -44,7 +44,7 @@ void REPL(
         auto processed_line = preprocess<REPL>(std::move(line), canonical_root); // root in repl mode is where we ran the interpret
         if (print_preprocessed) std::println(std::clog, "{}", processed_line);
 
-        Tokens v = lex(std::move(processed_line));
+        Tokens v = lex::lex(std::move(processed_line));
         if (print_tokens) std::println(std::clog, "{}", v);
 
         if (v.empty()) continue;
@@ -85,7 +85,7 @@ void runFile(
     auto processed_src = preprocess(std::move(src), fname);
     if (print_preprocessed) std::println(std::clog, "{}", processed_src);
 
-    Tokens v = lex(std::move(processed_src));
+    Tokens v = lex::lex(std::move(processed_src));
     if (print_tokens) std::println(std::clog, "{}", v);
 
     if (v.empty()) return;

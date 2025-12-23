@@ -14,10 +14,8 @@
 #include <algorithm>
 
 
-
-using Tokens = std::vector<Token>;
-using TokenLines = std::vector<Tokens>;
-
+inline namespace pie {
+inline namespace lex {
 
 
 inline TokenKind keyword(const std::string_view word) noexcept {
@@ -293,4 +291,5 @@ inline bool validNameChar(const char c) noexcept {
 
 
 
-
+} // namespace lex
+} // namespace pie

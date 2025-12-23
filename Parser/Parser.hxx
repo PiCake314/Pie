@@ -27,6 +27,9 @@
 #include "../Utils/utils.hxx"
 
 
+inline namespace pie {
+
+inline namespace parse {
 
 class Parser {
     Tokens tokens;
@@ -1478,3 +1481,6 @@ public:
     const auto& operators() const noexcept { return ops; };
 };
 
+
+} // parse
+} // pie

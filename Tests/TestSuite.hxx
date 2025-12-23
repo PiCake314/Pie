@@ -70,7 +70,7 @@ std::string run(const char* src) {
     // auto processed_src = preprocess(src, ".");
     // Tokens v = lex(std::move(processed_src));
 
-    Tokens v = lex(src);
+    Tokens v = lex::lex(src);
 
     if (v.empty()) return "";
 

@@ -12,6 +12,9 @@
 #include "../Declarations.hxx"
 #include "../Utils/utils.hxx"
 
+inline namespace pie {
+inline namespace value {
+
 
 struct Members;
 // struct ClassValue;
@@ -41,11 +44,20 @@ using Value = std::variant<
 >;
 
 
-// needed for maps
 inline std::string stringify(const Value& value, const size_t indent = {});
-template<>
-struct std::hash<Value> { size_t operator()(const Value& value) const { return std::hash<std::string>{}(stringify(value)); } };
 
+}
+}
+
+
+// needed for maps
+template<>
+struct std::hash<Value> { size_t operator()(const pie::value::Value& value) const { return std::hash<std::string>{}(pie::value::stringify(value)); } };
+
+
+inline namespace pie {
+
+inline namespace value {
 
 
 struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
@@ -321,3 +333,6 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     // error();
     return false;
 }
+
+} // namespace value
+} // namespace pie

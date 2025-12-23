@@ -4,6 +4,8 @@
 #include <ostream>
 #include <string>
 
+inline namespace pie {
+inline namespace token {
 
 enum class TokenKind {
     ASSIGN,
@@ -110,9 +112,18 @@ struct Token {
 };
 
 
+using Tokens = std::vector<Token>;
+using TokenLines = std::vector<Tokens>;
+
+
 inline std::ostream& operator<<(std::ostream& os, const Token& token) {
     return os << "Token{" << stringify(token.kind) << ", '" << token.text << "'}";
 }
+
+
+} // namespace token
+} // namespace pie
+
 
 template <>
 struct std::formatter<Token> : std::formatter<std::string> {
