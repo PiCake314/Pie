@@ -14,7 +14,7 @@
 
 
 
-template <bool print_loc = true>
+template <typename Except = std::runtime_error, bool print_loc = true>
 [[noreturn]] inline void error(
     const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
     [[maybe_unused]] const std::source_location& location = std::source_location::current()
@@ -31,7 +31,7 @@ template <bool print_loc = true>
 
     // exit(1);
 
-    throw std::runtime_error{std::string{msg}};
+    throw Except{std::string{msg}};
 }
 
 #include <execinfo.h>
