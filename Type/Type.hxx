@@ -174,31 +174,33 @@ namespace type {
 
 
 
-    inline bool isFunction(const TypePtr& t) noexcept {
+
+
+    inline const FuncType* isFunction(const TypePtr& t) noexcept {
         return dynamic_cast<const FuncType*>(t.get());
     }
 
-    inline bool isClass(const TypePtr& t) noexcept {
+    inline const LiteralType* isClass(const TypePtr& t) noexcept {
         return dynamic_cast<const LiteralType*>(t.get());
     }
 
-    inline bool isUnion(const TypePtr& t) noexcept {
+    inline const UnionType* isUnion(const TypePtr& t) noexcept {
         return dynamic_cast<const UnionType*>(t.get());
     }
 
-    inline bool isVariadic(const TypePtr& t) noexcept {
+    inline const VariadicType* isVariadic(const TypePtr& t) noexcept {
         return dynamic_cast<const VariadicType*>(t.get());
     }
 
-    inline bool isList(const TypePtr& t) noexcept {
+    inline const ListType* isList(const TypePtr& t) noexcept {
         return dynamic_cast<const ListType*>(t.get());
     }
 
-    inline bool isMap(const TypePtr& t) noexcept {
+    inline const MapType* isMap(const TypePtr& t) noexcept {
         return dynamic_cast<const MapType*>(t.get());
     }
 
-    inline bool isBuiltin(const TypePtr& t) noexcept {
+    inline const BuiltinType* isBuiltin(const TypePtr& t) noexcept {
         return dynamic_cast<const BuiltinType*>(t.get());
     }
 

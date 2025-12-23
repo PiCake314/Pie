@@ -125,8 +125,11 @@ namespace type {
         // this might throw, but it technically shouldn't
         const auto& that = dynamic_cast<const FuncType&>(other);
 
-        for (const auto& [type1, type2] : std::views::zip(params, that.params))
-            if (*type1 >= *type2) return false; // args have an inverse relation ship
+        for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
+            // if (*type1 >= *type2) return false; // args have an inverse relationship
+
+            if (not (*type2 > *type1)) return false; // args have an inverse relationship
+        }
 
 
         return *ret > *that.ret;
@@ -139,8 +142,15 @@ namespace type {
         // this might throw, but it technically shouldn't
         const auto& that = dynamic_cast<const FuncType&>(other);
 
-        for (const auto& [type1, type2] : std::views::zip(params, that.params))
-            if (*type1 > *type2) return false; // args have an inverse relation ship
+        for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
+            // std::clog << "type1: " << type1->text() << std::endl;
+            // std::clog << "type2: " << type2->text() << std::endl;
+            // std::clog << "not (" << type2->text() << " >= " << type1->text() << "): " << not (*type2 >= *type1) << std::endl;
+
+            // if (*type1 > *type2) return false; // args have an inverse relationship
+
+            if (not (*type2 >= *type1)) return false; // args have an inverse relationship
+        }
 
 
         return *ret >= *that.ret;
