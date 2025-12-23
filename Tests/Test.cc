@@ -8,6 +8,77 @@
 
 
 
+TEST_CASE("Type Alias 3", "[Type]") {
+    const auto src = R"(
+print = __builtin_print;
+
+Func = :(Int, Int, Double): Any;
+
+f: Func = (a: Int, c: Any, b: String): String => "hi";
+)";
+
+    REQUIRE_THROWS(run(src));
+}
+
+
+TEST_CASE("Type Alias 2", "[Type]") {
+    const auto src = R"(
+print = __builtin_print;
+
+Func = :(Int, Int, String): Any;
+
+f: Func = (a: Int, c: Any, b: String): String => "hi";
+
+print(Func);
+)";
+
+    REQUIRE(run(src) == R"((Int, Int, String): Any)");
+}
+
+
+// do I want this behaviour to change?
+TEST_CASE("Eager Function Parameter Type Evaluation", "[Type]") {
+    const auto src = R"(
+print = __builtin_print;
+
+
+d: Type = Double;
+
+func = (x: d) => print(x);
+
+d = Int;
+
+func(1.2);
+)";
+
+    REQUIRE(run(src) == R"(1.200000)");
+}
+
+
+TEST_CASE("Type Alias", "[Type]") {
+    const auto src = R"(
+d: Type = Double;
+i = Int;
+x: i = 1;
+i = d;
+y: i = 1.2;
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+
+TEST_CASE("Invalid Type Alias", "[Type]") {
+    const auto src = R"(
+d = Int;
+x: d = 1.2;
+)";
+
+    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS_MATCHES(run(src), except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+}
+
+
 TEST_CASE("Lists vs Maps 2", "[List][Map]") {
     const auto src = R"(
 print = __builtin_print;
@@ -909,7 +980,7 @@ add(z = 1);
 
 
     REQUIRE_THROWS_MATCHES(run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument" )));
-    REQUIRE_THROWS_MATCHES(run(src2), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+    REQUIRE_THROWS_MATCHES(run(src2), except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
 }
 
 

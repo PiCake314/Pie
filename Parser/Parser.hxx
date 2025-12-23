@@ -75,7 +75,7 @@ public:
             if (not match(TokenKind::SEMI)) {
                 const auto t = lookAhead();
                 if (t.kind == TokenKind::NAME)
-                    error("Operator '" + t.text + "' not found!");
+                    error("Operator '" + t.text + "' not found! Did you, perhaps, forget a ';' on the previous line?\n'" + expressions.back()->stringify() + '\'');
                 expected(TokenKind::SEMI, t);
             }
         }
@@ -162,6 +162,8 @@ public:
 
                 return std::make_shared<expr::SpaceAccess>(nullptr, std::move(right_name_ptr)->name);
             }
+
+            case COLON: return std::make_shared<expr::Type>(parseType());
 
             case MIXFIX:
             case PREFIX:
@@ -254,7 +256,7 @@ public:
                 error();
             }
 
-            // either a grouping or a closure
+            // either a grouping or a closure - (or a closure type)
             case L_PAREN: {
                 if (match(R_PAREN)) { // nullary closure
                     type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
@@ -365,17 +367,30 @@ public:
                 // return left;
             }
 
+            case COLON: {
+
+                auto type = parseType();
+                if (not match(ASSIGN)) error();
+
+                return std::make_shared<expr::Assignment>(
+                    std::move(left),
+                    std::move(type),
+                    parseExpr(prec::ASSIGNMENT_VALUE - 1)
+                );
+
+            };
+
             case ASSIGN:
                 if constexpr (CTX == Context::MATCH) return left;
 
-                if (match(COLON))
-                    return std::make_shared<expr::Assignment>(
-                        std::move(left),
-                        parseType(),
-                        parseExpr(prec::ASSIGNMENT_VALUE - 1)
-                    );
-
-                else
+                // ! HOW DID THIS EVEN EVER WORK!!?
+                // if (match(COLON))
+                //     return std::make_shared<expr::Assignment>(
+                //         std::move(left),
+                //         parseType(),
+                //         parseExpr(prec::ASSIGNMENT_VALUE - 1)
+                //     );
+                // else
                     return std::make_shared<expr::Assignment>(
                         std::move(left),
                         type::builtins::_(),

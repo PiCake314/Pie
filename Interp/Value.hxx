@@ -40,23 +40,34 @@ using Value = std::variant<
     MapValue
 >;
 
-struct Members { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
-struct Elements { std::vector<Value> values; };
 
+// needed for maps
 inline std::string stringify(const Value& value, const size_t indent = {});
-
 template<>
-struct std::hash<Value> {
-    size_t operator()(const Value& value) const { return std::hash<std::string>{}(stringify(value)); }
-};
+struct std::hash<Value> { size_t operator()(const Value& value) const { return std::hash<std::string>{}(stringify(value)); } };
 
 
-struct Items { std::unordered_map<Value, Value> map; };
+
+struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
+struct Elements { std::vector<Value> values;                                         };
+struct Items    { std::unordered_map<Value, Value> map;                              };
 
 
-[[nodiscard]] inline ListValue makeList(std::vector<Value> values) {
+
+template <typename ...Ts>
+[[nodiscard]] inline PackList makePack(Ts&&... args) {
+    return std::make_shared<Elements>(std::forward<Ts>(args)...);
+}
+
+[[nodiscard]] inline ListValue makeList(std::vector<Value> values = {}) {
     return {std::make_shared<Elements>(std::move(values))};
 }
+
+[[nodiscard]] inline MapValue makeMap(std::unordered_map<Value, Value> items = {}) {
+    return {std::make_shared<Items>(std::move(items))};
+}
+
+
 
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
 
@@ -124,12 +135,7 @@ inline std::string stringify(const Value& value, const size_t indent) {
     // }
 
 
-    else if (std::holds_alternative<type::TypePtr>(value)) {
-        // const auto& v = std::get<expr::Union>(value);
-
-        // s = v.stringify(indent);
-        s = get<type::TypePtr>(value)->text();
-    }
+    else if (std::holds_alternative<type::TypePtr>(value)) s = get<type::TypePtr>(value)->text();
 
     else if (std::holds_alternative<NameSpace>(value)) {
         const auto& v = get<NameSpace>(value);

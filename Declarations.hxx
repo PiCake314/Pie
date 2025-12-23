@@ -14,10 +14,6 @@ struct Items;
 struct MapValue { std::shared_ptr<Items> items; };
 
 using PackList = std::shared_ptr<Elements>;
-template <typename ...Ts>
-[[nodiscard]] inline std::shared_ptr<Elements> makePack(Ts&&... args) {
-    return std::make_shared<Elements>(std::forward<Ts>(args)...);
-}
 
 namespace expr {
 
@@ -40,6 +36,7 @@ using Node = std::variant<
     const struct Class             *,
     const struct Union             *,
     const struct Match             *,
+    const struct Type              *,
     const struct Loop              *,
     const struct Break             *,
     const struct Continue          *,

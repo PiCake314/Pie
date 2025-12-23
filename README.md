@@ -6,6 +6,7 @@
 - Everything is an expression (null/unit/none type)
 - Bare-bones (if it doesn't need to be keyword, then it isn't + no operators)
 - Still quirky (different even if the difference is not good)
+<!-- can't have your ~~cake~~ Pie and eat it too! -->
 
 ## Introduction
 

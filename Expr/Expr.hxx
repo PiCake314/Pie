@@ -253,10 +253,10 @@ struct Assignment : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         if (auto name = dynamic_cast<const Name*>(lhs.get()); name and not type::shouldReassign(type)) {
-            return '(' + name->stringify(indent) + ": " + type->text() + " = " + rhs->stringify(indent) + ')';
+            return name->stringify(indent) + ": " + type->text() + " = " + rhs->stringify(indent);
         }
 
-        return '(' + lhs->stringify(indent) + " = " + rhs->stringify(indent) + ')';
+        return lhs->stringify(indent) + " = " + rhs->stringify(indent);
     }
 
     Node variant() const override { return this; }
@@ -395,6 +395,17 @@ private:
 
         return s + ')';
     }
+};
+
+
+struct Type : Expr {
+    type::TypePtr type;
+
+    explicit Type(type::TypePtr t) noexcept : type{std::move(t)} {}
+
+    std::string stringify(const size_t indent = 0) const override { return type->text(indent); }
+
+    Node variant() const override { return this; }
 };
 
 
@@ -946,7 +957,6 @@ struct Operator : Fix {
     TokenKind type() const override { return TokenKind::MIXFIX; }
     Node variant() const override { return this; }
 };
-
 
 } // namespace expr
 
