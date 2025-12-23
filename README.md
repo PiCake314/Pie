@@ -542,8 +542,10 @@ Pie reserves the names starting with `__builtin_`.
 
 ## Types
 
-Pie has 7 types:
+#### Pie has 10 types.
 
+
+##### 7 builtin types
 - `Int`
 - `Double`
 - `Bool`
@@ -552,15 +554,35 @@ Pie has 7 types:
 - `Type`
 - `Syntax`
 
-If something is left un-typed, the `Any` type will be given to it.
+##### 2 collection types
+- `{type}`: list type
+- `{type1: type2}`: map type
 
-Functions can also be typed: `(T1, T2): T3`
+##### Functions types
+- `(T1, T2): T3`
 
 ```pie
 one: (Int): Int = (x: Int): Int => 1;
 ```
 
-### Syntax Type
+If something is left un-typed, it will be given the `Any` type.
+
+
+#### Types as Values
+Types are values in Pie. A simple use case to demonstrate this is `Type Aliases`:
+```pie
+Num = Int;
+x: Num = 1;
+```
+
+Some types, like function types, are not valid expressions, and therefore, the parser needs to know if it's in typing context or an expression context. To denote a typing context, we prefix the type with a colon `:`:
+
+```pie
+Func = :(Int, Any): String;
+f: Func = (x, y): String => "hi";
+```
+
+#### Syntax Type
 
 The `Syntax` type is a special type that gives a handle onto the AST node used to represent an expression.\
 Take this example:
