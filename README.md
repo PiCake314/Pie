@@ -218,7 +218,7 @@ match x {
 ```
 
 
-**Type Matching**:
+**Structural Matching**:
 ```pie
 C = class { a = 0; b = "";};
 c = C(314, C(1, "two"));
@@ -701,6 +701,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 
 #### in order of priority
 
+- [ ] Eager Parameter Evaluation
 - [ ] Lexically Scoped Operators
 - [ ] Remove preprocessor
 - [ ] Allow variadics of Syntax type
@@ -708,8 +709,9 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - [ ] Make `=` and `=>` overloadable
 - [ ] File IO
 - [ ] Fix builin reset (value-reset, reset/name-reset) 
-- [ ] Use Big Int instead of `int32_t`
+- [ ] Use Big Int instead of `int64_t`
 - [ ] World domination
+- [ ] Move from Make to Bake
 - [ ] Improve error messages (add line and column numbers)
 - [ ] Add recursive operators
 - [ ] Remove depedency on stdx and boost
