@@ -39,6 +39,8 @@ void REPL(
         std::string line;
         std::print(">>> ");
         std::getline(std::cin, line);
+        if (line.back() != ';') line += ';';
+
 
         constexpr auto REPL = true;
         auto processed_line = preprocess<REPL>(std::move(line), canonical_root); // root in repl mode is where we ran the interpret

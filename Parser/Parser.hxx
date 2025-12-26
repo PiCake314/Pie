@@ -67,6 +67,7 @@ public:
         if (not t.empty()) {
             tokens = std::move(t);
             token_iterator = tokens.begin();
+            red.clear();
         }
 
         std::vector<expr::ExprPtr> expressions;
@@ -77,8 +78,11 @@ public:
             // consume(TokenKind::SEMI);
             if (not match(TokenKind::SEMI)) {
                 const auto t = lookAhead();
-                if (t.kind == TokenKind::NAME)
-                    error("Operator '" + t.text + "' not found! Did you, perhaps, forget a ';' on the previous line?\n'" + expressions.back()->stringify() + '\'');
+                if (t.kind == TokenKind::NAME) {
+                    std::string msg = "Operator '" + t.text + "' not found!";
+                    if (t.text.length() > 1) msg += "Did you, perhaps, forget a ';' on the previous line?";
+                    error(msg + '\n' + expressions.back()->stringify());
+                }
                 expected(TokenKind::SEMI, t);
             }
         }
@@ -300,21 +304,16 @@ public:
                 }();
 
 
-                // if (check(COLON) or check(FAT_ARROW)) return closure();
                 if (closure_expr) return closure();
 
-                // if (exprs.size() != 1) error("Comma operator not supported!!");
 
-                // return std::move(exprs[0]);
-
-
-                // just a grouping (1)
+                // just a grouping `(x)`
                 auto expr = parseExpr();
                 consume(R_PAREN);
-                return expr;
+                return std::make_shared<expr::Grouping>(std::move(expr));
+                // return expr;
             }
 
-            case R_BRACE: error("Can't have empty block!");
 
             default:
                 log(true);
@@ -340,10 +339,8 @@ public:
                 return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr)->name);
             }
 
-            // case COLON: {
-            case SCOPE_RESOLVE: {
-                // if constexpr (CTX == Context::MATCH or CTX == Context::MAP) return left;
 
+            case SCOPE_RESOLVE: {
                 if (not (
                         dynamic_cast<expr::Name*>(left.get()) or
                         dynamic_cast<expr::SpaceAccess*>(left.get()) or
@@ -357,21 +354,9 @@ public:
                 if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
                 return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
-
-                // if (match(COLON)) { // namespace
-                //     auto right = parseExpr(prec::HIGH_VALUE);
-                //     auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                //     if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
-
-                //     return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
-                // }
-
-
-                // return left;
             }
 
             case COLON: {
-
                 auto type = parseType();
                 if (not match(ASSIGN)) error();
 
@@ -386,19 +371,11 @@ public:
             case ASSIGN:
                 if constexpr (CTX == Context::MATCH) return left;
 
-                // ! HOW DID THIS EVEN EVER WORK!!?
-                // if (match(COLON))
-                //     return std::make_shared<expr::Assignment>(
-                //         std::move(left),
-                //         parseType(),
-                //         parseExpr(prec::ASSIGNMENT_VALUE - 1)
-                //     );
-                // else
-                    return std::make_shared<expr::Assignment>(
-                        std::move(left),
-                        type::builtins::_(),
-                        parseExpr(prec::ASSIGNMENT_VALUE - 1)
-                    );
+                return std::make_shared<expr::Assignment>(
+                    std::move(left),
+                    type::builtins::_(),
+                    parseExpr(prec::ASSIGNMENT_VALUE - 1)
+                );
 
 
             case L_PAREN: return call(std::move(left));
@@ -427,15 +404,10 @@ public:
             // type::TypePtr type = std::make_shared<type::FuncType>();
             type::FuncType type{{}, {}};
 
-            if (not check(R_PAREN)) do
-                type.params.push_back(parseType());
-            while(match(COMMA));
+            if (not check(R_PAREN)) do type.params.push_back(parseType()); while(match(COMMA));
 
             consume(R_PAREN);
-
             consume(COLON);
-
-            // return '(' + type + "): " + parseType(); // maybe??
 
             type.ret = parseType();
             return std::make_shared<type::FuncType>(std::move(type));
@@ -1467,6 +1439,7 @@ public:
 
     /**
      * @attention only call right before calling error/expected
+     * It exhausts the stream
      */
     void log(bool shift = false, bool begin = false) {
         puts("");
