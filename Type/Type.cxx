@@ -90,6 +90,13 @@ namespace type {
         return s + '}';
     }
 
+    bool UnionType::involvesT(const Type& T) const {
+        for (const auto& type : types)
+            if (type->involvesT(T)) return true;
+
+        return false;
+    }
+
     bool UnionType::operator> (const Type& other) const {
         // for (const auto& type : types)
         //     if (*type > other) return true;
@@ -116,6 +123,12 @@ namespace type {
             t += ", " + params[i]->text(indent);
 
         return '(' + t + "): " + ret->text(indent);
+    }
+    bool FuncType::involvesT(const Type& T) const {
+        for (const auto& type : params)
+            if (type->involvesT(T)) return true;
+
+        return ret->involvesT(T);
     }
 
     bool FuncType::operator>(const Type& other) const {

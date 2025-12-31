@@ -290,21 +290,22 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     // }
 
     if (std::holds_alternative<type::TypePtr>(lhs) and std::holds_alternative<type::TypePtr>(rhs)) {
-        if (type::isClass(get<type::TypePtr>(lhs)) and type::isClass(get<type::TypePtr>(rhs))) {
-            return std::ranges::all_of(
-                std::views::zip(
-                    dynamic_cast<type::LiteralType&>(*get<type::TypePtr>(lhs).get()).cls->blueprint->members,
-                    dynamic_cast<type::LiteralType&>(*get<type::TypePtr>(rhs).get()).cls->blueprint->members
-                ),
+        return *get<type::TypePtr>(lhs) == *get<type::TypePtr>(rhs);
+        // if (type::isClass(get<type::TypePtr>(lhs)) and type::isClass(get<type::TypePtr>(rhs))) {
+        //     return std::ranges::all_of(
+        //         std::views::zip(
+        //             dynamic_cast<type::LiteralType&>(*get<type::TypePtr>(lhs).get()).cls->blueprint->members,
+        //             dynamic_cast<type::LiteralType&>(*get<type::TypePtr>(rhs).get()).cls->blueprint->members
+        //         ),
 
-                [] (auto&& tuple) {
-                    return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
-                       and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
-                }
-            );
-        }
+        //         [] (auto&& tuple) {
+        //             return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
+        //                and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
+        //         }
+        //     );
+        // }
 
-        error(); // fix this
+        // error(); // fix this
     }
 
     if (std::holds_alternative<Object>(lhs) and std::holds_alternative<Object>(rhs)) {

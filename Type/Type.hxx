@@ -21,6 +21,8 @@ namespace type {
     struct Type {
         virtual std::string text(const size_t indent = 0) const = 0;
 
+        virtual bool involvesT(const Type& T) const = 0;
+
         virtual bool operator==(const Type& other) const { return text() == other.text(); }
         virtual bool operator> (const Type& other) const = 0;
         virtual bool operator>=(const Type& other) const = 0;
@@ -37,6 +39,7 @@ namespace type {
         explicit ExprType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return T == *this; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -58,6 +61,8 @@ namespace type {
         explicit LiteralType(std::shared_ptr<ClassValue> c) noexcept : cls{std::move(c)} {}
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return T == *this; }
+
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -70,6 +75,7 @@ namespace type {
         explicit UnionType(std::vector<TypePtr> ts) noexcept : types{std::move(ts)} {}
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override;
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -81,6 +87,7 @@ namespace type {
         // SpaceType() = default;
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return T == *this; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -95,6 +102,7 @@ namespace type {
         FuncType(std::vector<TypePtr> ps, TypePtr r) noexcept : params{std::move(ps)}, ret{std::move(r)} {}
 
         std::string text(const size_t = 0) const override;
+        bool involvesT(const Type& T) const override;
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -106,9 +114,9 @@ namespace type {
         explicit VariadicType(TypePtr t) : type{std::move(t)} {}
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return type->involvesT(T); }
 
         bool operator>(const Type& other) const override;
-
         bool operator>=(const Type& other) const override;
     };
 
@@ -118,9 +126,9 @@ namespace type {
         explicit ListType(TypePtr t) : type{std::move(t)} {}
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return type->involvesT(T); }
 
         bool operator>(const Type& other) const override;
-
         bool operator>=(const Type& other) const override;
     };
 
@@ -131,15 +139,16 @@ namespace type {
         MapType(TypePtr t1, TypePtr t2) : key_type{std::move(t1)}, val_type{std::move(t2)} {}
 
         std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return key_type->involvesT(T) or val_type->involvesT(T); }
 
         bool operator>(const Type& other) const override;
-
         bool operator>=(const Type& other) const override;
     };
 
 
     struct TryReassign : Type {
         std::string text(const size_t = 0) const override { return ""; }
+        bool involvesT(const Type&) const override { return false; }
 
         bool operator> (const Type&) const override { return false; };
         bool operator>=(const Type&) const override { return false; };

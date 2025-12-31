@@ -4,7 +4,7 @@ CC = g++
 # CC = g++-15
 VER = -std=c++23
 OPT = -O3
-ARGS = -Wall -Wextra -Wpedantic -Wimplicit-fallthrough -Wno-missing-braces #-Wnrvo
+ARGS = -Wall -Wextra -Wpedantic -Wno-missing-braces #-Wnrvo
 CPP = Type/*.cxx
 SAN = -fsanitize=address -fsanitize=undefined
 

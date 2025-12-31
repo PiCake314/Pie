@@ -14,6 +14,10 @@
 
 
 
+inline namespace pie {
+inline namespace util {
+
+
 template <typename Except = std::runtime_error, bool print_loc = true>
 [[noreturn]] inline void error(
     const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
@@ -81,3 +85,7 @@ struct Deferred {
 
 template <typename F>
 Deferred(F) -> Deferred<F>;
+
+
+} // namespace util
+} // namespace pie

@@ -8,6 +8,104 @@
 
 
 
+TEST_CASE("Returning Function with Local Variable Capture - No Scope", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => () => print(z);
+
+func = makeFunc(100);
+func();
+)";
+
+    REQUIRE(run(src) == "100");
+}
+
+TEST_CASE("Returning Function with Local Variable Capture", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => {
+    () => print(z);
+};
+
+func = makeFunc(100);
+func();
+)";
+
+    REQUIRE(run(src) == "100");
+}
+
+
+TEST_CASE("Reassignment", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => {
+    z = 999;
+    () => print(z);
+};
+
+func = makeFunc(100);
+func();
+)";
+
+    REQUIRE(run(src) == "999");
+}
+
+
+TEST_CASE("Shadowing", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => {
+    z: Any = 999;
+    z: String = "what!";
+    () => print(z);
+};
+
+func = makeFunc(100);
+func();
+)";
+
+    REQUIRE(run(src) == "what!");
+}
+
+
+TEST_CASE("Eager Type Parameters For Expanded Calls", "[Type][Func]") {
+    const auto src = R"(
+func = (T, a: Int, x) => __builtin_print("called with T =", T, "and a =", a, "and x =", x);
+call = (args: ...Any) => func(args...);
+f = call(Int, 1, "hi");
+)";
+
+    REQUIRE(run(src) == "called with T = Int and a = 1 and x = hi");
+}
+
+
+TEST_CASE("Eager Type Parameters For Partial Application", "[Type][Func]") {
+    const auto src = R"(
+T = Type;
+func = (t: T, T: t, a: T, T) => T;
+f = func(Type, Int);
+f(1, String);
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+
+TEST_CASE("Eager Type Parameters 2", "[Type]") {
+    const auto src = R"(
+func = (T, a: T) => T;
+
+func(Int, 1);
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+
 TEST_CASE("Multiple Named Arguments", "[Func]") {
     const auto src = R"(
 func = (T, T: T) => T;
@@ -19,7 +117,7 @@ func(T=Type, T=Int);
 }
 
 
-TEST_CASE("Invalid Lazy Type Parameters", "[Type]") {
+TEST_CASE("Invalid Eager Type Parameters", "[Type]") {
     const auto src = R"(
 func = (T, T: T) => T;
 
@@ -29,7 +127,7 @@ func(Type, T=Int);
     REQUIRE_THROWS(run(src));
 }
 
-TEST_CASE("Lazy Type Parameters", "[Type]") {
+TEST_CASE("Eager Type Parameters", "[Type]") {
     const auto src = R"(
 func = (T, T: T) => T;
 

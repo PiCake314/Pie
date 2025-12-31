@@ -725,7 +725,9 @@ struct Closure : Expr {
     ExprPtr body;
 
     // I need to un-mutable those vars
+    mutable Environment args_env{};
     mutable Environment env{};
+
     mutable std::optional<Object> self{};
 
     Closure(std::vector<std::string> ps, type::FuncType t, ExprPtr b)
@@ -734,12 +736,34 @@ struct Closure : Expr {
     }
 
 
+    // enum class OverrideMode {
+    //     NO_OVERRIDE,
+    //     OVERRIDE_EXISTING,
+    //     OVERRIDE_ALL,
+    // };
+
+    // template <OverrideMode MODE = OverrideMode::OVERRIDE_ALL>
     void capture(const Environment& e) const { // const as in doesn't change params or body.
-        for(const auto& [key, value] : e)
+        for (const auto& [key, value] : e) {
             env[key] = value;
+            // if constexpr (MODE == OverrideMode::OVERRIDE_ALL) {
+            //     env[key] = value;
+            // }
+            // else if constexpr (MODE == OverrideMode::NO_OVERRIDE)
+            // {
+            //     if (not e.contains(key)) env[key] = value;
+            // }
+            // else if constexpr (MODE == OverrideMode::OVERRIDE_EXISTING) {
+            //     if (e.contains(key)) env[key] = value;
+            // }
+        }
     }
 
-    void capture(const Object& obj) const { self = obj; }
+    void captureArgs(const Environment& e) const {
+        for (const auto& [key, value] : e) args_env.insert_or_assign(key, value); // is this better than `env[key] = value`?
+    }
+
+    void captureThis(const Object& obj) const { self = obj; }
 
 
     std::string stringify(const size_t indent = 0) const override {
