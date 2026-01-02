@@ -2027,11 +2027,13 @@ struct Visitor {
         // }
 
 
-        for (size_t i = env.size() - 1; i >= 0; --i) {
+        for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
             // puts("printEnv()");
             // printEnv(env[i].first);
             c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[i].first);
             if (env[i].second == EnvTag::FUNC) break;
+
+            if (i == 0) return; // unsigned nums can never be less than zero
         }
     }
 
@@ -3183,7 +3185,7 @@ struct Visitor {
                 return type::MapOf(type::builtins::Any()     , std::move(values)[0].second);
 
                 // return std::make_shared<type::MapType>(type::builtins::Any()     , type::builtins::Any()      );
-                return type::MapOf(type::builtins::Any()     , type::builtins::Any()      );
+            return type::MapOf(type::builtins::Any()     , type::builtins::Any()      );
         }
 
         if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();

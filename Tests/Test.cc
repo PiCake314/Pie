@@ -70,7 +70,6 @@ func(Int, 10);
 }
 
 
-
 TEST_CASE("Returning Function with Local Variable Capture (Multiple Decls) - Scope", "[Var][Func]") {
     const auto src = R"(
 print = __builtin_print;
@@ -348,8 +347,22 @@ TEST_CASE("Lists vs Maps 2", "[List][Map]") {
 print = __builtin_print;
 
 
-m: {Any: Any} = {"one": 2, class {}: 3, 4: "five", 0: () => 1, () => 0: 1};
+.: m: {Any: Any} = {"one": 2, class {}: 3, 4: "five", 0: () => 1, () => 0: 1};
+.: print(m);
 
+m: {Any: Any} = {"one": 2};
+print(m);
+
+m: {Any: Any} = {class {}: 3};
+print(m);
+
+m: {Any: Any} = {4: "five"};
+print(m);
+
+m: {Any: Any} = {0: () => 1};
+print(m);
+
+m: {Any: Any} = {() => 0: 1};
 print(m);
 
 
@@ -379,7 +392,11 @@ res = { class { func = (): Int => 1; }: 1 };
 print(res);
 )";
 
-    REQUIRE(run(src) == R"({(): Any => 0: 1, 0: (): Any => 1, 4: five, class { }: 3, one: 2}
+    REQUIRE(run(src) == R"({one: 2}
+{class { }: 3}
+{4: five}
+{0: (): Any => 1}
+{(): Any => 0: 1}
 3
 {1: hello}
 {3: 4}

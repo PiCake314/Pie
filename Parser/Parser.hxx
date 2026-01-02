@@ -380,7 +380,7 @@ public:
 
             case ELLIPSIS:
                 if (CTX == Context::CALL) return left; // in expansion
-                // [[fallthrough]];
+                [[fallthrough]];
 
             default: error("Couldn't parse \"" + token.text + "\"!!");
         }
