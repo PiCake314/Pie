@@ -31,6 +31,9 @@ debug: checklibs main.cc
 test: checklibs Tests/Test.cc
 	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 Tests/Test.cc Tests/catch.cpp -o run_tests $(SAN) -DNO_ERR_LOC && ./run_tests
 
+gh-actions: checklibs Tests/Test.cc
+	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 Tests/Test.cc Tests/catch.cpp -o run_tests -DNO_ERR_LOC && ./run_tests
+
 # Check and clone libraries if they don't exist
 checklibs:
 	@mkdir -p $(REMOTE_INCLUDE_DIR)

@@ -17,5 +17,5 @@ jobs:
     - name: Install GCC 14
       run: sudo apt update && sudo apt install -y g++-14
 
-    - name: make test
-      run: make CC=g++-14 test
+    - name: Testing
+      run: make CC=g++-14 gh-actions
