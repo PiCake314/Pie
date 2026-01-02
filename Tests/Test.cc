@@ -8,6 +8,117 @@
 
 
 
+
+
+TEST_CASE("Returning Function with Local Variable Capture - Multiple Scopes", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => {
+    x: Int = 1;
+    {
+        x: Int = 2;
+        () => print(x);
+    };
+};
+
+func = makeFunc(100);
+func();
+)";
+
+    REQUIRE(run(src) == "2");
+}
+
+
+TEST_CASE("Returning Function with Local Variable Capture (Eager Params) - Scope", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = () => {
+    f = (x, T, a: T) => print(T);
+
+    T = Double;
+    f(5);
+};
+func = makeFunc();
+func(Int, 10);
+)";
+
+    REQUIRE(run(src) == R"(Int)");
+}
+
+
+
+TEST_CASE("Returning Function with Local Variable Capture (Multiple Decls) - Scope", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+
+makeFunc = (z) => {
+    print(z);
+    z: Any = 999;
+    print(z);
+    z: String = "what!";
+    print(z);
+    () => print(z);
+};
+func = makeFunc(100);
+func();
+)";
+
+    REQUIRE(run(src) == R"(100
+999
+what!
+what!)");
+}
+
+
+TEST_CASE("Returning Function with Local Variable Capture (Declare new var) - Scope", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => {
+    {
+        z: Any = "Fuck";
+        print("z =", z);
+    };
+    print("z =", z);
+    () => print("z =", z);
+};
+func = makeFunc(100);
+func();
+
+)";
+
+    REQUIRE(run(src) == R"(z = Fuck
+z = 100
+z = 100)");
+}
+
+
+TEST_CASE("Returning Function with Local Variable Capture (Reassign) - Scope", "[Var][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+makeFunc = (z) => {
+    {
+        z = "Fuck";
+        print("z =", z);
+    };
+    print("z =", z);
+    () => print("z =", z);
+};
+func = makeFunc(100);
+func();
+
+)";
+
+    REQUIRE(run(src) == R"(z = Fuck
+z = Fuck
+z = Fuck)");
+}
+
+
 TEST_CASE("Returning Function with Local Variable Capture - No Scope", "[Var][Func]") {
     const auto src = R"(
 print = __builtin_print;
@@ -20,6 +131,7 @@ func();
 
     REQUIRE(run(src) == "100");
 }
+
 
 TEST_CASE("Returning Function with Local Variable Capture", "[Var][Func]") {
     const auto src = R"(
@@ -659,7 +771,7 @@ print(true);
 
 
 
-TEST_CASE("Arbitrary function", "[Parameters]") {
+TEST_CASE("Arbitrary function", "[Params]") {
     const auto src = R"(
 print = __builtin_print;
 infix(+) + = (a, b) => __builtin_add(a, b);
@@ -1091,7 +1203,7 @@ TEST_CASE("Variadics", "[Type]") {
 
 
 
-TEST_CASE("Invalid Named Arguments", "[Parameters]") {
+TEST_CASE("Invalid Named Arguments", "[Params]") {
     const auto src1 =
 R"(
 print = __builtin_print;
@@ -1114,7 +1226,7 @@ add(z = 1);
 }
 
 
-TEST_CASE("Named Arguments", "[Parameters]") {
+TEST_CASE("Named Arguments", "[Params]") {
 
     const auto src =
 R"(

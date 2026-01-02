@@ -736,26 +736,25 @@ struct Closure : Expr {
     }
 
 
-    // enum class OverrideMode {
-    //     NO_OVERRIDE,
-    //     OVERRIDE_EXISTING,
-    //     OVERRIDE_ALL,
-    // };
+    enum class OverrideMode {
+        NO_OVERRIDE,
+        OVERRIDE_EXISTING,
+        NORAML,
+    };
 
-    // template <OverrideMode MODE = OverrideMode::OVERRIDE_ALL>
+    template <OverrideMode MODE = OverrideMode::NORAML>
     void capture(const Environment& e) const { // const as in doesn't change params or body.
         for (const auto& [key, value] : e) {
-            env[key] = value;
-            // if constexpr (MODE == OverrideMode::OVERRIDE_ALL) {
-            //     env[key] = value;
-            // }
-            // else if constexpr (MODE == OverrideMode::NO_OVERRIDE)
-            // {
-            //     if (not e.contains(key)) env[key] = value;
-            // }
-            // else if constexpr (MODE == OverrideMode::OVERRIDE_EXISTING) {
-            //     if (e.contains(key)) env[key] = value;
-            // }
+            // env[key] = value;
+            if constexpr (MODE == OverrideMode::NORAML) {
+                env[key] = value;
+            }
+            else if constexpr (MODE == OverrideMode::NO_OVERRIDE) {
+                if (not env.contains(key)) env[key] = value;
+            }
+            else if constexpr (MODE == OverrideMode::OVERRIDE_EXISTING) {
+                if (env.contains(key)) env[key] = value;
+            }
         }
     }
 

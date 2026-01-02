@@ -1024,7 +1024,7 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Type* type) { return type->type; };
+    Value operator()(const expr::Type* type) { return validateType(type->type); };
 
 
     Value operator()(const expr::Loop *loop) {
@@ -1990,7 +1990,20 @@ struct Visitor {
         // ScopeGuard sg1{this, func.env}; // in case the lambda had captures
         // ScopeGuard sg3{this, args_env};
         sg.addEnv(args_env);
-        const auto& ret = std::visit(*this, func.body->variant());
+        // Value ret = std::visit(*this, func.body->variant());
+        // if (std::holds_alternative<expr::Closure>(ret)) {
+        //     captureEnvForClosure(get<expr::Closure>(ret));
+        // }
+
+        Value ret;
+        if (not dynamic_cast<expr::Block*>(func.body.get())) {
+            ret = std::visit(*this, func.body->variant());
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                captureEnvForClosure(get<expr::Closure>(ret));
+            }
+        }
+        else ret = std::visit(*this, func.body->variant());
 
         checkReturnType(ret, func.type.ret);
 
@@ -2021,25 +2034,23 @@ struct Visitor {
     }
 
     void captureEnvForClosure(const expr::Closure& c) {
-        size_t from{};
+        // size_t from{};
 
-        for (size_t i{}; i < env.size(); ++i) {
-            if (env[i].second == EnvTag::FUNC) from = i;
-        }
+        // for (size_t i{}; i < env.size(); ++i)
+        //     if (env[i].second == EnvTag::FUNC) from = i;
 
 
-        // std::clog << "env.size() = " << env.size() << std::endl;
-        // std::clog << "from: " << from << std::endl;
-        for (; from != env.size(); ++from) c.capture(env[from].first);
-
-        // for (auto it = env.crbegin(), end = env.crend(); it != end; ++it) {
-        //     const auto& [e, tag] = *it;
-        //     puts("Printing Env:");
-        //     printEnv(e);
-        //     c.capture(e);
-
-        //     if (tag == EnvTag::FUNC) break;
+        // for (; from != env.size(); ++from) {
+        //     c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[from].first);
         // }
+
+
+        for (size_t i = env.size() - 1; i >= 0; --i) {
+            // puts("printEnv()");
+            // printEnv(env[i].first);
+            c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[i].first);
+            if (env[i].second == EnvTag::FUNC) break;
+        }
     }
 
 
@@ -2326,9 +2337,8 @@ struct Visitor {
         }
 
 
-
         if (std::holds_alternative<expr::Closure>(ret)) {
-            const auto& func = get<expr::Closure>(ret);
+            // const auto& func = get<expr::Closure>(ret);
             // puts("All envs:");
             // printEnv(envStackToEnvMap());
             // puts("Capturing at the end of a block!");
@@ -2340,7 +2350,7 @@ struct Visitor {
             // puts("with args:");
             // printEnv(func.args_env);
 
-            captureEnvForClosure(func);
+            captureEnvForClosure(get<expr::Closure>(ret));
             // func.capture(env.back().first);
             // func.capture<expr::Closure::OverrideMode::OVERRIDE_EXISTING>(env.back());
         }
