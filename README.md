@@ -1,4 +1,5 @@
 # Welcome to Pie Lang!
+[![C++ CI](https://github.com/PiCake314/Pie/actions/workflows/cpp.yml/badge.svg)](https://github.com/PiCake314/Pie/actions/workflows/cpp.yml)
 
 ## Philosophy
 <!-- This language aims to be unique, but it also should still feel familiar. Here are some of it's "features": -->
