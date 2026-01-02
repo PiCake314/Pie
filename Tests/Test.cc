@@ -9,6 +9,28 @@
 
 
 
+TEST_CASE("Returning Function with Member Variable Capture", "[Var][Func][Class]") {
+    const auto src = R"(
+print = __builtin_print;
+
+C = class {
+    s = "";
+
+    makeSModifier = () => {
+        (new_s) => s = new_s;
+    };
+};
+
+o = C();
+
+func = o.makeSModifier();
+func("hmm");
+print(o.s);
+)";
+
+    REQUIRE(run(src) == "hmm");
+}
+
 
 TEST_CASE("Returning Function with Local Variable Capture - Multiple Scopes", "[Var][Func]") {
     const auto src = R"(
@@ -816,7 +838,7 @@ print(if ("") { 1; } else { 2; });
 
 
 
-TEST_CASE("nested unions", "[Unions]") {
+TEST_CASE("nested unions", "[Union]") {
     const auto src = R"(
 print = __builtin_print;
 

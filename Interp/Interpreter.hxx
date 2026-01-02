@@ -2005,30 +2005,12 @@ struct Visitor {
         }
         else ret = std::visit(*this, func.body->variant());
 
+        if (func.self and std::holds_alternative<expr::Closure>(ret)) {
+            const auto& f = get<expr::Closure>(ret);
+            f.captureThis(*func.self);
+        }
+
         checkReturnType(ret, func.type.ret);
-
-
-        // if (std::holds_alternative<expr::Closure>(ret)) {
-        //     const auto& closure = get<expr::Closure>(ret);
-
-        //     // puts("func.args_env:");
-        //     // printEnv(func.args_env);
-        //     // puts("");
-        //     // closure.capture(func.args_env);  // copy the environment of the parent function..
-
-        //     // puts("func.env:");
-        //     // printEnv(func.env);
-        //     // puts("");
-        //     // closure.capture(func.env);       // copy the environment of the parent function..
-
-        //     // puts("args_env:");
-        //     // printEnv(args_env);
-        //     // puts("");
-        //     // closure.captureArgs(args_env);   // to capture the arguments of the enclosing functions
-
-        //     // // closure.capture(env.back().first);
-        //     // captureEnvForClosure(closure);
-        // }
 
         return ret;
     }
@@ -2194,7 +2176,6 @@ struct Visitor {
 
             if (curr < expand_at.size() and i == expand_at[curr].first) {
                 for (const auto& val : expand_at[curr++].second) {
-                    std::clog << "val: " << stringify(val) << std::endl;
                     if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
                         error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
                 }
@@ -2473,8 +2454,6 @@ struct Visitor {
                 S<"not">,
                 Func<"not",
                     decltype([](const auto& x, const auto&) { return not x; }),
-                    // TypeList<ssize_t>,
-                    // TypeList<double>,
                     TypeList<bool>
                 >
             >{},
@@ -2607,20 +2586,8 @@ struct Visitor {
 
                         else if constexpr (std::is_same_v<T, MapValue>) {
                             auto key = stringify(at);
-                            // if (not cont.items->map.contains(key))
-                            //     error("Accessing Map '" + stringify(cont) + "' at key '" + key + "' which doesn't exist!");
-
                             return cont.items->map[key] = elt;
                         }
-
-                        // else { // if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, std::string>) {
-                        //     if (ind < 0 or size_t(ind) >= a.length())
-                        //         error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
-                        //     return std::string{a[ind]};
-                        // }
-
-
-
                     }),
                     TypeList<ListValue, ssize_t, Any>,
                     TypeList<MapValue, Any, Any>
@@ -2754,11 +2721,6 @@ struct Visitor {
         const auto arity_check = [&name, &args] (const size_t arity) {
             if (args.size() != arity) error("Wrong arity with call to \"__builtin_" + name + "\"");
         };
-
-        // const auto int_check = [&name] (const Value& val) {
-        //     if (not std::holds_alternative<ssize_t>(val)) error("Wrong argument passed to to \"__builtin_" + name + "\"");
-        // };
-
 
 
         if (name == "panic") {

@@ -161,8 +161,6 @@ public:
 
             // global namespace
             case SCOPE_RESOLVE: {
-                // consume(COLON);
-
                 auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
@@ -179,7 +177,7 @@ public:
             case EXFIX :
                 return fixOperator(std::move(token));
 
-            // block (scope) or list literal
+            // block (scope) or list literal or map literal
             case L_BRACE: {
                 if (match(R_BRACE)) return std::make_shared<expr::List>();
 
@@ -316,7 +314,7 @@ public:
 
 
             default:
-                log(true);
+                // log(true);
                 error("Couldn't parse \"" + token.text + "\"!");
         }
     }
@@ -986,35 +984,6 @@ public:
                     args.emplace_back(std::move(arg));
                 }
                 else args.emplace_back(std::move(arg));
-
-
-                // std::string name = consume().text;
-                // if (match(ASSIGN)) {
-                //     if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
-                //         error("Named parameter '" + name + "' passed more than once!");
-
-
-                //     named_args[std::move(name)] = parseExpr();
-
-                //     if (match(ELLIPSIS)) error("Cannot expand pack in named argument!");
-                // }
-                // else {
-                //     std::clog << "NAME: " << name << std::endl;
-                //     log();
-                //     std::clog << *token_iterator << std::endl;
-                //     std::clog << *--token_iterator << std::endl;
-                //     std::clog << *--token_iterator << std::endl;
-                //     // ----token_iterator; //? back track the consumption of the name..?
-                //     red.pop_front();
-                //     log();
-                //     auto expr = parseExpr();
-                //     if (match(ELLIPSIS)) {
-                //         expr = std::make_shared<expr::Expansion>(std::move(expr));
-                //         while(match(ELLIPSIS)) // allows back to back expansions (args... ...);
-                //         expr = std::make_shared<expr::Expansion>(std::move(expr));
-                //     }
-                //     args.emplace_back(std::move(expr));;
-                // }
             }
             while (match(COMMA));
 
@@ -1028,11 +997,8 @@ public:
     expr::ExprPtr prefixName(Token token) {
         if (ops.contains(token.text)) return parseOperator(std::move(token));
 
-        // if constexpr (not PARSE_TYPE) return std::make_shared<expr::Name>(std::move(token).text);
 
-
-        // if (check(TokenKind::COLON) and not check(TokenKind::COLON, 1)){ // making sure it's not a namespace access like "n::x"
-        if (match(TokenKind::COLON)){
+        if (match(TokenKind::COLON)){ // exprs preceeded by `:` are parsed as type
             // consume(/* COLON */);
             auto type = parseType();
             consume(TokenKind::ASSIGN);
@@ -1042,10 +1008,8 @@ public:
                 std::move(type),
                 parseExpr()
             );
-            // return std::make_shared<expr::Name>(token.text, std::move(type));
         }
 
-        // return std::make_shared<expr::Name>(token.text, type::builtins::_());
         return std::make_shared<expr::Name>(std::move(token).text);
     }
 
