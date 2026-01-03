@@ -51,8 +51,8 @@ struct Visitor {
     bool broken{}, continued{};
 
 
-    // // v_table ahh name
-    // std::unordered_map<std::string, std::vector<size_t>> co_map;
+    // v_table ahh name
+    std::unordered_map<std::string, std::vector<size_t>> co_map;
 
 
     Visitor(Operators ops = {}) noexcept : env(1), ops{std::move(ops)} { }
