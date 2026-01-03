@@ -14,7 +14,7 @@ jobs:
         include:
           - os: ubuntu-latest
             name: linux
-          - os: macos-13      # Intel
+          - os: macos-15      # Intel
             name: macos-intel
           - os: macos-latest  # Apple Silicon
             name: macos-arm
@@ -35,10 +35,10 @@ jobs:
       - name: Build
         run: |
           if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
-            make CXX=g++-14
+            make CC=g++-14
             mv Pie Pie-${{ matrix.name }}
           else
-            make CXX=clang++
+            make CC=clang++
             mv Pie Pie-${{ matrix.name }}
           fi
 
