@@ -1,4 +1,15 @@
 # Welcome to Pie Lang!
+
+<!-- 
+<div>
+    <img src="assets/images/PieLang_Logo.png">
+</div>
+ -->
+
+<!-- ![Pie Lang Logo](assets/images/PieLang_Logo.png) -->
+<!-- ![Pie Lang Logo](assets/images/PieLang_Logo_white_bg.png) -->
+![Pie Lang Logo](assets/images/PieLang_Logo_cool_bg.png)
+
 [![C++ CI](https://github.com/PiCake314/Pie/actions/workflows/cpp.yml/badge.svg)](https://github.com/PiCake314/Pie/actions/workflows/cpp.yml)
 
 ## Philosophy
