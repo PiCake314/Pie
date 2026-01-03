@@ -135,13 +135,21 @@ Note that they also work with user defined types.
 
 ## Lists
 ```pie
-name: {type} = {expr1, expr2, expr3};
+list: {type} = {expr1, expr2, expr3};
+
+__builtin_get(list, 1);
+__builtin_set(list, 2, expr4);
 ```
+
 
 
 ## Maps
 ```pie
-name: {type1: type2} = {key1: value1, key2: value2};
+map: {type1: type2} = {key1: value1, key2: value2};
+
+__builtin_get(map, key1);
+__builtin_set(map, key3, value3); .: inserts a new value
+__builtin_set(map, key2, value4); .: changes key2's value
 ```
 
 
