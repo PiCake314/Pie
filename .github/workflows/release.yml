@@ -1,26 +1,49 @@
 name: release
 
 on:
-  push:
-    tags: [ "v*" ]
+    push:
+        tags: [ "v*" ]
 
 permissions:
-  contents: write
-
+    contents: write
 
 jobs:
   release:
-    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            name: linux
+          - os: macos-13      # Intel
+            name: macos-intel
+          - os: macos-latest  # Apple Silicon
+            name: macos-arm
+
+    runs-on: ${{ matrix.os }}
+
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install GCC 14
+      - name: Install compiler (Linux)
+        if: matrix.os == 'ubuntu-latest'
         run: sudo apt update && sudo apt install -y g++-14
 
+      - name: Install compiler (macOS)
+        if: startsWith(matrix.os, 'macos')
+        run: brew install llvm
+
       - name: Build
-        run: make CC=g++-14
+        run: |
+          if [[ "${{ matrix.os }}" == "ubuntu-latest" ]]; then
+            make CXX=g++-14
+            mv Pie Pie-${{ matrix.name }}
+          else
+            make CXX=clang++
+            mv Pie Pie-${{ matrix.name }}
+          fi
 
       - name: Upload binary
         uses: softprops/action-gh-release@v2
         with:
-          files: Pie
+          files: Pie-${{ matrix.name }}
+
