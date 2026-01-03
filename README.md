@@ -15,7 +15,7 @@
 ## Philosophy
 <!-- This language aims to be unique, but it also should still feel familiar. Here are some of it's "features": -->
 - Pie aims to be unique yet feel familiar
-- Everything is an expression (null/unit/none type)
+- Everything is an expression (no null/unit/none type)
 - Bare-bones (if it doesn't need to be keyword, then it isn't + no operators)
 - Still quirky (different even if the difference is not good)
 <!-- can't have your ~~cake~~ Pie and eat it too! -->
@@ -787,3 +787,8 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - ~~Add looping~~
 - ~~Add method operators..?~~
 - ~~Cascade operator `..`~~
+
+
+
+## Quotes About Pie Lang:
+- "The whole language is a bug"
