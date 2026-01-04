@@ -149,7 +149,12 @@ Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto
         return func.func(v1, v2, that);
     }
 
-    else error("Wrong type passed to function!");
+    else {
+        std::string msg = "Wrong type passed to function: ";
+        for (const auto c : NAME)
+            msg += c;
+        error(msg);
+    }
 }
 
 template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>

@@ -719,10 +719,8 @@ struct Call : Expr {
 
 struct Closure : Expr {
     std::vector<std::string> params;
-
-    // type::TypePtr return_type;
-    type::FuncType type;
     ExprPtr body;
+    type::FuncType type;
 
     // I need to un-mutable those vars
     mutable Environment args_env{};
@@ -730,8 +728,8 @@ struct Closure : Expr {
 
     mutable std::optional<Object> self{};
 
-    Closure(std::vector<std::string> ps, type::FuncType t, ExprPtr b)
-    : params{std::move(ps)}, type{std::move(t)}, body{std::move(b)} {
+    Closure(std::vector<std::string> ps, ExprPtr b, type::FuncType t)
+    : params{std::move(ps)}, body{std::move(b)}, type{std::move(t)} {
         if(ps.size() != t.params.size()) error("ERROR!! This should never happen..,");
     }
 

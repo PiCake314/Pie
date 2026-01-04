@@ -246,7 +246,24 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+                Value ret;
+                if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                    ret = std::visit(*this, func->body->variant());
+
+                    if (std::holds_alternative<expr::Closure>(ret)) {
+                        captureEnvForClosure(get<expr::Closure>(ret));
+                    }
+                }
+                else ret = std::visit(*this, func->body->variant());
+
+                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                    const auto& f = get<expr::Closure>(ret);
+                    f.captureThis(*func->self);
+                }
+
+                checkReturnType(ret, func->type.ret);
+                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
         else { // fuck me
@@ -268,7 +285,24 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+                Value ret;
+                if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                    ret = std::visit(*this, func->body->variant());
+
+                    if (std::holds_alternative<expr::Closure>(ret)) {
+                        captureEnvForClosure(get<expr::Closure>(ret));
+                    }
+                }
+                else ret = std::visit(*this, func->body->variant());
+
+                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                    const auto& f = get<expr::Closure>(ret);
+                    f.captureThis(*func->self);
+                }
+
+                checkReturnType(ret, func->type.ret);
+                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
 
@@ -376,7 +410,24 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+                Value ret;
+                if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                    ret = std::visit(*this, func->body->variant());
+
+                    if (std::holds_alternative<expr::Closure>(ret)) {
+                        captureEnvForClosure(get<expr::Closure>(ret));
+                    }
+                }
+                else ret = std::visit(*this, func->body->variant());
+
+                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                    const auto& f = get<expr::Closure>(ret);
+                    f.captureThis(*func->self);
+                }
+
+                checkReturnType(ret, func->type.ret);
+                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
         else { // fuck me
@@ -400,7 +451,24 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+                Value ret;
+                if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                    ret = std::visit(*this, func->body->variant());
+
+                    if (std::holds_alternative<expr::Closure>(ret)) {
+                        captureEnvForClosure(get<expr::Closure>(ret));
+                    }
+                }
+                else ret = std::visit(*this, func->body->variant());
+
+                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                    const auto& f = get<expr::Closure>(ret);
+                    f.captureThis(*func->self);
+                }
+
+                checkReturnType(ret, func->type.ret);
+                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
 
@@ -502,7 +570,24 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+                Value ret;
+                if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                    ret = std::visit(*this, func->body->variant());
+
+                    if (std::holds_alternative<expr::Closure>(ret)) {
+                        captureEnvForClosure(get<expr::Closure>(ret));
+                    }
+                }
+                else ret = std::visit(*this, func->body->variant());
+
+                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                    const auto& f = get<expr::Closure>(ret);
+                    f.captureThis(*func->self);
+                }
+
+                checkReturnType(ret, func->type.ret);
+                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
         else { // fuck me
@@ -524,7 +609,24 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+                Value ret;
+                if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                    ret = std::visit(*this, func->body->variant());
+
+                    if (std::holds_alternative<expr::Closure>(ret)) {
+                        captureEnvForClosure(get<expr::Closure>(ret));
+                    }
+                }
+                else ret = std::visit(*this, func->body->variant());
+
+                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                    const auto& f = get<expr::Closure>(ret);
+                    f.captureThis(*func->self);
+                }
+
+                checkReturnType(ret, func->type.ret);
+                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
 
@@ -1333,7 +1435,7 @@ struct Visitor {
 
         if (set.size() > 1) {
             // remove the functions that take Any's to favour the concrete functions rather than "templates"
-            std::erase_if(set, [] (const expr::Closure *c) { return std::ranges::all_of(c->type.params, [](const auto& t) { return t->text() == "Any"; }); });
+            std::erase_if(set, [] (const expr::Closure *c) { return std::ranges::any_of(c->type.params, [](const auto& t) { return t->text() == "Any"; }); });
         }
 
 
@@ -1412,7 +1514,24 @@ struct Visitor {
 
         ScopeGuard sg{this, args_env};
 
-        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+        Value ret;
+        if (not dynamic_cast<expr::Block*>(func->body.get())) {
+            ret = std::visit(*this, func->body->variant());
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                captureEnvForClosure(get<expr::Closure>(ret));
+            }
+        }
+        else ret = std::visit(*this, func->body->variant());
+
+        if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+            const auto& f = get<expr::Closure>(ret);
+            f.captureThis(*func->self);
+        }
+
+        checkReturnType(ret, func->type.ret);
+        return ret;
+        // return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
     Value operator()(const expr::BinOp *bp) {
@@ -1488,7 +1607,25 @@ struct Visitor {
 
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+        Value ret;
+        if (not dynamic_cast<expr::Block*>(func->body.get())) {
+            ret = std::visit(*this, func->body->variant());
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                captureEnvForClosure(get<expr::Closure>(ret));
+            }
+        }
+        else ret = std::visit(*this, func->body->variant());
+
+        if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+            const auto& f = get<expr::Closure>(ret);
+            f.captureThis(*func->self);
+        }
+
+        checkReturnType(ret, func->type.ret);
+        return ret;
+        // return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
 
@@ -1538,7 +1675,25 @@ struct Visitor {
         }
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+        Value ret;
+        if (not dynamic_cast<expr::Block*>(func->body.get())) {
+            ret = std::visit(*this, func->body->variant());
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                captureEnvForClosure(get<expr::Closure>(ret));
+            }
+        }
+        else ret = std::visit(*this, func->body->variant());
+
+        if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+            const auto& f = get<expr::Closure>(ret);
+            f.captureThis(*func->self);
+        }
+
+        checkReturnType(ret, func->type.ret);
+        return ret;
+        // return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
 
@@ -1589,7 +1744,25 @@ struct Visitor {
 
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+        Value ret;
+        if (not dynamic_cast<expr::Block*>(func->body.get())) {
+            ret = std::visit(*this, func->body->variant());
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                captureEnvForClosure(get<expr::Closure>(ret));
+            }
+        }
+        else ret = std::visit(*this, func->body->variant());
+
+        if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+            const auto& f = get<expr::Closure>(ret);
+            f.captureThis(*func->self);
+        }
+
+        checkReturnType(ret, func->type.ret);
+        return ret;
+        // return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     };
 
     Value operator()(const expr::OpCall *oc) {
@@ -1650,9 +1823,37 @@ struct Visitor {
 
 
         ScopeGuard sg{this, args_env};
-        return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+
+        Value ret;
+        if (not dynamic_cast<expr::Block*>(func->body.get())) {
+            ret = std::visit(*this, func->body->variant());
+
+            if (std::holds_alternative<expr::Closure>(ret)) {
+                captureEnvForClosure(get<expr::Closure>(ret));
+            }
+        }
+        else ret = std::visit(*this, func->body->variant());
+
+        if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+            const auto& f = get<expr::Closure>(ret);
+            f.captureThis(*func->self);
+        }
+
+        checkReturnType(ret, func->type.ret);
+        return ret;
+        // return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
+    std::optional<value::Value> objectIsCallable(const value::Object& obj) {
+        for (const auto& [name, type, value] : obj.second->members) {
+            if (name.name == "call" and type::isFunction(typeOf(value))) {
+                get<expr::Closure>(value).captureThis(obj);
+                return value;
+            }
+        }
+
+        return {};
+    };
 
     Value operator()(const expr::Call *call) {
         if (const auto& var = getVar(call->stringify()); var) return var->first;
@@ -1688,7 +1889,16 @@ struct Visitor {
         }
 
         // else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
-        else if (std::holds_alternative<type::TypePtr>(var)) return constructorCall(call, std::move(var));
+        if (std::holds_alternative<type::TypePtr>(var)) return constructorCall(call, std::move(var));
+
+
+
+        if (std::holds_alternative<value::Object>(var)) {
+            const auto& obj = get<value::Object>(var);
+            if (const auto callable = objectIsCallable(obj); callable) {
+                return closureCall(call, *callable, std::move(args), std::move(expand_at));
+            }
+        }
 
 
         if (args.empty()) return var; // get
@@ -1735,7 +1945,6 @@ struct Visitor {
         - expand_at.size(); // minus redundant packs (already expanded)
 
         if (not is_variadic and args_size + call->named_args.size() > func.params.size()) error("Too many arguments passed to function: " + call->stringify());
-
 
         // curry! 
         if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
@@ -2016,17 +2225,6 @@ struct Visitor {
     }
 
     void captureEnvForClosure(const expr::Closure& c) {
-        // size_t from{};
-
-        // for (size_t i{}; i < env.size(); ++i)
-        //     if (env[i].second == EnvTag::FUNC) from = i;
-
-
-        // for (; from != env.size(); ++from) {
-        //     c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[from].first);
-        // }
-
-
         for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
             // puts("printEnv()");
             // printEnv(env[i].first);
@@ -2101,7 +2299,7 @@ struct Visitor {
         }
 
         type::FuncType func_type{std::move(new_types), func.type.ret};
-        expr::Closure closure{std::move(new_params), std::move(func_type), func.body};
+        expr::Closure closure{std::move(new_params), func.body, std::move(func_type)};
 
 
         bool normal = true;
@@ -2373,7 +2571,7 @@ struct Visitor {
             "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
 
             //* binary
-            "get",
+            "get", "push", "pop",
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
 
             //* trinary
@@ -2542,6 +2740,18 @@ struct Visitor {
                 >
             >{},
 
+            MapEntry<
+                S<"pop">,
+                Func<"pop",
+                    decltype([](const auto& cont, const auto&) -> Value {
+                        const auto back = cont.elts->values.back();
+                        cont.elts->values.pop_back();
+                        return back;
+                    }),
+                    TypeList<ListValue>
+                >
+            >{},
+
 
             //* BINARY FUNCTIONS
             MapEntry<
@@ -2601,6 +2811,16 @@ struct Visitor {
                 >
             >{},
 
+            MapEntry<
+                S<"push">,
+                Func<"push",
+                    decltype([](const auto& cont, const auto& elt, const auto&) -> Value {
+                        cont.elts->values.push_back(elt);
+                        return elt;
+                    }),
+                    TypeList<ListValue, Any>
+                >
+            >{},
 
             MapEntry<
                 S<"add">,
@@ -2818,6 +3038,7 @@ struct Visitor {
         if (name == "neg"      ) return execute<1>(stdx::get<S<"neg"       >>(functions).value, {value1}, this);
         if (name == "not"      ) return execute<1>(stdx::get<S<"not"       >>(functions).value, {value1}, this);
         if (name == "len"      ) return execute<1>(stdx::get<S<"len"       >>(functions).value, {value1}, this);
+        if (name == "pop"      ) return execute<1>(stdx::get<S<"pop"       >>(functions).value, {value1}, this);
         if (name == "to_int"   ) return execute<1>(stdx::get<S<"to_int"    >>(functions).value, {value1}, this);
         if (name == "to_double") return execute<1>(stdx::get<S<"to_double" >>(functions).value, {value1}, this);
         if (name == "to_string") return execute<1>(stdx::get<S<"to_string" >>(functions).value, {value1}, this);
@@ -2826,13 +3047,14 @@ struct Visitor {
         // all the rest of those funcs expect 2 arguments
         using std::operator""sv;
 
-        const auto eager = {"get"sv, "add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
+        const auto eager = {"get"sv, "push"sv, "add"sv, "sub"sv, "mul"sv, "div"sv, "mod"sv, "pow"sv, "gt"sv, "geq"sv, "eq"sv, "leq"sv, "lt"sv};
         if (std::ranges::find(eager, name) != eager.end()) {
             arity_check(2);
             const auto& value2 = std::visit(*this, args[1]->variant());
 
             // this is disgusting..I know
-            if (name == "get") return execute<2>(stdx::get<S<"get">>(functions).value, {value1, value2}, this);
+            if (name == "get" ) return execute<2>(stdx::get<S<"get" >>(functions).value, {value1, value2}, this);
+            if (name == "push") return execute<2>(stdx::get<S<"push">>(functions).value, {value1, value2}, this);
 
             if (name == "add") return execute<2>(stdx::get<S<"add">>(functions).value, {value1, value2}, this);
             if (name == "sub") return execute<2>(stdx::get<S<"sub">>(functions).value, {value1, value2}, this);

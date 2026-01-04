@@ -269,7 +269,7 @@ public:
                     consume(FAT_ARROW);
                     // It's a closure
                     auto body = parseExpr<PARSE_TYPE>();
-                    return std::make_shared<expr::Closure>(std::vector<std::string>{}, type::FuncType{{}, std::move(return_type)}, std::move(body));
+                    return std::make_shared<expr::Closure>(std::vector<std::string>{}, std::move(body), type::FuncType{{}, std::move(return_type)});
                 }
 
                 const bool fold_expr = [this] {
@@ -366,6 +366,7 @@ public:
 
             };
 
+
             case ASSIGN:
                 if constexpr (CTX == Context::MATCH) return left;
 
@@ -452,109 +453,6 @@ public:
         // log();
         error("Invalid type!");
     }
-
-    Token consume() {
-        lookAhead();
-
-        const auto token = red.front();
-        red.pop_front();
-        return token;
-    }
-
-    Token consume(const TokenKind exp, const std::source_location& loc = std::source_location::current()) {
-        using std::operator""s;
-
-		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
-            log();
-            expected(exp, token, loc);
-        }
-
-		return consume();
-	}
-
-    Token consume(const std::string& exp, const std::source_location& loc = std::source_location::current()) {
-        using std::operator""s;
-
-		if (const Token token = lookAhead(); token.text != exp) [[unlikely]] {
-            // log();
-            expected(exp, token, loc);
-        }
-
-		return consume();
-	}
-
-    [[nodiscard]] bool match(const TokenKind exp) {
-		const Token token = lookAhead();
-
-		if (token.kind != exp) return false;
-
-		consume();
-		return true;
-	}
-
-    [[nodiscard]] bool match(const std::string_view text) {
-		const Token token = lookAhead();
-
-		if (token.text != text) return false;
-
-		consume();
-		return true;
-    }
-
-    Token lookAhead(const size_t distance = 0) {
-        while (distance >= red.size()) {
-            if (atEnd()) error("out of token!");
-            red.push_back(*token_iterator++);
-        }
-
-        // Get the queued token.
-        return red[distance];
-    }
-
-    [[nodiscard]] bool check(const TokenKind exp, const size_t i = {})        { return lookAhead(i).kind == exp; }
-    [[nodiscard]] bool check(const std::string_view exp, const size_t i = {}) { return lookAhead(i).text == exp; }
-
-    [[nodiscard]] int getPrecedence() {
-
-        const Token& token = lookAhead();
-        switch (token.kind) {
-            using enum TokenKind;
-
-            // right associative
-            case ASSIGN: return prec::ASSIGNMENT_VALUE;
-
-            // case COLON : return prec::SCOPE_RESOLUTION_VALUE;
-            case SCOPE_RESOLVE : return prec::SCOPE_RESOLUTION_VALUE;
-
-            case DOT   : return prec::MEMBER_ACCESS_VALUE;
-
-            case NAME: {
-                // Probably in the middle of a mixfix() that takes 2 colons ': :' or more (2 expression arguments back to back)
-                // ex: mixfix(LOW +) if : : else : = (cond, thn, els) => ...;
-                if (not ops.contains(token.text)) {
-                    // log();
-                    // error("Operator '" + token.text + "' not found!");
-                    return 0;
-                }
-
-                const auto& op = ops[token.text];
-                const int prec = prec::calculate(op->high, op->low, ops);
-
-                //todo: prefix sould also be right to left
-                // mix fix operators should be parsed right to left.......I think ;-;
-                if (token.text == op->name and op->type() == TokenKind::MIXFIX)
-                    return prec + 1;
-
-                return prec;
-            }
-
-            case L_PAREN: return prec::CALL_VALUE;
-
-
-            default: return 0;
-        }
-    }
-
 
     std::unique_ptr<expr::Match::Case::Pattern> parsePattern() {
         using enum TokenKind;
@@ -885,8 +783,6 @@ public:
     expr::ExprPtr closure() {
         using enum TokenKind;
 
-        // std::vector<std::pair<expr::ExprPtr, type::TypePtr>> exprs;
-
         std::vector<std::string> params;
         std::vector<type::TypePtr> params_types;
 
@@ -905,32 +801,6 @@ public:
         }
 
 
-
-        // constexpr auto fix_type = [] (const auto& e) -> type::TypePtr {
-        //     if (auto name = dynamic_cast<expr::Name*>(e.get()); name and not type::shouldReassign(name->type))
-        //         return name->type;
-
-        //     return type::builtins::Any();
-        // };
-
-
-        // std::ranges::transform(exprs, std::back_inserter(params), [] (const auto& e) { return e.first->stringify(); });
-
-        // std::ranges::transform(exprs, std::back_inserter(params_types), fix_type);
-
-        // do {
-        //     Token name = consume(NAME);
-
-        //     type::TypePtr type = match(COLON) ? parseType() : type::builtins::Any();
-
-        //     params.push_back(std::move(name).text);
-        //     params_types.push_back(std::move(type));
-        // }
-        // while(match(COMMA));
-
-        // consume(R_PAREN);
-
-
         for (bool found{}; auto&& type : params_types) {
             if (type::isVariadic(type)) {
                 if  (found) error("Variadic parameters can only appear once in parameter list!");
@@ -945,7 +815,7 @@ public:
 
         auto body = parseExpr();
         return std::make_shared<expr::Closure>(
-            std::move(params), type::FuncType{std::move(params_types), std::move(return_type)}, std::move(body)
+            std::move(params), std::move(body), type::FuncType{std::move(params_types), std::move(return_type)}
         );
     }
 
@@ -1400,6 +1270,111 @@ public:
 
         return 0; // no shift
     }
+
+
+
+    Token consume() {
+        lookAhead();
+
+        const auto token = red.front();
+        red.pop_front();
+        return token;
+    }
+
+    Token consume(const TokenKind exp, const std::source_location& loc = std::source_location::current()) {
+        using std::operator""s;
+
+		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
+            log();
+            expected(exp, token, loc);
+        }
+
+		return consume();
+	}
+
+    Token consume(const std::string& exp, const std::source_location& loc = std::source_location::current()) {
+        using std::operator""s;
+
+		if (const Token token = lookAhead(); token.text != exp) [[unlikely]] {
+            // log();
+            expected(exp, token, loc);
+        }
+
+		return consume();
+	}
+
+    [[nodiscard]] bool match(const TokenKind exp) {
+		const Token token = lookAhead();
+
+		if (token.kind != exp) return false;
+
+		consume();
+		return true;
+	}
+
+    [[nodiscard]] bool match(const std::string_view text) {
+		const Token token = lookAhead();
+
+		if (token.text != text) return false;
+
+		consume();
+		return true;
+    }
+
+    Token lookAhead(const size_t distance = 0) {
+        while (distance >= red.size()) {
+            if (atEnd()) error("out of token!");
+            red.push_back(*token_iterator++);
+        }
+
+        // Get the queued token.
+        return red[distance];
+    }
+
+    [[nodiscard]] bool check(const TokenKind exp, const size_t i = {})        { return lookAhead(i).kind == exp; }
+    [[nodiscard]] bool check(const std::string_view exp, const size_t i = {}) { return lookAhead(i).text == exp; }
+
+    [[nodiscard]] int getPrecedence() {
+
+        const Token& token = lookAhead();
+        switch (token.kind) {
+            using enum TokenKind;
+
+            // right associative
+            case ASSIGN: return prec::ASSIGNMENT_VALUE;
+
+            // case COLON : return prec::SCOPE_RESOLUTION_VALUE;
+            case SCOPE_RESOLVE : return prec::SCOPE_RESOLUTION_VALUE;
+
+            case DOT   : return prec::MEMBER_ACCESS_VALUE;
+
+            case NAME: {
+                // Probably in the middle of a mixfix() that takes 2 colons ': :' or more (2 expression arguments back to back)
+                // ex: mixfix(LOW +) if : : else : = (cond, thn, els) => ...;
+                if (not ops.contains(token.text)) {
+                    // log();
+                    // error("Operator '" + token.text + "' not found!");
+                    return 0;
+                }
+
+                const auto& op = ops[token.text];
+                const int prec = prec::calculate(op->high, op->low, ops);
+
+                //todo: prefix sould also be right to left
+                // mix fix operators should be parsed right to left.......I think ;-;
+                if (token.text == op->name and op->type() == TokenKind::MIXFIX)
+                    return prec + 1;
+
+                return prec;
+            }
+
+            case L_PAREN: return prec::CALL_VALUE;
+
+
+            default: return 0;
+        }
+    }
+
 
     /**
      * @attention only call right before calling error/expected
