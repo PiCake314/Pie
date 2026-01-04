@@ -2373,7 +2373,7 @@ struct Visitor {
             "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
 
             //* binary
-            "split", "get",
+            "get",
             "add", "sub", "mul", "div", "mod", "pow", "gt", "geq", "eq", "leq", "lt", "and", "or",  
 
             //* trinary
@@ -2526,15 +2526,19 @@ struct Visitor {
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
                              return static_cast<ssize_t>(x.length());
 
-                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, PackList>)
+                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::PackList>)
                             return static_cast<ssize_t>(x->values.size());
 
-                        else
+                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::ListValue>)
                             return static_cast<ssize_t>(x.elts->values.size());
+                        else { // map value
+                            return static_cast<ssize_t>(x.items->map.size());
+                        }
                     }),
-                    TypeList<PackList>,
-                    TypeList<ListValue>,
-                    TypeList<std::string>
+                    TypeList<std::string>,
+                    TypeList<value::PackList>,
+                    TypeList<value::ListValue>,
+                    TypeList<value::MapValue>
                 >
             >{},
 
