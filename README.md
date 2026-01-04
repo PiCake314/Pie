@@ -124,10 +124,10 @@ h.prettyPrint();
 ## Unions
 Unions in Pie are what other languages call "Sum Types":
 
-depricated:
-~~U: Type = Union { Int | Double | String };~~
+deprecated:
+~~U: Type = union { Int | Double | String };~~
 ```pie
-U: Type = Union { Int; Double; String; };
+U: Type = union { Int; Double; String; };
 
 x: U = 1;
 y: U = 3.14;
@@ -516,9 +516,7 @@ Pie reserves the names starting with `__builtin_`.
 
 - `__builtin_neg`
 - `__builtin_not`
-- `__builtin_mod`
 - `__builtin_len` (accepts strings, packs, lists, and maps)
-- `__builtin_get`
 - `__builtin_to_string`
 - `__builtin_to_int`
 - `__builtin_to_double`
@@ -531,6 +529,7 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_sub`
 - `__builtin_mul`
 - `__builtin_div`
+- `__builtin_mod`
 - `__builtin_pow`
 - `__builtin_gt`
 - `__builtin_geq`
@@ -539,10 +538,12 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_lt`
 - `__builtin_and`
 - `__builtin_or`
+- `__builtin_get`
 
 ### Trinary Functions
 
 - `__builtin_conditional(cond, then, else)`
+- `__builtin_set(container, index, item)`
 
 ### Quaternary Functions
 
@@ -681,6 +682,8 @@ this isn't
 - `{ }`
 - `,`
 - `.`
+<!-- - `..` -->
+- `...`
 - `=`
 - `=>`
 - `:`
@@ -702,7 +705,7 @@ Check the [release section](https://github.com/PiCake314/Pie/releases) for the d
 #### Build from source
 Make sure you have `git`, `make`, and a C++ compiler that supports C++23. Then run the following in the terminal:
 
-```pie
+```
 git clone https://github.com/PiCake314/Pie
 cd Pie
 make
@@ -726,7 +729,7 @@ make
 - [ ] Move from Make to Bake
 - [ ] Improve error messages (add line and column numbers)
 - [ ] Add recursive operators
-- [ ] Remove depedency on stdx and boost
+- [ ] Remove dependency on stdx and boost
 - [ ] Compile to WASM & a web interface
 - [ ] Add LLVM backend
 
