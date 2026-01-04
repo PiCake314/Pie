@@ -247,23 +247,24 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                Value ret;
-                if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                    ret = std::visit(*this, func->body->variant());
+                // Value ret;
+                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                //     ret = std::visit(*this, func->body->variant());
 
-                    if (std::holds_alternative<expr::Closure>(ret)) {
-                        captureEnvForClosure(get<expr::Closure>(ret));
-                    }
-                }
-                else ret = std::visit(*this, func->body->variant());
+                //     if (std::holds_alternative<expr::Closure>(ret)) {
+                //         captureEnvForClosure(get<expr::Closure>(ret));
+                //     }
+                // }
+                // else ret = std::visit(*this, func->body->variant());
 
-                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& f = get<expr::Closure>(ret);
-                    f.captureThis(*func->self);
-                }
+                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                //     const auto& f = get<expr::Closure>(ret);
+                //     f.captureThis(*func->self);
+                // }
 
-                checkReturnType(ret, func->type.ret);
-                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+                // checkReturnType(ret, func->type.ret);
+
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
         else { // fuck me
@@ -286,23 +287,24 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                Value ret;
-                if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                    ret = std::visit(*this, func->body->variant());
+                // Value ret;
+                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                //     ret = std::visit(*this, func->body->variant());
 
-                    if (std::holds_alternative<expr::Closure>(ret)) {
-                        captureEnvForClosure(get<expr::Closure>(ret));
-                    }
-                }
-                else ret = std::visit(*this, func->body->variant());
+                //     if (std::holds_alternative<expr::Closure>(ret)) {
+                //         captureEnvForClosure(get<expr::Closure>(ret));
+                //     }
+                // }
+                // else ret = std::visit(*this, func->body->variant());
 
-                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& f = get<expr::Closure>(ret);
-                    f.captureThis(*func->self);
-                }
+                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                //     const auto& f = get<expr::Closure>(ret);
+                //     f.captureThis(*func->self);
+                // }
 
-                checkReturnType(ret, func->type.ret);
-                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+                // checkReturnType(ret, func->type.ret);
+
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
 
@@ -411,23 +413,24 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                Value ret;
-                if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                    ret = std::visit(*this, func->body->variant());
+                // Value ret;
+                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                //     ret = std::visit(*this, func->body->variant());
 
-                    if (std::holds_alternative<expr::Closure>(ret)) {
-                        captureEnvForClosure(get<expr::Closure>(ret));
-                    }
-                }
-                else ret = std::visit(*this, func->body->variant());
+                //     if (std::holds_alternative<expr::Closure>(ret)) {
+                //         captureEnvForClosure(get<expr::Closure>(ret));
+                //     }
+                // }
+                // else ret = std::visit(*this, func->body->variant());
 
-                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& f = get<expr::Closure>(ret);
-                    f.captureThis(*func->self);
-                }
+                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                //     const auto& f = get<expr::Closure>(ret);
+                //     f.captureThis(*func->self);
+                // }
 
-                checkReturnType(ret, func->type.ret);
-                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+                // checkReturnType(ret, func->type.ret);
+
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
         else { // fuck me
@@ -452,23 +455,24 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                Value ret;
-                if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                    ret = std::visit(*this, func->body->variant());
+                // Value ret;
+                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                //     ret = std::visit(*this, func->body->variant());
 
-                    if (std::holds_alternative<expr::Closure>(ret)) {
-                        captureEnvForClosure(get<expr::Closure>(ret));
-                    }
-                }
-                else ret = std::visit(*this, func->body->variant());
+                //     if (std::holds_alternative<expr::Closure>(ret)) {
+                //         captureEnvForClosure(get<expr::Closure>(ret));
+                //     }
+                // }
+                // else ret = std::visit(*this, func->body->variant());
 
-                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& f = get<expr::Closure>(ret);
-                    f.captureThis(*func->self);
-                }
+                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                //     const auto& f = get<expr::Closure>(ret);
+                //     f.captureThis(*func->self);
+                // }
 
-                checkReturnType(ret, func->type.ret);
-                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+                // checkReturnType(ret, func->type.ret);
+
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
 
@@ -571,23 +575,24 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                Value ret;
-                if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                    ret = std::visit(*this, func->body->variant());
+                // Value ret;
+                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                //     ret = std::visit(*this, func->body->variant());
 
-                    if (std::holds_alternative<expr::Closure>(ret)) {
-                        captureEnvForClosure(get<expr::Closure>(ret));
-                    }
-                }
-                else ret = std::visit(*this, func->body->variant());
+                //     if (std::holds_alternative<expr::Closure>(ret)) {
+                //         captureEnvForClosure(get<expr::Closure>(ret));
+                //     }
+                // }
+                // else ret = std::visit(*this, func->body->variant());
 
-                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& f = get<expr::Closure>(ret);
-                    f.captureThis(*func->self);
-                }
+                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                //     const auto& f = get<expr::Closure>(ret);
+                //     f.captureThis(*func->self);
+                // }
 
-                checkReturnType(ret, func->type.ret);
-                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+                // checkReturnType(ret, func->type.ret);
+
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
         else { // fuck me
@@ -610,23 +615,23 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                Value ret;
-                if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                    ret = std::visit(*this, func->body->variant());
+                // Value ret;
+                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+                //     ret = std::visit(*this, func->body->variant());
 
-                    if (std::holds_alternative<expr::Closure>(ret)) {
-                        captureEnvForClosure(get<expr::Closure>(ret));
-                    }
-                }
-                else ret = std::visit(*this, func->body->variant());
+                //     if (std::holds_alternative<expr::Closure>(ret)) {
+                //         captureEnvForClosure(get<expr::Closure>(ret));
+                //     }
+                // }
+                // else ret = std::visit(*this, func->body->variant());
 
-                if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                    const auto& f = get<expr::Closure>(ret);
-                    f.captureThis(*func->self);
-                }
+                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+                //     const auto& f = get<expr::Closure>(ret);
+                //     f.captureThis(*func->self);
+                // }
 
-                checkReturnType(ret, func->type.ret);
-                // ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
+                // checkReturnType(ret, func->type.ret);
+                ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
 
