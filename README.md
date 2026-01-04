@@ -1,13 +1,5 @@
 # Welcome to Pie Lang!
 
-<!-- 
-<div>
-    <img src="assets/images/PieLang_Logo.png">
-</div>
- -->
-
-<!-- ![Pie Lang Logo](assets/images/PieLang_Logo.png) -->
-<!-- ![Pie Lang Logo](assets/images/PieLang_Logo_white_bg.png) -->
 ![Pie Lang Logo](assets/images/PieLang_Logo_cool_bg.png)
 
 [![C++ CI](https://github.com/PiCake314/Pie/actions/workflows/cpp.yml/badge.svg)](https://github.com/PiCake314/Pie/actions/workflows/cpp.yml)
@@ -18,16 +10,14 @@
 - Everything is an expression (no null/unit/none type)
 - Bare-bones (if it doesn't need to be keyword, then it isn't + no operators)
 - Still quirky (different even if the difference is not good)
-<!-- can't have your ~~cake~~ Pie and eat it too! -->
 
-## Introduction
 
+### Index:
 - [Variables](#variables)
 - [Closures](#closures)
 - [Classes](#classes)
 - [Unions](#unions)
-- [Lists](#lists)
-- [Maps](#maps)
+- [Collections](#collections)
 - [Loops](#loops)
 - [Match Expressions](#match-expressions)
 - [Namespaces](#namespaces)
@@ -41,7 +31,9 @@
 - [Reserved Punctuaion](#reserved-punctuaion)
 - [Comments](#comments)
 - [Install](#install)
-- [Update](#update)
+- [Community](#community)
+- [What was said about Pie](#quotes-about-pie-lang)
+
 
 ## Variables
 
@@ -144,23 +136,25 @@ z: U = "Hello";
 Note that they also work with user defined types.
 
 
-## Lists
+## Collections
+There are 2 collections in Pie
+
+#### Lists
 ```pie
 list: {type} = {expr1, expr2, expr3};
 
 __builtin_get(list, 1);
 __builtin_set(list, 2, expr4);
+__builtin_set(list, 5, expr5); .: Error! Out of bound access
 ```
 
-
-
-## Maps
+#### Maps
 ```pie
 map: {type1: type2} = {key1: value1, key2: value2};
 
 __builtin_get(map, key1);
-__builtin_set(map, key3, value3); .: inserts a new value
 __builtin_set(map, key2, value4); .: changes key2's value
+__builtin_set(map, key3, value3); .: inserts a new value
 ```
 
 
@@ -439,7 +433,7 @@ infix(+) + = (a: String, b: String): String => __builtin_concat(a, b);
 The `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
 
 ## Packs
-Pakcs in Pie are analogous to C++'s packs. One can only declare packs as a function parameter:
+Pakcs in Pie are analogous to C++'s packs. One can only declare a pack as a function parameter:
 ```pie
 func = (pack: ...Any) => __builtin_print(pack);
 func(1, "Hello", 3.14);
@@ -470,7 +464,7 @@ The above expressions evaluates like this:
 This can be useful if you wanted to create a CSV entry from a bunch of strings for example.
 
 ##### Separated unary right fold
-`(pack + ... + sep)`
+`(sep + ... + pack)`
 
 
 ##### Separated binary left fold
@@ -513,8 +507,8 @@ Pie reserves the names starting with `__builtin_`.
 
 ### Nullary Functions
 
-- `__builtin_true`
-- `__builtin_false`
+- `__builtin_true ` (legacy)
+- `__builtin_false` (legacy)
 - `__builtin_input_int`
 - `__builtin_input_str`
 
@@ -523,14 +517,13 @@ Pie reserves the names starting with `__builtin_`.
 - `__builtin_neg`
 - `__builtin_not`
 - `__builtin_mod`
-- `__builtin_reset`
-- `__builtin_eval`
-- `__builtin_len` (for strings and packs)
-- `__builtin_str_get`
-- `__builtin_split`
+- `__builtin_len` (accepts strings, packs, lists, and maps)
+- `__builtin_get`
 - `__builtin_to_string`
 - `__builtin_to_int`
 - `__builtin_to_double`
+- `__builtin_reset`
+- `__builtin_eval`
 
 ### Binary Functions
 
@@ -549,11 +542,11 @@ Pie reserves the names starting with `__builtin_`.
 
 ### Trinary Functions
 
-- `__builtin_conditional`
+- `__builtin_conditional(cond, then, else)`
 
 ### Quaternary Functions
 
-- `__builtin_str_slice`
+- `__builtin_str_slice(str, start, steps, end)`
 
 ### Variadic Functions
 
@@ -587,6 +580,9 @@ one: (Int): Int = (x: Int): Int => 1;
 
 If something is left un-typed, it will be given the `Any` type.
 
+##### Pack Types
+- `...Type`
+Read more about packs in the [packs sections](#packs)
 
 #### Types as Values
 Types are values in Pie. A simple use case to demonstrate this is `Type Aliases`:
@@ -692,44 +688,40 @@ this isn't
 
 ## Install
 
-Make sure you have `git`, and C++ compiler that supports C++23. Then paste the following script in the terminal:
+There are 2 ways to install Pie
+
+##### Pre-built binaries
+Binaries exist for:
+1- Linux
+2- Macos x86
+2- Macos Apple Silicon
+
+Check the [release section](https://github.com/PiCake314/Pie/releases) for the download link
+
+
+#### Build from source
+Make sure you have `git`, `make`, and a C++ compiler that supports C++23. Then run the following in the terminal:
 
 ```pie
-mkdir PieLang
-cd PieLang
-
-git clone https://github.com/intel/cpp-std-extensions includes/cpp-std-extensions
-git clone https://github.com/boostorg/mp11 includes/mp11
 git clone https://github.com/PiCake314/Pie
-
-g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
-```
-
-## Update
-
-To update the language, paste this into the terminal:
-
-```pie
 cd Pie
-git pull
-cd ..
-
-g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -O2 Pie/main.cc -o pielang
+make
 ```
+
 
 ### Todo
 
 #### in order of priority
 
-- [ ] Eager Parameter Evaluation
+
 - [ ] Lexically Scoped Operators
 - [ ] Remove preprocessor
+- [ ] File IO
+- [ ] Use Big Int instead of `int64_t`
 - [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
-- [ ] File IO
 - [ ] Fix builin reset (value-reset, reset/name-reset) 
-- [ ] Use Big Int instead of `int64_t`
 - [ ] World domination
 - [ ] Move from Make to Bake
 - [ ] Improve error messages (add line and column numbers)
@@ -741,6 +733,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 ---
 
 ### Done
+- [ ] Eager Parameter Evaluation (mostly done, needs more work)
 - [x] add `lex` and `value` namespaces to codebase
 - [x] Add REPL
 - [x] Changed error system to exceptions (will allow REPL)
@@ -757,7 +750,7 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - [x] Added global namespace access syntax
 - [x] Add namespaces
 - [x] Add match expression (like scala)
-- [x] Add add overloaded operators at runtime (instead of parse-time)
+- [x] Add overloaded operators at runtime (instead of parse-time)
 - [x] Fixed infix operators parsing right to left!
 - [x] Implemnted `__builtin_eq` for all values!
 - [x] Add named parameters to some builtin functions
@@ -789,6 +782,10 @@ g++ -std=c++23 -Iincludes/mp11/include/ -Iincludes/cpp-std-extensions/include/ -
 - ~~Cascade operator `..`~~
 
 
+## Community
+[Join our  discord server](https://discord.gg/XRpKTptU)
+
 
 ## Quotes About Pie Lang:
 - "The whole language is a bug"
+- "can't have your ~~cake~~ Pie and eat it too!"
