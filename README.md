@@ -469,7 +469,8 @@ This can be useful if you wanted to create a CSV entry from a bunch of strings f
 ##### Separated unary right fold
 `(sep + ... + pack)`
 The above expression evaluates right-to-left:
-`(arg1 + (sep + (arg2 + (sep + arg3))))`
+`(arg1 + (sep + (arg2 + (arg3 + sep))))`
+<!-- `(arg1 + (sep + (arg2 + (sep + arg3))))` -->
 
 
 ##### Separated binary left fold
