@@ -28,7 +28,7 @@
 - [Built-in Functions](#builtins)
 - [Types](#types)
 - [Keywords List](#keywords-list)
-- [Reserved Punctuaion](#reserved-punctuaion)
+- [Reserved Punctuation](#reserved-punctuation)
 - [Comments](#comments)
 - [Install](#install)
 - [Community](#community)
@@ -78,7 +78,7 @@ func(two=1, 1);
 
 ### Variadic Functions
 
-A function can have at most **one** variadic parameter. The variadic paramater can be anywhere in the parameter list.
+A function can have at most **one** variadic parameter. The variadic parameter can be anywhere in the parameter list.
 
 The variadic argument has to be annotated with a type with leading ellipsis `...<type>`:
 
@@ -124,8 +124,8 @@ h.prettyPrint();
 ## Unions
 Unions in Pie are what other languages call "Sum Types":
 
-deprecated:
-~~U: Type = union { Int | Double | String };~~
+<!-- deprecated:
+~~U: Type = union { Int | Double | String };~~ -->
 ```pie
 U: Type = union { Int; Double; String; };
 
@@ -133,7 +133,10 @@ x: U = 1;
 y: U = 3.14;
 z: U = "Hello";
 ```
-Note that they also work with user defined types.
+
+**Note:** The old syntax `Union { Int | Double | String }` is deprecated. Use the `union` keyword with semicolons as shown above.
+
+Unions also work with user-defined types.
 
 
 ## Collections
@@ -167,7 +170,7 @@ loop 10 => {
     __builtin_print("Hi");
 };
 ```
-This programs prints "Hi" 10 times.\
+This program prints "Hi" 10 times.\
 We can also introduce a loop variable:
 ```pie
 loop 10 => i {
@@ -178,7 +181,7 @@ Note that the braces can be omitted (with or without the loop variable).
 
 
 **Kinds of Loops:**
-There are 4 kinds of loops in Pie. They all utilize the `loop` keyword. The kind of the loops depends on the type of the loop operand
+There are 4 kinds of loops in Pie. They all utilize the `loop` keyword. The kind of the loop depends on the type of the loop operand
 
 #### For Loop
 When the type of the operand is an `Int`
@@ -289,7 +292,7 @@ my_space = space {
 };
 ```
 
-Namespaces could seem like just a syntactic for `class`'s, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may only have assignments.
+Namespaces could seem like just syntactic sugar for `class`es, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may only have assignments.
 
 To access a member of a `namespace`, use the "scope resolution operator", or `::`:
 
@@ -319,7 +322,7 @@ __builtin_print(ns::x); .: prints 10
 ```
 This allows you to split code that belongs to a single namespace in multiple different files and have all the declarations be in the same namespace.
 
-**Keep in mind**, if you assign a namespace to another value, it loses it's content:
+**Keep in mind**, if you assign a namespace to another value, it loses its content:
 
 ```pie
 x = space { a = 1; };
@@ -403,8 +406,7 @@ One can nudge the precedence level by attaching a `+` or a `-` after a precedenc
 infix(*)   star = (a, b) => 1;
 infix(* -) plus = (a, b) => 2;
 ```
-
-User defined operator `` has a lower
+Here, the `plus` operator has lower precedence than `star` due to the `* -` notation, which means multiplication-level lowered by one.
 
 An operator can also have the precedence of another operator:
 ```pie
@@ -422,7 +424,7 @@ Operator `sub` has a precedence that is equal to operator `add`'s precedence. Op
 
 ## Overloading
 
-You can overload operators based on the parameter types"
+You can overload operators based on the parameter types:
 ```pie
 infix(+) + = (a: Int, b: Int): Int => __builtin_add(a, b);
 infix(+) + = (a: String, b: String): String => __builtin_concat(a, b);
@@ -433,24 +435,24 @@ infix(+) + = (a: String, b: String): String => __builtin_concat(a, b);
 The `1 + 2` calls the first operator. `"Hi" + "Bye"` calls the second!
 
 ## Packs
-Pakcs in Pie are analogous to C++'s packs. One can only declare a pack as a function parameter:
+Packs in Pie are analogous to C++'s packs. One can only declare a pack as a function parameter:
 ```pie
 func = (pack: ...Any) => __builtin_print(pack);
 func(1, "Hello", 3.14);
 ```
-Note that to declare a pack, the argument **MUST** be given a type preceeded by ellipses. Packs may be empty.
+Note that to declare a pack, the argument **MUST** be given a type preceded by ellipses. Packs may be empty.
 
 #### Fold Expressions:
 Pie supports Fold Expressions, much like C++:
 
 ##### Unary left fold
-`(pack + ...)` 
+`(pack + ...)`
 
 ##### Unary right fold
-`(... + pack)` 
+`(... + pack)`
 
-#### Binary left fold
-`(init + pack + ...)` 
+##### Binary left fold
+`(init + pack + ...)`
 `init` will be used as an initial value. Helps in the case where the pack is empty:
 
 ##### Binary right fold
@@ -465,6 +467,8 @@ This can be useful if you wanted to create a CSV entry from a bunch of strings f
 
 ##### Separated unary right fold
 `(sep + ... + pack)`
+The above expression evaluates right-to-left:
+`(arg1 + (sep + (arg2 + (sep + arg3))))`
 
 
 ##### Separated binary left fold
@@ -610,7 +614,7 @@ infix + = (a, b) => __builtin_add(a, b);
 x: Syntax = 1 + a;
 ```
 
-`x` is a hadle to the AST which represents the expression `1 + a`.
+`x` is a handle to the AST which represents the expression `1 + a`.
 To evaluate `x`, you just need to call __builtin_eval on it:
 
 ```pie
@@ -675,7 +679,7 @@ this isn't
 - `true`
 - `false`
 
-## Reserved Punctuaion
+## Reserved Punctuation
 
 - `__builtin_*`
 - `( )`
@@ -724,7 +728,7 @@ make
 - [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
-- [ ] Fix builin reset (value-reset, reset/name-reset) 
+- [ ] Fix builtin reset (value-reset, reset/name-reset) 
 - [ ] World domination
 - [ ] Move from Make to Bake
 - [ ] Improve error messages (add line and column numbers)
@@ -755,7 +759,7 @@ make
 - [x] Add match expression (like scala)
 - [x] Add overloaded operators at runtime (instead of parse-time)
 - [x] Fixed infix operators parsing right to left!
-- [x] Implemnted `__builtin_eq` for all values!
+- [x] Implemented `__builtin_eq` for all values!
 - [x] Add named parameters to some builtin functions
 - [x] Add variadic arguments
 - [x] Add named arguments
@@ -768,9 +772,9 @@ make
 - [x] Add circumfix operators
 - [x] Add lazy evaluation
 - [x] Add constructor to classes..somehow
-- [x] Allow recursion..somhow
+- [x] Allow recursion..somehow
 - [x] Add classes
-- [x] Add assignment to any epxression
+- [x] Add assignment to any expression
 - [x] Add booleans
 - [x] Add closures
 

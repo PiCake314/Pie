@@ -16,7 +16,7 @@
 [[nodiscard]] inline std::string readFile(const std::string& fname) {
     const std::ifstream fin{fname};
 
-    if (not fin.is_open()) error("File \"" + fname + " \"not found!");
+    if (not fin.is_open()) error("File \"" + fname + " \" not found!");
 
     std::stringstream ss;
     ss << fin.rdbuf();
@@ -114,7 +114,7 @@ int main(int argc, char *argv[]) {
     // if (argc < 2) error("Please pass a file name!");
 
     using std::operator""sv;
-    const auto canonical_root = std::filesystem::canonical(*argv);;
+    const auto canonical_root = std::filesystem::canonical(*argv);
 
     bool print_preprocessed = false;
     bool print_tokens       = false;
