@@ -32,6 +32,7 @@
 - [Comments](#comments)
 - [Install](#install)
 - [Community](#community)
+- [Contributors](#contributors)
 - [What was said about Pie](#quotes-about-pie-lang)
 
 
@@ -791,6 +792,9 @@ make
 
 ## Community
 [Join our  discord server](https://discord.gg/XRpKTptU)
+
+## Contributors
+- [ShawSumma](https://github.com/ShawSumma)
 
 
 ## Quotes About Pie Lang:
