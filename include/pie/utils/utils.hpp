@@ -1,89 +1,84 @@
 #pragma once
 
+#include <concepts>
+#include <format>
 #include <iostream>
+#include <print>
 #include <source_location>
+#include <stdexcept>
+#include <type_traits>
 #include <unordered_map>
 #include <variant>
-#include <format>
-#include <print>
-#include <concepts>
-#include <type_traits>
-#include <stdexcept>
 
 #include <pie/token.hpp>
 
 inline namespace pie {
-inline namespace util {
+    inline namespace util {
 
+        template <typename Except = std::runtime_error, bool print_loc = true>
+        [[noreturn]] inline void error(
+            const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
+            [[maybe_unused]] const std::source_location& location = std::source_location::current())
+        // noexcept
+        {
 
-template <typename Except = std::runtime_error, bool print_loc = true>
-[[noreturn]] inline void error(
-    const std::string_view msg = "[no diagnostic]. If you see this, please file a bug report!",
-    [[maybe_unused]] const std::source_location& location = std::source_location::current()
-)
-// noexcept
-{
+#if not NO_ERR_LOC
+            if constexpr (print_loc) {
+                std::print(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m ", location.file_name(), location.line(), location.column());
+            }
+#endif
 
-    #if not NO_ERR_LOC
-    if constexpr (print_loc)
-        std::print(std::cerr, "\033[1m{}:{}:{}: \033[31merror:\033[0m ", location.file_name(), location.line(), location.column());
-    #endif
+            // std::println(std::cerr, "{}", msg);
 
-    // std::println(std::cerr, "{}", msg);
+            // exit(1);
 
-    // exit(1);
-
-    throw Except{std::string{msg}};
-}
+            throw Except{std::string{msg}};
+        }
 
 #include <execinfo.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-inline void trace() {
-    void *callstack[128]; // Array to store addresses
-    int frames = backtrace(callstack, 128); // Get addresses
-    char **symbols = backtrace_symbols(callstack, frames); // Get symbol names
+        inline void trace() {
+            void* callstack[128];                                  // Array to store addresses
+            int frames = backtrace(callstack, 128);                // Get addresses
+            char** symbols = backtrace_symbols(callstack, frames); // Get symbol names
 
-    if (symbols == NULL) {
-        perror("backtrace_symbols");
-        return;
-    }
+            if (symbols == NULL) {
+                perror("backtrace_symbols");
+                return;
+            }
 
-    fprintf(stderr, "Stack Trace:\n");
-    for (int i = 0; i < frames; ++i) {
-        fprintf(stderr, "%s\n", symbols[i]);
-    }
+            fprintf(stderr, "Stack Trace:\n");
+            for (int i = 0; i < frames; ++i) {
+                fprintf(stderr, "%s\n", symbols[i]);
+            }
 
-    free(symbols);
-}
+            free(symbols);
+        }
 
+        [[noreturn]] inline void expected(const TokenKind exp, const Token& got, const std::source_location& location = std::source_location::current()) {
+            error(std::string{"Expected token "} + stringify(exp) + " and found " + stringify(got.kind) + ": " + got.text, location);
+        }
 
-[[noreturn]] inline void expected(const TokenKind exp, const Token& got, const std::source_location& location = std::source_location::current()) {
-    error(std::string{"Expected token "} + stringify(exp) + " and found " + stringify(got.kind) + ": " + got.text, location);
-}
+        [[noreturn]] inline void expected(const TokenKind exp, const TokenKind got, const std::source_location& location = std::source_location::current()) {
+            error(std::string{"Expected token "} + stringify(exp) + " and found " + stringify(got), location);
+        }
 
-[[noreturn]] inline void expected(const TokenKind exp, const TokenKind got, const std::source_location& location = std::source_location::current()) {
-    error(std::string{"Expected token "} + stringify(exp) + " and found " + stringify(got), location);
-}
+        [[noreturn]] inline void expected(const std::string& exp, const Token& got, const std::source_location& location = std::source_location::current()) {
+            error(std::string{"Expected '"} + exp + "' and found " + stringify(got.kind) + ": " + got.text, location);
+        }
 
-[[noreturn]] inline void expected(const std::string& exp, const Token& got, const std::source_location& location = std::source_location::current()) {
-    error(std::string{"Expected '"} + exp + "' and found " + stringify(got.kind) + ": " + got.text, location);
-}
+        template <typename F>
+        struct Deferred {
+            F f;
 
+            Deferred(std::invocable auto func) : f{std::move(func)} {};
+            ~Deferred() { f(); }
+        };
 
+        template <typename F>
+        Deferred(F) -> Deferred<F>;
 
-template <typename F>
-struct Deferred {
-    F f;
-
-    Deferred(std::invocable auto func) : f{std::move(func)} {};
-    ~Deferred() { f(); }
-};
-
-template <typename F>
-Deferred(F) -> Deferred<F>;
-
-
-} // namespace util
+    } // namespace util
 } // namespace pie

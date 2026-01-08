@@ -1,50 +1,69 @@
 #pragma once
 
-#include <pie/token.hpp>
 #include <pie/parser/precedence.hpp>
+#include <pie/token.hpp>
 
+#include <algorithm>
 #include <cctype>
-#include <string>
-#include <sstream>
-#include <string_view>
-#include <vector>
 #include <fstream>
+#include <sstream>
+#include <string>
+#include <string_view>
 #include <tuple>
 #include <unordered_map>
-#include <algorithm>
-
+#include <vector>
 
 inline namespace pie {
 inline namespace lex {
 
-
 inline TokenKind keyword(const std::string_view word) noexcept {
     using enum TokenKind;
-         if (word == "mixfix") return MIXFIX;
-    else if (word == "prefix") return PREFIX;
-    else if (word == "infix" ) return INFIX ;
-    else if (word == "suffix") return SUFFIX;
-    else if (word == "exfix" ) return EXFIX ;
+    if (word == "mixfix") {
+        return MIXFIX;
+    } else if (word == "prefix") {
+        return PREFIX;
+    } else if (word == "infix") {
+        return INFIX;
+    } else if (word == "suffix") {
+        return SUFFIX;
+    } else if (word == "exfix") {
+        return EXFIX;
+    }
 
-    else if (word == "class") return CLASS;
-    else if (word == "union") return UNION;
-    else if (word == "match") return MATCH;
+    else if (word == "class") {
+        return CLASS;
+    } else if (word == "union") {
+        return UNION;
+    } else if (word == "match") {
+        return MATCH;
+    }
 
-    else if (word == "loop"    ) return LOOP;
-    else if (word == "break"   ) return BREAK;
-    else if (word == "continue") return CONTINUE;
+    else if (word == "loop") {
+        return LOOP;
+    } else if (word == "break") {
+        return BREAK;
+    } else if (word == "continue") {
+        return CONTINUE;
+    }
 
     // pre-processor handles imports
     // else if (word == "import"   ) return IMPORT;
     // else if (word == "namespace") return NAMESPACE;
-    else if (word == "space") return NAMESPACE;
+    else if (word == "space") {
+        return NAMESPACE;
+    }
 
     // which one is nicer..?
-    else if (word == "use") return USE;
+    else if (word == "use") {
+        return USE;
+    }
     // else if (word == "using") return USE;
 
-    else if (word == "true"  ) return BOOL;
-    else if (word == "false" ) return BOOL;
+    else if (word == "true") {
+        return BOOL;
+    } else if (word == "false") {
+        return BOOL;
+    }
 
     // PRIORITIES
     // else if (word == "LOW"       ) return PR_LOW;
@@ -57,35 +76,33 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     // else if (word == "CALL"      ) return PR_CALL;
     // else if (word == "HIGH"      ) return PR_HIGH;
 
-
     return NAME;
 }
 
-
 inline bool validNameChar(const char c) noexcept {
     switch (c) {
-        case '!':
-        case '@':
-        case '#':
-        case '$':
-        case '%':
-        case '^':
-        case '&':
-        case '|':
-        case '*':
-        case '+':
-        case '~':
-        case '-':
-        case '_':
-        case '\\':
-        case '\'':
-        case '/':
-        case '<':
-        case '>':
-        case '[':
-        case ']':
+    case '!':
+    case '@':
+    case '#':
+    case '$':
+    case '%':
+    case '^':
+    case '&':
+    case '|':
+    case '*':
+    case '+':
+    case '~':
+    case '-':
+    case '_':
+    case '\\':
+    case '\'':
+    case '/':
+    case '<':
+    case '>':
+    case '[':
+    case ']':
         // case '=': // function would only be used when checking chars that are not the first in the name
-            return true;
+        return true;
     }
 
     return isalnum(c);
@@ -98,38 +115,41 @@ inline bool validNameChar(const char c) noexcept {
     size_t line_count = 1;
     size_t line_starting_index{};
 
-
     for (size_t index{}; index < src.length(); ++index) {
         // if (isspace(src[index])) continue;
 
-        try{
-        switch (src[index]) {
-            using enum TokenKind;
+        try {
+            switch (src[index]) {
+                using enum TokenKind;
 
-            // ! remove pragmas
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wpedantic"
+// ! remove pragmas
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
             case '0' ... '9':
-            #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
             {
                 const auto beginning = index;
-                while (isdigit(src.at(++index)));
+                while (isdigit(src.at(++index)))
+                    ;
 
                 bool is_name = validNameChar(src[index]);
                 if (is_name) {
-                    while (validNameChar(src.at(++index)));
+                    while (validNameChar(src.at(++index)))
+                        ;
                     lines.back().emplace_back(NAME, src.substr(beginning, index - beginning));
                     --index;
                     break;
                 }
 
                 bool is_float = src[index] == '.';
-                if (is_float) while (isdigit(src.at(++index)));
+                if (is_float) {
+                    while (isdigit(src.at(++index)))
+                        ;
+                }
 
                 lines.back().emplace_back(is_float ? FLOAT : INT, src.substr(beginning, index - beginning));
                 --index;
             } break;
-
 
             case '!':
             case '@':
@@ -151,25 +171,26 @@ inline bool validNameChar(const char c) noexcept {
             case '>':
             case '[':
             case ']':
-            // ! remove pragmas
-            #pragma GCC diagnostic push
-            #pragma GCC diagnostic ignored "-Wpedantic"
+// ! remove pragmas
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wpedantic"
             case 'a' ... 'z':
             case 'A' ... 'Z':
-            #pragma GCC diagnostic pop
+#pragma GCC diagnostic pop
             {
                 const auto beginning = index;
-                while (validNameChar(src.at(++index)));
+                while (validNameChar(src.at(++index)))
+                    ;
 
                 const auto word = src.substr(beginning, index - beginning);
                 // check for keywords here :)
 
-
                 if (word == "__TEXT__") [[unlikely]] {
                     std::string line_text;
 
-                    for (size_t ind = line_starting_index; ind < src.size() and src[ind] != '\n'; ++ind)
+                    for (size_t ind = line_starting_index; ind < src.size() and src[ind] != '\n'; ++ind) {
                         line_text += src[ind];
+                    }
 
                     lines.back().push_back({STRING, line_text});
                     --index;
@@ -182,49 +203,56 @@ inline bool validNameChar(const char c) noexcept {
                     break;
                 }
 
-
                 const TokenKind token = keyword(word);
 
                 lines.back().emplace_back(token, word);
                 --index;
             } break;
 
-
             case '=':
-                if (src.at(index + 1) == '>')
+                if (src.at(index + 1) == '>') {
                     lines.back().push_back({FAT_ARROW, {src[index], src[++index]}});
-                else if ((src[index + 1] == '='))
+                } else if ((src[index + 1] == '=')) {
                     lines.back().push_back({NAME, {src[index], src[++index]}});
-                else
+                } else {
                     lines.back().push_back({ASSIGN, {src[index]}});
+                }
 
                 break;
 
-            case ',': lines.back().push_back({COMMA, {src[index]}}); break;
+            case ',':
+                lines.back().push_back({COMMA, {src[index]}});
+                break;
             case '.':
                 if (src.at(index + 1) == ':') {
                     if (src.at(index + 2) == ':') {
-                        for(index += 2;
-                            // src.at(index) != ':' or src.at(index + 1) != ':' or src.at(index + 2) == '.'
-                            src.substr(index, 3) != "::.";
-                            ++index
-                        );
+                        for (index += 2;
+                             // src.at(index) != ':' or src.at(index + 1) != ':' or src.at(index + 2) == '.'
+                             src.substr(index, 3) != "::.";
+                             ++index)
+                            ;
                         index += 2;
+                    } else {
+                        while (++index < src.length() and src[index] != '\n')
+                            ;
                     }
-                    else while(++index < src.length() and src[index] != '\n');
-                }
-                else if (src[index + 1] == '.' and src.at(index + 2) == '.')
+                } else if (src[index + 1] == '.' and src.at(index + 2) == '.') {
                     lines.back().push_back({ELLIPSIS, {src[index], src[++index], src[++index]}});
+                }
                 // else if (src[index + 1] == '.')
                 //     lines.back().push_back({CASCADE, {src[index], src[++index]}});
-                else
+                else {
                     lines.back().push_back({DOT, {src[index]}});
+                }
 
                 break;
 
-            case ':': 
-                if (src.at(index + 1) == ':') lines.back().push_back({SCOPE_RESOLVE, {':', src[++index]}});
-                else                          lines.back().push_back({COLON, ":"});
+            case ':':
+                if (src.at(index + 1) == ':') {
+                    lines.back().push_back({SCOPE_RESOLVE, {':', src[++index]}});
+                } else {
+                    lines.back().push_back({COLON, ":"});
+                }
 
                 break;
 
@@ -239,29 +267,34 @@ inline bool validNameChar(const char c) noexcept {
                 line_starting_index = index + 1;
                 break;
 
-            case '(': lines.back().push_back({L_PAREN, {src[index]}}); break;
-            case ')': lines.back().push_back({R_PAREN, {src[index]}}); break;
+            case '(':
+                lines.back().push_back({L_PAREN, {src[index]}});
+                break;
+            case ')':
+                lines.back().push_back({R_PAREN, {src[index]}});
+                break;
 
             case '{':
                 lines.back().push_back({L_BRACE, {src[index]}});
                 // lines.push_back({});
                 break;
 
-            case '}': lines.back().push_back({R_BRACE, {src[index]}}); break;
+            case '}':
+                lines.back().push_back({R_BRACE, {src[index]}});
+                break;
 
-            case '"':{
+            case '"': {
                 const size_t old = index;
-                while(src.at(++index) != '"') {
+                while (src.at(++index) != '"') {
                     // if (src[index] == '\\')
                 }
-                lines.back().push_back({STRING, src.substr(old + 1, index - old -1)});
+                lines.back().push_back({STRING, src.substr(old + 1, index - old - 1)});
             } break;
 
-
-            default: break;
-        }
-        }
-        catch(const std::exception& err) {
+            default:
+                break;
+            }
+        } catch (const std::exception& err) {
             // std::cerr << err.what() << ":\n";
             // for (auto&& line : lines)
             //     for (auto&& tok : line)
@@ -269,27 +302,26 @@ inline bool validNameChar(const char c) noexcept {
 
             error("Lexing Error!");
         }
-
     }
 
-    if (not lines.empty() and not lines.back().empty() and lines.back().back().kind != TokenKind::SEMI) error("Last line doesn't end with a ';'!");
-
+    if (not lines.empty() and not lines.back().empty() and lines.back().back().kind != TokenKind::SEMI) {
+        error("Last line doesn't end with a ';'!");
+    }
 
     if (lines.size() > 1) {
         lines.pop_back();
         lines.back().emplace_back(TokenKind::END, "EOF");
     }
 
-
     Tokens tokens;
-    for (auto&& line : lines)
-        for (auto&& t : line)
+    for (auto&& line : lines) {
+        for (auto&& t : line) {
             tokens.push_back(std::move(t));
+        }
+    }
 
     return tokens;
 }
-
-
 
 } // namespace lex
 } // namespace pie

@@ -1,26 +1,23 @@
 #pragma once
 
 #include <string>
-#include <vector>
-#include <variant>
 #include <unordered_map>
 #include <utility>
+#include <variant>
+#include <vector>
 
-
+#include <pie/declarations.hpp>
 #include <pie/expr.hpp>
 #include <pie/type.hpp>
-#include <pie/declarations.hpp>
 #include <pie/utils/utils.hpp>
 
 inline namespace pie {
 inline namespace value {
 
-
 struct Members;
 // struct ClassValue;
 // using Object = std::pair<ClassValue, std::shared_ptr<Members>>;
 using Object = std::pair<type::TypePtr, std::shared_ptr<Members>>;
-
 
 // using expr::Union instead of a separate class for Union since they'd probably be the same
 // it might come and bite me later, but I mean..
@@ -40,33 +37,34 @@ using Value = std::variant<
     expr::Node,
     PackList,
     ListValue,
-    MapValue
->;
-
+    MapValue>;
 
 inline std::string stringify(const Value& value, const size_t indent = {});
 
-}
-}
-
+} // namespace value
+} // namespace pie
 
 // needed for maps
-template<>
-struct std::hash<Value> { size_t operator()(const pie::value::Value& value) const { return std::hash<std::string>{}(pie::value::stringify(value)); } };
-
+template <>
+struct std::hash<Value> {
+    size_t operator()(const pie::value::Value& value) const { return std::hash<std::string>{}(pie::value::stringify(value)); }
+};
 
 inline namespace pie {
 
 inline namespace value {
 
+struct Members {
+    std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members;
+};
+struct Elements {
+    std::vector<Value> values;
+};
+struct Items {
+    std::unordered_map<Value, Value> map;
+};
 
-struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
-struct Elements { std::vector<Value> values;                                         };
-struct Items    { std::unordered_map<Value, Value> map;                              };
-
-
-
-template <typename ...Ts>
+template <typename... Ts>
 [[nodiscard]] inline PackList makePack(Ts&&... args) {
     return std::make_shared<Elements>(std::forward<Ts>(args)...);
 }
@@ -79,10 +77,7 @@ template <typename ...Ts>
     return {std::make_shared<Items>(std::move(items))};
 }
 
-
-
 using Environment = std::unordered_map<std::string, std::pair<Value, type::TypePtr>>;
-
 
 inline std::string stringify(const Value& value, const size_t indent) {
     std::string s;
@@ -146,15 +141,16 @@ inline std::string stringify(const Value& value, const size_t indent) {
     //     s = v.stringify(indent);
     // }
 
-
-    else if (std::holds_alternative<type::TypePtr>(value)) s = get<type::TypePtr>(value)->text();
+    else if (std::holds_alternative<type::TypePtr>(value)) {
+        s = get<type::TypePtr>(value)->text();
+    }
 
     else if (std::holds_alternative<NameSpace>(value)) {
         const auto& v = get<NameSpace>(value);
 
-        if (v.members->members.empty())
+        if (v.members->members.empty()) {
             s = "space { }";
-        else {
+        } else {
             s = "space {\n";
 
             const std::string space(indent + 4, ' ');
@@ -162,11 +158,15 @@ inline std::string stringify(const Value& value, const size_t indent) {
                 s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
+                if (is_string) {
+                    s += '\"';
+                }
 
                 s += stringify(value, indent + 4);
 
-                if (is_string) s += '\"';
+                if (is_string) {
+                    s += '\"';
+                }
 
                 s += ";\n";
             }
@@ -180,8 +180,7 @@ inline std::string stringify(const Value& value, const size_t indent) {
 
         if (v.second->members.empty()) {
             s = "Object { }";
-        }
-        else {
+        } else {
             s = "Object {\n";
 
             const std::string space(indent + 4, ' ');
@@ -189,11 +188,15 @@ inline std::string stringify(const Value& value, const size_t indent) {
                 s += space + name.stringify() + " = ";
 
                 const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
+                if (is_string) {
+                    s += '\"';
+                }
 
                 s += stringify(value, indent + 4);
 
-                if (is_string) s += '\"';
+                if (is_string) {
+                    s += '\"';
+                }
 
                 s += ";\n";
             }
@@ -201,16 +204,12 @@ inline std::string stringify(const Value& value, const size_t indent) {
             s += std::string(indent, ' ') + '}';
         }
 
-
     }
 
-    else if(std::holds_alternative<expr::Node>(value)) {
+    else if (std::holds_alternative<expr::Node>(value)) {
         const std::string space(indent + 4, ' ');
 
-        s = "Syntax {\n" + space + std::visit(
-            [indent] (const auto& v) { return v->stringify(indent + 4); },
-            get<expr::Node>(value)
-        ) + '\n' + std::string(indent, ' ') + '}';
+        s = "Syntax {\n" + space + std::visit([indent](const auto& v) { return v->stringify(indent + 4); }, get<expr::Node>(value)) + '\n' + std::string(indent, ' ') + '}';
     }
 
     else if (std::holds_alternative<PackList>(value)) {
@@ -219,8 +218,7 @@ inline std::string stringify(const Value& value, const size_t indent) {
             s += comma + stringify(v, indent + 4);
             comma = ", ";
         }
-    }
-    else if (std::holds_alternative<ListValue>(value)) {
+    } else if (std::holds_alternative<ListValue>(value)) {
         s += '{';
 
         std::string comma = "";
@@ -230,8 +228,7 @@ inline std::string stringify(const Value& value, const size_t indent) {
         }
 
         s += '}';
-    }
-    else if (std::holds_alternative<MapValue>(value)) {
+    } else if (std::holds_alternative<MapValue>(value)) {
         s += '{';
 
         std::string comma = "";
@@ -243,14 +240,15 @@ inline std::string stringify(const Value& value, const size_t indent) {
         s += '}';
     }
 
-    else error("Type not found!");
+    else {
+        error("Type not found!");
+    }
 
     return s;
 }
 
-
 inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
-    for (const auto& [name, expr] : env){
+    for (const auto& [name, expr] : env) {
         const auto& [value, type] = expr;
         os << name << ": " << type->text() << " = " << stringify(value) << std::endl;
     }
@@ -258,22 +256,26 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     return os;
 }
 
-
 [[nodiscard]] inline bool operator==(const Value& lhs, const Value& rhs) noexcept {
-    if (std::holds_alternative<ssize_t>(lhs) and std::holds_alternative<ssize_t>(rhs))
+    if (std::holds_alternative<ssize_t>(lhs) and std::holds_alternative<ssize_t>(rhs)) {
         return get<ssize_t>(lhs) == get<ssize_t>(rhs);
+    }
 
-    if (std::holds_alternative<double>(lhs) and std::holds_alternative<double>(rhs))
+    if (std::holds_alternative<double>(lhs) and std::holds_alternative<double>(rhs)) {
         return get<double>(lhs) == get<double>(rhs);
+    }
 
-    if (std::holds_alternative<bool>(lhs) and std::holds_alternative<bool>(rhs))
+    if (std::holds_alternative<bool>(lhs) and std::holds_alternative<bool>(rhs)) {
         return get<bool>(lhs) == get<bool>(rhs);
+    }
 
-    if (std::holds_alternative<std::string>(lhs) and std::holds_alternative<std::string>(rhs))
+    if (std::holds_alternative<std::string>(lhs) and std::holds_alternative<std::string>(rhs)) {
         return get<std::string>(lhs) == get<std::string>(rhs);
+    }
 
-    if (std::holds_alternative<expr::Closure>(lhs) and std::holds_alternative<expr::Closure>(rhs))
+    if (std::holds_alternative<expr::Closure>(lhs) and std::holds_alternative<expr::Closure>(rhs)) {
         return get<expr::Closure>(lhs).stringify() == get<expr::Closure>(rhs).stringify();
+    }
 
     // if (std::holds_alternative<ClassValue>(lhs) and std::holds_alternative<ClassValue>(rhs)) {
     //     return std::ranges::all_of(
@@ -309,27 +311,25 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     }
 
     if (std::holds_alternative<Object>(lhs) and std::holds_alternative<Object>(rhs)) {
-        const auto& a = get<Object>(lhs), b = get<Object>(rhs);
-        return a.first == b.first and 
-            std::ranges::all_of(
-                std::views::zip(
-                    a.second->members,
-                    b.second->members
-                ),
+        const auto &a = get<Object>(lhs), b = get<Object>(rhs);
+        return a.first == b.first and
+               std::ranges::all_of(
+                   std::views::zip(
+                       a.second->members,
+                       b.second->members),
 
-                [] (auto&& tuple) {
-                    return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify()
-                    and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
-                }
-            );
+                   [](auto&& tuple) {
+                       return get<0>(get<0>(tuple)).stringify() == get<0>(get<1>(tuple)).stringify() and get<1>(get<0>(tuple)) == get<1>(get<1>(tuple));
+                   });
     }
 
-    if (std::holds_alternative<expr::Node>(lhs) and std::holds_alternative<expr::Node>(rhs))
+    if (std::holds_alternative<expr::Node>(lhs) and std::holds_alternative<expr::Node>(rhs)) {
         error("Can't check equality of a Syntax!");
+    }
 
-    if (std::holds_alternative<PackList>(lhs) and std::holds_alternative<PackList>(rhs))
+    if (std::holds_alternative<PackList>(lhs) and std::holds_alternative<PackList>(rhs)) {
         return get<PackList>(lhs)->values == get<PackList>(rhs)->values;
-
+    }
 
     // error();
     return false;

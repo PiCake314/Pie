@@ -1,225 +1,252 @@
-#include <pie/type.hpp>
 #include <pie/interp/interp.hpp>
+#include <pie/type.hpp>
 
 #include <ranges>
 
-
-
 namespace type {
 
-    std::string ExprType::text(const size_t indent) const {
-        const auto& type = t->stringify(indent);
-        return type.empty() ? "Any" : type;
+std::string ExprType::text(const size_t indent) const {
+    const auto& type = t->stringify(indent);
+    return type.empty() ? "Any" : type;
+}
+
+bool ExprType::operator>(const Type& other) const {
+    if (dynamic_cast<const TryReassign*>(&other)) {
+        return true;
     }
 
-    bool ExprType::operator>(const Type& other) const {
-        if (dynamic_cast<const TryReassign*>(&other)) return true;
+    const auto& type = text();
+    return type == "Syntax" or (type == "Any" and other.text() != "Any");
+}
 
-        const auto& type = text();
-        return type == "Syntax" or (type == "Any" and other.text() != "Any");
+bool ExprType::operator>=(const Type& other) const {
+    if (dynamic_cast<const TryReassign*>(&other)) {
+        return true;
     }
 
+    const auto& type = text();
+    return type == "Syntax" or type == "Any" or type == other.text();
+}
 
-    bool ExprType::operator>=(const Type& other) const {
-        if (dynamic_cast<const TryReassign*>(&other)) return true;
+std::string BuiltinType::text(const size_t) const { return t; }
 
-        const auto& type = text();
-        return type == "Syntax" or type == "Any" or type == other.text();
-    }
+std::string LiteralType::text(const size_t indent) const {
+    // return stringify(*cls, indent);
+    std::string s;
 
+    if (cls->blueprint->members.empty()) {
+        s = "class { }";
+    } else {
+        s = "class {\n";
 
-    std::string BuiltinType::text(const size_t) const { return t; }
+        const std::string space(indent + 4, ' ');
+        for (const auto& [name, type, value] : cls->blueprint->members) {
+            s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
-    std::string LiteralType::text(const size_t indent) const {
-        // return stringify(*cls, indent);
-        std::string s;
-
-        if (cls->blueprint->members.empty())
-            s = "class { }";
-        else {
-            s = "class {\n";
-
-            const std::string space(indent + 4, ' ');
-            for (const auto& [name, type, value] : cls->blueprint->members) {
-                s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
-
-                const bool is_string = std::holds_alternative<std::string>(value);
-                if (is_string) s += '\"';
-
-                s += stringify(value, indent + 4);
-
-                if (is_string) s += '\"';
-
-                s += ";\n";
+            const bool is_string = std::holds_alternative<std::string>(value);
+            if (is_string) {
+                s += '\"';
             }
 
-            s += std::string(indent, ' ') + '}';
+            s += stringify(value, indent + 4);
+
+            if (is_string) {
+                s += '\"';
+            }
+
+            s += ";\n";
         }
 
-        return s;
+        s += std::string(indent, ' ') + '}';
     }
 
+    return s;
+}
 
-    bool LiteralType::operator>(const Type& other) const {
-        if (dynamic_cast<const TryReassign*>(&other)) return true;
-        if (not dynamic_cast<const LiteralType*>(&other)) return false;
-
-        const auto& type = text();
-        return type == "Syntax" or (type == "Any" and other.text() != "Any");
+bool LiteralType::operator>(const Type& other) const {
+    if (dynamic_cast<const TryReassign*>(&other)) {
+        return true;
+    }
+    if (not dynamic_cast<const LiteralType*>(&other)) {
+        return false;
     }
 
+    const auto& type = text();
+    return type == "Syntax" or (type == "Any" and other.text() != "Any");
+}
 
-    bool LiteralType::operator>=(const Type& other) const {
-        if (dynamic_cast<const TryReassign*>(&other)) return true;
-        if (not dynamic_cast<const LiteralType*>(&other)) return false;
-
-        const auto& type = text();
-        return type == "Syntax" or type == "Any" or type == other.text();
+bool LiteralType::operator>=(const Type& other) const {
+    if (dynamic_cast<const TryReassign*>(&other)) {
+        return true;
+    }
+    if (not dynamic_cast<const LiteralType*>(&other)) {
+        return false;
     }
 
+    const auto& type = text();
+    return type == "Syntax" or type == "Any" or type == other.text();
+}
 
-    std::string UnionType::text(const size_t indent) const {
-        std::string s = "union { ";
+std::string UnionType::text(const size_t indent) const {
+    std::string s = "union { ";
 
-        for (std::string pipe{}; const auto& t : types) {
+    for (std::string pipe{}; const auto& t : types) {
 
-            s += t->text(indent + 4) + "; ";
+        s += t->text(indent + 4) + "; ";
+    }
+
+    return s + '}';
+}
+
+bool UnionType::involvesT(const Type& T) const {
+    for (const auto& type : types) {
+        if (type->involvesT(T)) {
+            return true;
         }
-
-
-        return s + '}';
     }
 
-    bool UnionType::involvesT(const Type& T) const {
-        for (const auto& type : types)
-            if (type->involvesT(T)) return true;
+    return false;
+}
 
-        return false;
+bool UnionType::operator>(const Type& other) const {
+    // for (const auto& type : types)
+    //     if (*type > other) return true;
+    // return false;
+
+    return std::ranges::any_of(types, [&other](const auto& type) { return *type > other; });
+};
+
+bool UnionType::operator>=(const Type& other) const {
+    return std::ranges::any_of(types, [&other](const auto& type) { return *type >= other; });
+};
+
+std::string SpaceType::text(const size_t) const { return "Space"; }
+// a namespace is only not greater than any other type...
+bool SpaceType::operator>(const Type&) const { return false; }
+// ...so >= only needs to check for equality!
+bool SpaceType::operator>=(const Type& other) const { return *this == other; }
+
+std::string FuncType::text(const size_t indent) const {
+    std::string t = params.empty() ? "" : params[0]->text(indent);
+    for (size_t i = 1uz; i < params.size(); ++i) {
+        t += ", " + params[i]->text(indent);
     }
 
-    bool UnionType::operator> (const Type& other) const {
-        // for (const auto& type : types)
-        //     if (*type > other) return true;
-        // return false;
-
-        return std::ranges::any_of(types, [&other](const auto& type) { return *type > other; });
-    };
-
-    bool UnionType::operator>=(const Type& other) const {
-        return std::ranges::any_of(types, [&other](const auto& type) { return *type >= other; });
-    };
-
-    std::string SpaceType::text(const size_t) const { return "Space"; }
-    // a namespace is only not greater than any other type...
-    bool SpaceType::operator>(const Type&) const { return false; }
-    // ...so >= only needs to check for equality!
-    bool SpaceType::operator>=(const Type& other) const { return *this == other; }
-
-
-
-    std::string FuncType::text(const size_t indent) const {
-        std::string t = params.empty() ? "" : params[0]->text(indent);
-        for (size_t i = 1uz; i < params.size(); ++i)
-            t += ", " + params[i]->text(indent);
-
-        return '(' + t + "): " + ret->text(indent);
-    }
-    bool FuncType::involvesT(const Type& T) const {
-        for (const auto& type : params)
-            if (type->involvesT(T)) return true;
-
-        return ret->involvesT(T);
-    }
-
-    bool FuncType::operator>(const Type& other) const {
-        if (dynamic_cast<const TryReassign*>(&other)) return true;
-        if (not dynamic_cast<const FuncType*>(&other)) return false;
-
-        // this might throw, but it technically shouldn't
-        const auto& that = dynamic_cast<const FuncType&>(other);
-
-        for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
-            // if (*type1 >= *type2) return false; // args have an inverse relationship
-
-            if (not (*type2 > *type1)) return false; // args have an inverse relationship
+    return '(' + t + "): " + ret->text(indent);
+}
+bool FuncType::involvesT(const Type& T) const {
+    for (const auto& type : params) {
+        if (type->involvesT(T)) {
+            return true;
         }
-
-
-        return *ret > *that.ret;
     }
 
-    bool FuncType::operator>=(const Type& other) const {
-        if (dynamic_cast<const TryReassign*>(&other)) return true;
-        if (not dynamic_cast<const FuncType*>(&other)) return false;
+    return ret->involvesT(T);
+}
 
-        // this might throw, but it technically shouldn't
-        const auto& that = dynamic_cast<const FuncType&>(other);
+bool FuncType::operator>(const Type& other) const {
+    if (dynamic_cast<const TryReassign*>(&other)) {
+        return true;
+    }
+    if (not dynamic_cast<const FuncType*>(&other)) {
+        return false;
+    }
 
-        for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
-            // std::clog << "type1: " << type1->text() << std::endl;
-            // std::clog << "type2: " << type2->text() << std::endl;
-            // std::clog << "not (" << type2->text() << " >= " << type1->text() << "): " << not (*type2 >= *type1) << std::endl;
+    // this might throw, but it technically shouldn't
+    const auto& that = dynamic_cast<const FuncType&>(other);
 
-            // if (*type1 > *type2) return false; // args have an inverse relationship
+    for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
+        // if (*type1 >= *type2) return false; // args have an inverse relationship
 
-            if (not (*type2 >= *type1)) return false; // args have an inverse relationship
+        if (not(*type2 > *type1)) {
+            return false; // args have an inverse relationship
         }
-
-
-        return *ret >= *that.ret;
     }
 
+    return *ret > *that.ret;
+}
 
-
-    std::string VariadicType::text(const size_t indent) const { return "..." + type->text(indent); }
-
-    bool VariadicType::operator>(const Type& other) const {
-        if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type > *that->type;
-
-        // variadic type of a type is a superset of that type
-        return *type == other or *type > other;
+bool FuncType::operator>=(const Type& other) const {
+    if (dynamic_cast<const TryReassign*>(&other)) {
+        return true;
     }
-
-    bool VariadicType::operator>=(const Type& other) const {
-        if (auto that = dynamic_cast<const VariadicType*>(&other)) return *type >= *that->type;
-
-        return *type >= other;
-    }
-
-
-
-    std::string ListType::text(const size_t indent) const { return '{' + type->text(indent) + '}'; }
-
-    bool ListType::operator>(const Type& other) const {
-        if (auto that = dynamic_cast<const ListType*>(&other)) return *type > *that->type;
-
+    if (not dynamic_cast<const FuncType*>(&other)) {
         return false;
     }
 
-    bool ListType::operator>=(const Type& other) const {
-        if (auto that = dynamic_cast<const ListType*>(&other)) return *type >= *that->type;
+    // this might throw, but it technically shouldn't
+    const auto& that = dynamic_cast<const FuncType&>(other);
 
-        return false;
+    for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
+        // std::clog << "type1: " << type1->text() << std::endl;
+        // std::clog << "type2: " << type2->text() << std::endl;
+        // std::clog << "not (" << type2->text() << " >= " << type1->text() << "): " << not (*type2 >= *type1) << std::endl;
+
+        // if (*type1 > *type2) return false; // args have an inverse relationship
+
+        if (not(*type2 >= *type1)) {
+            return false; // args have an inverse relationship
+        }
     }
 
+    return *ret >= *that.ret;
+}
 
+std::string VariadicType::text(const size_t indent) const { return "..." + type->text(indent); }
 
-    std::string MapType::text(const size_t indent) const {
-        return '{' + key_type->text(indent + 4) + ": " + val_type->text(indent + 4) + '}';
+bool VariadicType::operator>(const Type& other) const {
+    if (auto that = dynamic_cast<const VariadicType*>(&other)) {
+        return *type > *that->type;
     }
 
-    bool MapType::operator>(const Type& other) const {
-        if (auto that = dynamic_cast<const MapType*>(&other))
-            return *key_type > *that->key_type and *val_type > *that->val_type;
+    // variadic type of a type is a superset of that type
+    return *type == other or *type > other;
+}
 
-        return false;
+bool VariadicType::operator>=(const Type& other) const {
+    if (auto that = dynamic_cast<const VariadicType*>(&other)) {
+        return *type >= *that->type;
     }
 
-    bool MapType::operator>=(const Type& other) const {
-        if (auto that = dynamic_cast<const MapType*>(&other))
-            return *key_type >= *that->key_type and *val_type >= *that->val_type;
+    return *type >= other;
+}
 
-        return false;
+std::string ListType::text(const size_t indent) const { return '{' + type->text(indent) + '}'; }
+
+bool ListType::operator>(const Type& other) const {
+    if (auto that = dynamic_cast<const ListType*>(&other)) {
+        return *type > *that->type;
     }
+
+    return false;
+}
+
+bool ListType::operator>=(const Type& other) const {
+    if (auto that = dynamic_cast<const ListType*>(&other)) {
+        return *type >= *that->type;
+    }
+
+    return false;
+}
+
+std::string MapType::text(const size_t indent) const {
+    return '{' + key_type->text(indent + 4) + ": " + val_type->text(indent + 4) + '}';
+}
+
+bool MapType::operator>(const Type& other) const {
+    if (auto that = dynamic_cast<const MapType*>(&other)) {
+        return *key_type > *that->key_type and *val_type > *that->val_type;
+    }
+
+    return false;
+}
+
+bool MapType::operator>=(const Type& other) const {
+    if (auto that = dynamic_cast<const MapType*>(&other)) {
+        return *key_type >= *that->key_type and *val_type >= *that->val_type;
+    }
+
+    return false;
+}
 
 } // namespace type

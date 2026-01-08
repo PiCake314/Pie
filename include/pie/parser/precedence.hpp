@@ -1,175 +1,265 @@
 #pragma once
 
-#include <pie/utils/utils.hpp>
 #include <pie/expr.hpp>
+#include <pie/utils/utils.hpp>
 
 #include <numeric>
 
-
 namespace prec {
-  inline constexpr auto BASE = 1 << 10;
+    inline constexpr auto BASE = 1 << 10;
 
-  inline constexpr auto              LOW_VALUE = 0;
-  inline constexpr auto            COMMA_VALUE = BASE * (1 <<  0);
-  inline constexpr auto       ASSIGNMENT_VALUE = BASE * (1 <<  1);
-  inline constexpr auto               OR_VALUE = BASE * (1 <<  2);
-  inline constexpr auto              AND_VALUE = BASE * (1 <<  3);
-  inline constexpr auto            BITOR_VALUE = BASE * (1 <<  4);
-  inline constexpr auto           BITXOR_VALUE = BASE * (1 <<  5);
-  inline constexpr auto           BITAND_VALUE = BASE * (1 <<  6);
-  inline constexpr auto               EQ_VALUE = BASE * (1 <<  7);
-  inline constexpr auto              CMP_VALUE = BASE * (1 <<  8);
-  inline constexpr auto        SPACESHIP_VALUE = BASE * (1 <<  9);
-  inline constexpr auto            SHIFT_VALUE = BASE * (1 << 10);
-  inline constexpr auto              SUM_VALUE = BASE * (1 << 11);
-  inline constexpr auto             PROD_VALUE = BASE * (1 << 12);
-  inline constexpr auto           PREFIX_VALUE = BASE * (1 << 13);
-  inline constexpr auto           SUFFIX_VALUE = BASE * (1 << 14);
-  inline constexpr auto             CALL_VALUE = BASE * (1 << 15);
-  inline constexpr auto    MEMBER_ACCESS_VALUE = BASE * (1 << 15); // same as a call operator
-  inline constexpr auto SCOPE_RESOLUTION_VALUE = BASE * (1 << 16);
-  inline constexpr auto             HIGH_VALUE = BASE * (1 << 17);
+    inline constexpr auto LOW_VALUE = 0;
+    inline constexpr auto COMMA_VALUE = BASE * (1 << 0);
+    inline constexpr auto ASSIGNMENT_VALUE = BASE * (1 << 1);
+    inline constexpr auto OR_VALUE = BASE * (1 << 2);
+    inline constexpr auto AND_VALUE = BASE * (1 << 3);
+    inline constexpr auto BITOR_VALUE = BASE * (1 << 4);
+    inline constexpr auto BITXOR_VALUE = BASE * (1 << 5);
+    inline constexpr auto BITAND_VALUE = BASE * (1 << 6);
+    inline constexpr auto EQ_VALUE = BASE * (1 << 7);
+    inline constexpr auto CMP_VALUE = BASE * (1 << 8);
+    inline constexpr auto SPACESHIP_VALUE = BASE * (1 << 9);
+    inline constexpr auto SHIFT_VALUE = BASE * (1 << 10);
+    inline constexpr auto SUM_VALUE = BASE * (1 << 11);
+    inline constexpr auto PROD_VALUE = BASE * (1 << 12);
+    inline constexpr auto PREFIX_VALUE = BASE * (1 << 13);
+    inline constexpr auto SUFFIX_VALUE = BASE * (1 << 14);
+    inline constexpr auto CALL_VALUE = BASE * (1 << 15);
+    inline constexpr auto MEMBER_ACCESS_VALUE = BASE * (1 << 15); // same as a call operator
+    inline constexpr auto SCOPE_RESOLUTION_VALUE = BASE * (1 << 16);
+    inline constexpr auto HIGH_VALUE = BASE * (1 << 17);
 
+    inline constexpr auto LOW = "LOW";
+    inline constexpr auto ASSIGNMENT = "=";
+    inline constexpr auto OR = "||";
+    inline constexpr auto AND = "&&";
+    inline constexpr auto BITOR = "|";
+    inline constexpr auto BITXOR = "^";
+    inline constexpr auto BITAND = "&";
+    inline constexpr auto EQ = "==";
+    inline constexpr auto CMP = "<";
+    inline constexpr auto SPACESHIP = "<=>";
+    inline constexpr auto SHIFT = "<<";
+    inline constexpr auto SUM = "+";
+    inline constexpr auto PROD = "*";
+    inline constexpr auto PREFIX = "!";
+    inline constexpr auto SUFFIX = "[]";
+    inline constexpr auto CALL = "()";
+    inline constexpr auto SCOPE_RESOLUTION = "::";
+    inline constexpr auto HIGH = "HIGH";
 
-  inline constexpr auto LOW                = "LOW";
-  inline constexpr auto ASSIGNMENT         = "=";
-  inline constexpr auto OR                 = "||";
-  inline constexpr auto AND                = "&&";
-  inline constexpr auto BITOR              = "|";
-  inline constexpr auto BITXOR             = "^";
-  inline constexpr auto BITAND             = "&";
-  inline constexpr auto EQ                 = "==";
-  inline constexpr auto CMP                = "<";
-  inline constexpr auto SPACESHIP          = "<=>";
-  inline constexpr auto SHIFT              = "<<";
-  inline constexpr auto SUM                = "+";
-  inline constexpr auto PROD               = "*";
-  inline constexpr auto PREFIX             = "!";
-  inline constexpr auto SUFFIX             = "[]";
-  inline constexpr auto CALL               = "()";
-  inline constexpr auto SCOPE_RESOLUTION   = "::";
-  inline constexpr auto HIGH               = "HIGH";
+    // todo: continue refactoring!!!!!!!
+    inline int precedenceOf(const std::string& p, const Operators& ops) noexcept {
+        if (p == LOW) {
+            return LOW_VALUE;
+        }
 
+        if (p == ASSIGNMENT) {
+            return ASSIGNMENT_VALUE;
+        }
 
+        if (p == OR) {
+            return OR_VALUE;
+        }
 
-//todo: continue refactoring!!!!!!!
-  inline int precedenceOf(const std::string& p, const Operators& ops) noexcept {
-    if (p == LOW)
-      return LOW_VALUE;
+        if (p == AND) {
+            return AND_VALUE;
+        }
 
-    if (p == ASSIGNMENT)
-      return ASSIGNMENT_VALUE;
+        if (p == BITOR) {
+            return BITOR_VALUE;
+        }
 
-    if (p == OR)
-      return OR_VALUE;
+        if (p == BITXOR) {
+            return BITXOR_VALUE;
+        }
 
-    if (p == AND)
-      return AND_VALUE;
+        if (p == BITAND) {
+            return BITAND_VALUE;
+        }
 
-    if (p == BITOR)
-      return BITOR_VALUE;
+        if (p == "!=" or p == "==") {
+            return EQ_VALUE;
+        }
 
-    if (p == BITXOR)
-      return BITXOR_VALUE;
+        if (p == ">" or p == ">=" or p == "<" or p == "<=") {
+            return CMP_VALUE;
+        }
 
-    if (p == BITAND)
-      return BITAND_VALUE;
+        if (p == "<=>") {
+            return SPACESHIP_VALUE;
+        }
 
-    if (p == "!=" or p == "==")
-      return EQ_VALUE;
+        if (p == "<<" or p == ">>") {
+            return SHIFT_VALUE;
+        }
 
-    if (p == ">" or p == ">=" or p == "<" or p == "<=")
-      return CMP_VALUE;
+        if (p == "+" or p == "-") {
+            return SUM_VALUE;
+        }
 
-    if (p == "<=>")
-      return SPACESHIP_VALUE;
+        if (p == "*" or p == "/" or p == "%") {
+            return PROD_VALUE;
+        }
 
-    if (p == "<<" or p == ">>")
-      return SHIFT_VALUE;
+        if (p == "!" or p == "~") {
+            return PREFIX_VALUE;
+        }
 
-    if (p == "+" or p == "-")
-      return SUM_VALUE;
+        if (p == "[]") {
+            return SUFFIX_VALUE;
+        }
 
-    if (p == "*" or p == "/" or p == "%")
-      return PROD_VALUE;
+        if (p == "()") {
+            return CALL_VALUE;
+        }
 
-    if (p == "!" or p == "~")
-      return PREFIX_VALUE;
+        if (p == "::") {
+            return SCOPE_RESOLUTION_VALUE;
+        }
 
-    if (p == "[]")
-      return SUFFIX_VALUE;
+        if (p == "HIGH") {
+            return HIGH_VALUE;
+        }
 
-    if (p == "()")
-      return CALL_VALUE;
+        if (not ops.contains(p)) {
+            error('\'' + p + "' does not name any operator name or precedende level!");
+        }
 
-    if (p == "::")
-      return SCOPE_RESOLUTION_VALUE;
+        const auto& op = ops.at(p);
+        return std::midpoint(precedenceOf(op->high, ops), precedenceOf(op->low, ops));
+    }
 
-    if (p == "HIGH")
-      return HIGH_VALUE;
+    inline auto calculate(const std::string& high, const std::string& low, const Operators& ops) noexcept {
+        return std::midpoint(precedenceOf(high, ops), precedenceOf(low, ops));
+    }
 
-    if (not ops.contains(p)) error('\'' + p + "' does not name any operator name or precedende level!");
+    inline std::string higher(const std::string& p, const Operators& ops) noexcept {
+        if (p == "LOW") {
+            return "=";
+        }
+        if (p == "=") {
+            return "||";
+        }
+        if (p == "||") {
+            return "&&";
+        }
+        if (p == "&&") {
+            return "|";
+        }
+        if (p == "|") {
+            return "^";
+        }
+        if (p == "^") {
+            return "&";
+        }
+        if (p == "&") {
+            return "==";
+        }
+        if (p == "!=" or p == "==") {
+            return "<=";
+        }
+        if (p == ">" or p == ">=" or p == "<" or p == "<=") {
+            return "<=>";
+        }
+        if (p == "<=>") {
+            return ">>";
+        }
+        if (p == "<<" or p == ">>") {
+            return "-";
+        }
+        if (p == "+" or p == "-") {
+            return "%";
+        }
+        if (p == "*" or p == "/" or p == "%") {
+            return "~";
+        }
+        if (p == "!" or p == "~") {
+            return "[]";
+        }
+        if (p == "[]" or p == "?") {
+            return "()";
+        }
+        if (p == "()") {
+            return "::";
+        }
+        if (p == "::") {
+            return "HIGH";
+        }
+        if (p == "HIGH") {
+            error("Can't go higher than HIGH!");
+        }
 
-    const auto& op = ops.at(p);
-    return std::midpoint(precedenceOf(op->high, ops), precedenceOf(op->low, ops));
-  }
+        // should I assume it already contains?
+        if (not ops.contains(p)) {
+            error('\'' + p + "' not name any precedende level or operator!");
+        }
 
-  inline auto calculate(const std::string& high, const std::string& low, const Operators& ops) noexcept {
-    return std::midpoint(precedenceOf(high, ops), precedenceOf(low, ops));
-  }
+        const auto& op = ops.at(p);
+        return op->high == op->low ? higher(op->low /*or op->high*/, ops) : op->high;
+    }
 
+    inline std::string lower(const std::string& p, const Operators& ops) noexcept {
+        if (p == "LOW") {
+            error("Can't go lower than LOW!");
+        }
+        if (p == "=") {
+            return "LOW";
+        }
+        if (p == "||") {
+            return "=";
+        }
+        if (p == "&&") {
+            return "||";
+        }
+        if (p == "|") {
+            return "&&";
+        }
+        if (p == "^") {
+            return "|";
+        }
+        if (p == "&") {
+            return "^";
+        }
+        if (p == "!=" or p == "==") {
+            return "&";
+        }
+        if (p == ">" or p == ">=" or p == "<" or p == "<=") {
+            return "==";
+        }
+        if (p == "<=>") {
+            return "<=";
+        }
+        if (p == "<<" or p == ">>") {
+            return "<=>";
+        }
+        if (p == "+" or p == "-") {
+            return ">>";
+        }
+        if (p == "*" or p == "/" or p == "%") {
+            return "-";
+        }
+        if (p == "!" or p == "~") {
+            return "%";
+        }
+        if (p == "[]" or p == "?") {
+            return "~";
+        }
+        if (p == "()") {
+            return "[]";
+        }
+        if (p == "::") {
+            return "()";
+        }
+        if (p == "HIGH") {
+            return "::";
+        }
 
-  inline std::string higher(const std::string& p, const Operators& ops) noexcept {
-    if (p == "LOW")                                     return "=";
-    if (p == "=")                                       return "||";
-    if (p == "||")                                      return "&&";
-    if (p == "&&")                                      return "|";
-    if (p == "|")                                       return "^";
-    if (p == "^")                                       return "&";
-    if (p == "&")                                       return "==";
-    if (p == "!=" or p == "==")                         return "<=";
-    if (p == ">" or p == ">=" or p == "<" or p == "<=") return "<=>";
-    if (p == "<=>")                                     return ">>";
-    if (p == "<<" or p == ">>")                         return "-";
-    if (p == "+" or p == "-")                           return "%";
-    if (p == "*" or p == "/" or p == "%")               return "~";
-    if (p == "!" or p == "~")                           return "[]";
-    if (p == "[]" or p == "?")                          return "()";
-    if (p == "()")                                      return "::";
-    if (p == "::")                                      return "HIGH";
-    if (p == "HIGH") error("Can't go higher than HIGH!");
-
-    // should I assume it already contains?
-    if (not ops.contains(p)) error('\'' + p + "' not name any precedende level or operator!");
-
-    const auto& op = ops.at(p);
-    return op->high == op->low ? higher(op->low /*or op->high*/, ops) : op->high;
-  }
-
-  inline std::string lower(const std::string& p, const Operators& ops) noexcept {
-    if (p == "LOW") error("Can't go lower than LOW!");
-    if (p == "=")                                       return "LOW";
-    if (p == "||")                                      return "=";
-    if (p == "&&")                                      return "||";
-    if (p == "|")                                       return "&&";
-    if (p == "^")                                       return "|";
-    if (p == "&")                                       return "^";
-    if (p == "!=" or p == "==")                         return "&";
-    if (p == ">" or p == ">=" or p == "<" or p == "<=") return "==";
-    if (p == "<=>")                                     return "<=";
-    if (p == "<<" or p == ">>")                         return "<=>";
-    if (p == "+" or p == "-")                           return ">>";
-    if (p == "*" or p == "/" or p == "%")               return "-";
-    if (p == "!" or p == "~")                           return "%";
-    if (p == "[]" or p == "?")                          return "~";
-    if (p == "()")                                      return "[]";
-    if (p == "::")                                      return "()";
-    if (p == "HIGH")                                    return "::";
-
-
-    //? should I assume it already contains?
-    if (not ops.contains(p)) error('\'' + p + "' not name any precedende level or operator!");
-    const auto& op = ops.at(p);
-    return op->high == op->low ? lower(op->high /*or op->high*/, ops) : op->low;
-  }
-}
+        //? should I assume it already contains?
+        if (not ops.contains(p)) {
+            error('\'' + p + "' not name any precedende level or operator!");
+        }
+        const auto& op = ops.at(p);
+        return op->high == op->low ? lower(op->high /*or op->high*/, ops) : op->low;
+    }
+} // namespace prec

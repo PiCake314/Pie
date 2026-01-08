@@ -1,19 +1,20 @@
 #pragma once
 
+#include <cstdio>
 #include <iostream>
 #include <string>
-#include <cstdio>
 #include <unistd.h>
 
-
-#include <pie/lexer/lexer.hpp>
-#include <pie/Preprocessor/Preprocessor.hpp>
-#include <pie/Parser/Parser.hpp>
 #include <pie/Interp/Interpreter.hpp>
-
+#include <pie/Parser/Parser.hpp>
+#include <pie/Preprocessor/Preprocessor.hpp>
+#include <pie/lexer/lexer.hpp>
 
 struct Capture {
-    int oldfd{-1}; FILE* tmp{nullptr}; std::string s; bool stopped{false};
+    int oldfd{-1};
+    FILE* tmp{nullptr};
+    std::string s;
+    bool stopped{false};
 
     Capture() {
         tmp = std::tmpfile();
@@ -24,15 +25,22 @@ struct Capture {
     }
 
     std::string stop() {
-        if (stopped) return s;
-        std::cout.flush(); std::fflush(stdout);
+        if (stopped) {
+            return s;
+        }
+        std::cout.flush();
+        std::fflush(stdout);
 
-        dup2(oldfd, STDOUT_FILENO); close(oldfd);
+        dup2(oldfd, STDOUT_FILENO);
+        close(oldfd);
 
         std::rewind(tmp);
 
-        char buf[4096]; size_t n;
-        while ((n = std::fread(buf,1,sizeof buf,tmp)) > 0) s.append(buf, n);
+        char buf[4096];
+        size_t n;
+        while ((n = std::fread(buf, 1, sizeof buf, tmp)) > 0) {
+            s.append(buf, n);
+        }
 
         std::fclose(tmp);
         stopped = true;
@@ -41,29 +49,40 @@ struct Capture {
         return s;
     }
 
-    void clean () {
+    void clean() {
         s.erase(std::remove(s.begin(), s.end(), '\r'), s.end());
         s.erase(std::remove(s.begin(), s.end(), '\0'), s.end());
 
-        for (size_t i=0;i<s.size();) {
-            if (s[i] == 0x1B && i+1 < s.size() && s[i+1] == '[') {
+        for (size_t i = 0; i < s.size();) {
+            if (s[i] == 0x1B && i + 1 < s.size() && s[i + 1] == '[') {
                 size_t j = i + 2;
-                while (j < s.size() && (std::isdigit((unsigned char)s[j]) || s[j] == ';')) ++j;
+                while (j < s.size() && (std::isdigit((unsigned char)s[j]) || s[j] == ';')) {
+                    ++j;
+                }
 
-                if (j<s.size()) s.erase(i, j+1-i); else break;
+                if (j < s.size()) {
+                    s.erase(i, j + 1 - i);
+                } else {
+                    break;
+                }
+            } else {
+                ++i;
             }
-            else ++i;
         }
 
-        while (!s.empty() && (s.back()=='\n' || s.back()==' ')) s.pop_back();
+        while (!s.empty() && (s.back() == '\n' || s.back() == ' ')) {
+            s.pop_back();
+        }
     };
 
-    ~Capture(){ if (!stopped) stop(); }
+    ~Capture() {
+        if (!stopped) {
+            stop();
+        }
+    }
 
     const std::string& text() const { return s; }
 };
-
-
 
 std::string run(const char* src) {
 
@@ -72,19 +91,20 @@ std::string run(const char* src) {
 
     Tokens v = lex::lex(src);
 
-    if (v.empty()) return "";
+    if (v.empty()) {
+        return "";
+    }
 
     Parser p{std::move(v)};
 
     auto [exprs, ops] = p.parse();
 
-
     Capture c{};
 
     Visitor visitor{std::move(ops)};
-    for (const auto& expr : exprs)
+    for (const auto& expr : exprs) {
         std::visit(visitor, expr->variant());
+    }
 
     return c.stop();
 }
-

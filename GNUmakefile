@@ -78,4 +78,9 @@ checklibs: .dummy
 clean: .dummy
 	rm -f Pie run_tests
 
+.PHONY: format
+format: .dummy
+	find src -name '*.cpp' -exec clang-format -style=file -i {} ';'
+	find include -name '*.hpp' -exec clang-format -style=file -i {} ';'
+
 .dummy:
