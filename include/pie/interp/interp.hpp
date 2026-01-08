@@ -18,14 +18,14 @@
 
 #include <stdx/tuple.hpp>
 
-#include "../Utils/utils.hxx"
-#include "../Utils/Exceptions.hxx"
-#include "../Utils/ConstexprLookup.hxx"
-#include "../Lexer/Lexer.hxx"
-#include "../Expr/Expr.hxx"
-#include "../Parser/Parser.hxx"
+#include <pie/utils/utils.hpp>
+#include <pie/utils/exceptions.hpp>
+#include <pie/utils/lookup.hpp>
+#include <pie/lexer.hpp>
+#include <pie/expr.hpp>
+#include <pie/parser/parser.hpp>
 
-#include "Value.hxx"
+#include <pie/interp/value.hpp>
 
 inline namespace pie {
 

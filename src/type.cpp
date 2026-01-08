@@ -1,5 +1,5 @@
-#include "Type.hxx"
-#include "../Interp/Interpreter.hxx"
+#include <pie/type.hpp>
+#include <pie/interp/interp.hpp>
 
 #include <ranges>
 

@@ -6,12 +6,10 @@
 #include <utility>
 #include <stdexcept>
 
-#include "Lexer/Lexer.hxx"
-#include "Preprocessor/Preprocessor.hxx"
-#include "Parser/Parser.hxx"
-#include "Interp/Interpreter.hxx"
-
-
+#include <pie/lexer.hpp>
+#include <pie/preprocessor.hpp>
+#include <pie/parser/parser.hpp>
+#include <pie/interp/interp.hpp>
 
 [[nodiscard]] inline std::string readFile(const std::string& fname) {
     const std::ifstream fin{fname};

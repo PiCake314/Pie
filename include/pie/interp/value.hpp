@@ -7,10 +7,10 @@
 #include <utility>
 
 
-#include "../Expr/Expr.hxx"
-#include "../Type/Type.hxx"
-#include "../Declarations.hxx"
-#include "../Utils/utils.hxx"
+#include <pie/expr.hpp>
+#include <pie/type.hpp>
+#include <pie/declarations.hpp>
+#include <pie/utils/utils.hpp>
 
 inline namespace pie {
 inline namespace value {

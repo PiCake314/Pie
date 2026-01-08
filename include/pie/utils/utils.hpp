@@ -10,9 +10,7 @@
 #include <type_traits>
 #include <stdexcept>
 
-#include "../Token/Token.hxx"
-
-
+#include <pie/token.hpp>
 
 inline namespace pie {
 inline namespace util {

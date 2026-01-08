@@ -6,10 +6,10 @@
 #include <unistd.h>
 
 
-#include "../Lexer/Lexer.hxx"
-#include "../Preprocessor/Preprocessor.hxx"
-#include "../Parser/Parser.hxx"
-#include "../Interp/Interpreter.hxx"
+#include <pie/lexer/lexer.hpp>
+#include <pie/Preprocessor/Preprocessor.hpp>
+#include <pie/Parser/Parser.hpp>
+#include <pie/Interp/Interpreter.hpp>
 
 
 struct Capture {

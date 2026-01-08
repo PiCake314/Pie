@@ -20,11 +20,11 @@
 #include <cassert>
 
 
-#include "../Lexer/Lexer.hxx"
-#include "../Token/Token.hxx"
-#include "../Expr/Expr.hxx"
-#include "../Parser/Precedence.hxx"
-#include "../Utils/utils.hxx"
+#include <pie/lexer.hpp>
+#include <pie/token.hpp>
+#include <pie/expr.hpp>
+#include <pie/parser/precedence.hpp>
+#include <pie/utils/utils.hpp>
 
 
 inline namespace pie {
@@ -287,8 +287,6 @@ public:
 
                 if (fold_expr) return parseFoldExpr();
 
-                // auto exprs = parseCommaList();
-
 
                 const bool closure_expr = [this] {
                     size_t i{};
@@ -309,12 +307,10 @@ public:
                 auto expr = parseExpr();
                 consume(R_PAREN);
                 return std::make_shared<expr::Grouping>(std::move(expr));
-                // return expr;
             }
 
 
             default:
-                // log(true);
                 error("Couldn't parse \"" + token.text + "\"!");
         }
     }

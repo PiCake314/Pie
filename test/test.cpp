@@ -1,10 +1,10 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
-#include "TestSuite.hxx"
+#include "testsuite.hpp"
 #include <stdexcept>
 
-#include "../Type/Type.hxx"
+#include <pie/type/type.hpp>
 
 
 

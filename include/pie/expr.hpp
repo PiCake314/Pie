@@ -16,10 +16,10 @@
 #include <numeric>
 #include <memory>
 
-#include "../Utils/utils.hxx"
-#include "../Token/Token.hxx"
-#include "../Declarations.hxx"
-#include "../Type/Type.hxx"
+#include <pie/utils/utils.hpp>
+#include <pie/token.hpp>
+#include <pie/declarations.hpp>
+#include <pie/type.hpp>
 
 
 

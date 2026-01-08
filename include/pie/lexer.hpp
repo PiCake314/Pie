@@ -1,7 +1,7 @@
 #pragma once
 
-#include "../Token/Token.hxx"
-#include "../Parser/Precedence.hxx"
+#include <pie/token.hpp>
+#include <pie/parser/precedence.hpp>
 
 #include <cctype>
 #include <string>
