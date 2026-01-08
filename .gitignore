@@ -1,7 +1,9 @@
-Pie
-run_tests
-code/
 .vscode/
-remote_includes/
-Pie.dSYM/
+*.o
 *.txt
+code/
+pie
+!include/pie
+pie.dsym/
+remote_includes/
+run_tests

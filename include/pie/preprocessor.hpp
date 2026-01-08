@@ -1,15 +1,13 @@
 #pragma once
 
-
-#include <print>
 #include <cctype>
-#include <string>
-#include <fstream>
-#include <unordered_set>
 #include <filesystem>
+#include <fstream>
+#include <print>
 #include <ranges>
 #include <stdexcept>
-
+#include <string>
+#include <unordered_set>
 
 [[nodiscard]] inline std::string readFile2(const std::string& fname) {
     const std::ifstream fin{fname};
@@ -25,13 +23,14 @@
     return ss.str();
 }
 
-
 bool findAndRemoveImport(std::string& src, size_t& index) {
     using std::operator""sv;
 
     index = src.find("import");
 
-    if (index == std::string::npos) return false;
+    if (index == std::string::npos) {
+        return false;
+    }
 
     constexpr size_t import_length = "import"sv.length();
 
@@ -41,11 +40,11 @@ bool findAndRemoveImport(std::string& src, size_t& index) {
 }
 
 size_t findSpace(const std::string& src, size_t ind) {
-    while (++ind < src.length() and not std::isspace(src[ind]) and src[ind] != ';');
+    while (++ind < src.length() and not std::isspace(src[ind]) and src[ind] != ';')
+        ;
 
     return ind;
 }
-
 
 void removeAllBetween(std::string& s, const std::string_view begin, const std::string_view end) {
     for (size_t ind = s.find(begin); ind != std::string::npos; ind = s.find(begin)) {
@@ -53,7 +52,6 @@ void removeAllBetween(std::string& s, const std::string_view begin, const std::s
         s.erase(ind, end_ind - ind);
     }
 }
-
 
 std::string removeComments(std::string src) {
     // removing block comments
@@ -75,10 +73,11 @@ std::string process(std::string src, const std::filesystem::path& root) {
     auto canonical = std::filesystem::canonical(root);
 
     if constexpr (not REPL) {
-        if (cache.contains(canonical.string())) return "";
+        if (cache.contains(canonical.string())) {
+            return "";
+        }
         cache.insert(canonical.string());
     }
-
 
     auto mainfile = root;
     mainfile.remove_filename();
@@ -111,7 +110,6 @@ std::string process(std::string src, const std::filesystem::path& root) {
 
     return src;
 }
-
 
 template <bool REPL>
 std::string preprocess(std::string src, const std::filesystem::path& root) {

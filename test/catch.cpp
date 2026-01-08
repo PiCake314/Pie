@@ -44,9 +44,9 @@ namespace Catch {
     namespace Benchmark {
         namespace Detail {
             ChronometerConcept::~ChronometerConcept() = default;
-        } // namespace Detail
-    } // namespace Benchmark
-} // namespace Catch
+        }
+    }
+}
 
 
 // Adapted from donated nonius code.
@@ -118,9 +118,9 @@ namespace Catch {
                     };
                 }
             }
-        } // namespace Detail
-    } // namespace Benchmark
-} // namespace Catch
+        }
+    }
+}
 
 
 
@@ -135,9 +135,9 @@ namespace Catch {
             BenchmarkFunction::callable::~callable() = default;
             BenchmarkFunction::BenchmarkFunction():
                 f( new model<do_nothing>{ {} } ){}
-        } // namespace Detail
-    } // namespace Benchmark
-} // namespace Catch
+        }
+    }
+}
 
 
 
@@ -159,9 +159,9 @@ namespace Catch {
                 Catch::throw_exception(optimized_away_error{});
             }
 
-        } // namespace Detail
-    } // namespace Benchmark
-} // namespace Catch
+        }
+    }
+}
 
 
 // Adapted from donated nonius code.
@@ -356,7 +356,7 @@ namespace Catch {
             } // namespace
         }     // namespace Detail
     }         // namespace Benchmark
-} // namespace Catch
+}
 
 namespace Catch {
     namespace Benchmark {
@@ -542,9 +542,9 @@ namespace Catch {
 
                 return { mean_estimate, stddev_estimate, outlier_variance };
             }
-        } // namespace Detail
-    } // namespace Benchmark
-} // namespace Catch
+        }
+    }
+}
 
 
 
@@ -1920,7 +1920,7 @@ namespace Catch {
     }
 
 
-} // namespace Catch
+}
 
 
 
@@ -2245,8 +2245,8 @@ namespace Catch {
             getMutableRegistryHub().registerTranslator(
                 CATCH_MOVE( translator ) );
         }
-    } // namespace Detail
-} // namespace Catch
+    }
+}
 
 
 #include <ostream>
@@ -2326,8 +2326,8 @@ namespace Detail {
             generatorName, lineInfo, CATCH_MOVE( generator ) );
     }
 
-} // namespace Generators
-} // namespace Catch
+}
+}
 
 
 
@@ -2338,7 +2338,7 @@ namespace Catch {
     namespace Generators {
         namespace Detail {
             std::uint32_t getSeed() { return sharedRng()(); }
-        } // namespace Detail
+        }
 
         struct RandomFloatingGenerator<long double>::PImpl {
             PImpl( long double a, long double b, uint32_t seed ):
@@ -2360,8 +2360,8 @@ namespace Catch {
             m_current_number = m_pimpl->dist( m_pimpl->rng );
             return true;
         }
-    } // namespace Generators
-} // namespace Catch
+    }
+}
 
 
 
@@ -2408,8 +2408,8 @@ namespace Catch {
             return m_stringReprCache;
         }
 
-    } // namespace Generators
-} // namespace Catch
+    }
+}
 
 
 
@@ -2586,7 +2586,7 @@ namespace Catch {
         handleExceptionMatchExpr( handler, Matchers::Equals( str ) );
     }
 
-} // namespace Catch
+}
 
 
 
@@ -2613,8 +2613,8 @@ namespace Catch {
                 []( char l, char r ) { return toLower( l ) == toLower( r ); } );
         }
 
-    } // namespace Detail
-} // namespace Catch
+    }
+}
 
 
 
@@ -2767,7 +2767,7 @@ namespace Catch {
 
             bool BoundFlagRefBase::isFlag() const { return true; }
 
-} // namespace Detail
+}
 
         Detail::InternalParseResult Arg::parse(std::string const&,
                                                Detail::TokenStream tokens) const {
@@ -3066,8 +3066,8 @@ namespace Catch {
                 .optional();
         }
 
-    } // namespace Clara
-} // namespace Catch
+    }
+}
 
 
 
@@ -3449,7 +3449,7 @@ namespace Catch {
     } // namespace
 
 
-} // namespace Catch
+}
 
 
 #if defined ( CATCH_CONFIG_COLOUR_WIN32 ) /////////////////////////////////////////
@@ -3755,7 +3755,7 @@ namespace Catch {
             return false;
         }
         #endif
-    } // namespace Catch
+    }
 
 #elif defined(CATCH_PLATFORM_LINUX)
     #include <fstream>
@@ -3786,7 +3786,7 @@ namespace Catch {
 
             return false;
         }
-    } // namespace Catch
+    }
 #elif defined(_MSC_VER)
     extern "C" __declspec(dllimport) int __stdcall IsDebuggerPresent();
     namespace Catch {
@@ -3861,7 +3861,7 @@ namespace Catch {
 
 
 
-} // namespace Catch;
+};
 
 
 
@@ -4311,8 +4311,8 @@ namespace Catch {
 #    endif
         }
 #endif
-} // namespace Detail
-} // namespace Catch
+}
+}
 
 
 
@@ -4432,7 +4432,7 @@ namespace Detail {
         };
 
     } // unnamed namespace
-} // namespace Detail
+}
 
     ///////////////////////////////////////////////////////////////////////////
 
@@ -4611,7 +4611,7 @@ namespace Catch {
         if ( quote ) { m_os << '"'; }
     }
 
-} // namespace Catch
+}
 
 
 
@@ -4633,7 +4633,7 @@ namespace Catch {
         return os;
     }
 
-} // namespace Catch
+}
 
 
 
@@ -5137,7 +5137,7 @@ namespace Catch {
         return *this;
     }
 
-} // namespace Catch
+}
 
 #if defined( CATCH_CONFIG_NEW_CAPTURE )
 #    if defined( _MSC_VER )
@@ -5189,7 +5189,7 @@ namespace Catch {
         return {};
     }
 
-} // namespace Catch
+}
 
 
 
@@ -5394,7 +5394,7 @@ namespace Catch {
     ReporterRegistry::getListeners() const {
         return m_impl->listeners;
     }
-} // namespace Catch
+}
 
 
 
@@ -5482,7 +5482,7 @@ namespace Catch {
                 return {};
             }
         }
-    } // namespace Detail
+    }
 
 
     bool operator==( ReporterSpec const& lhs, ReporterSpec const& rhs ) {
@@ -5559,7 +5559,7 @@ ReporterSpec::ReporterSpec(
         m_colourMode( CATCH_MOVE( colourMode ) ),
         m_customOptions( CATCH_MOVE( customOptions ) ) {}
 
-} // namespace Catch
+}
 
 
 
@@ -5802,7 +5802,7 @@ namespace Catch {
         static thread_local std::vector<ScopedMessage> g_messageScopes;
         CATCH_INTERNAL_STOP_WARNINGS_SUPPRESSION
 
-    } // namespace Detail
+    }
 
     RunContext::RunContext(IConfig const* _config, IEventListenerPtr&& reporter)
     :   m_runInfo(_config->name()),
@@ -6529,7 +6529,7 @@ namespace Catch {
         singletons = nullptr;
     }
 
-} // namespace Catch
+}
 
 
 
@@ -6594,7 +6594,7 @@ namespace Catch {
     std::ostream& clog() { return std::clog; }
 #endif
 
-} // namespace Catch
+}
 
 
 
@@ -6761,7 +6761,7 @@ namespace Catch {
         return lhs;
     }
 
-} // namespace Catch
+}
 
 
 
@@ -6838,7 +6838,7 @@ namespace Catch {
         const uint32_t high{ static_cast<uint32_t>( hash >> 32 ) };
         return low * high;
     }
-} // namespace Catch
+}
 
 
 
@@ -7201,9 +7201,9 @@ namespace TestCaseTracking {
         return m_trimmed_name;
     }
 
-} // namespace TestCaseTracking
+}
 
-} // namespace Catch
+}
 
 #if defined(__clang__)
 #    pragma clang diagnostic pop
@@ -7230,7 +7230,7 @@ namespace Catch {
 #endif
     }
 
-} // namespace Catch
+}
 
 
 
@@ -7533,7 +7533,7 @@ namespace Catch {
         m_mode = None;
     }
 
-} // namespace Catch
+}
 
 
 
@@ -7905,8 +7905,8 @@ namespace Catch {
             return CATCH_MOVE( lhs );
         }
 
-    } // namespace TextFlow
-} // namespace Catch
+    }
+}
 
 
 
@@ -8317,8 +8317,8 @@ namespace Matchers {
 
     MatcherUntypedBase::~MatcherUntypedBase() = default;
 
-} // namespace Matchers
-} // namespace Catch
+}
+}
 
 
 
@@ -8364,8 +8364,8 @@ ExceptionMessageMatcher Message(std::string const& message) {
     return ExceptionMessageMatcher(message);
 }
 
-} // namespace Matchers
-} // namespace Catch
+}
+}
 
 
 
@@ -8579,8 +8579,8 @@ std::string IsNaNMatcher::describe() const {
 
 IsNaNMatcher IsNaN() { return IsNaNMatcher(); }
 
-    } // namespace Matchers
-} // namespace Catch
+    }
+}
 
 
 
@@ -8608,8 +8608,8 @@ namespace Catch {
         std::string AnyTrueMatcher::describe() const { return "contains at least one true"; }
 
         AnyTrueMatcher AnyTrue() { return AnyTrueMatcher{}; }
-    } // namespace Matchers
-} // namespace Catch
+    }
+}
 
 
 
@@ -8713,8 +8713,8 @@ namespace Matchers {
         return RegexMatcher(regex, caseSensitivity);
     }
 
-} // namespace Matchers
-} // namespace Catch
+}
+}
 
 
 
@@ -8747,9 +8747,9 @@ namespace Matchers {
             return description;
         }
 
-    } // namespace Detail
-} // namespace Matchers
-} // namespace Catch
+    }
+}
+}
 
 
 
@@ -8765,7 +8765,7 @@ namespace Catch {
         handler.handleExpr( expr );
     }
 
-} // namespace Catch
+}
 
 
 
@@ -8835,7 +8835,7 @@ namespace Catch {
         defaultListTags( m_stream, tags, m_config->hasTestFilters() );
     }
 
-} // namespace Catch
+}
 
 
 
@@ -9912,7 +9912,7 @@ namespace Catch {
     void EventListenerBase::testCaseEnded( TestCaseStats const& ) {}
     void EventListenerBase::testRunEnded( TestRunStats const& ) {}
     void EventListenerBase::skipTest( TestCaseInfo const& ) {}
-} // namespace Catch
+}
 
 
 
@@ -10261,7 +10261,7 @@ namespace Catch {
         printSummaryRow( stream, streamColour, "assertions"_sr, columns, 1 );
     }
 
-} // namespace Catch
+}
 
 
 //
@@ -10622,7 +10622,7 @@ namespace Catch {
             tag_writer.write( "count"_sr ).write( tag.count );
         }
     }
-} // namespace Catch
+}
 
 
 
@@ -11135,8 +11135,8 @@ namespace Catch {
         }
 
 
-    } // namespace Detail
-} // namespace Catch
+    }
+}
 
 
 

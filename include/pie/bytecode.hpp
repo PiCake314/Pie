@@ -1,6 +1,5 @@
 #pragma once
 
-
 namespace pie {
 
 enum class Code {
@@ -8,5 +7,4 @@ enum class Code {
     STORE,
 };
 
-
-} // namespace pie
+}
