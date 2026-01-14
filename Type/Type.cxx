@@ -7,20 +7,39 @@
 
 namespace type {
 
+    // * Any Expression * //
     std::string ExprType::text(const size_t indent) const {
-        const auto& type = t->stringify(indent);
-        return type.empty() ? "Any" : type;
+        return t->stringify(indent);
     }
 
     bool ExprType::operator>(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
+        // if (not dynamic_cast<const ExprType   *>(&other)) return false;
 
-        const auto& type = text();
-        return type == "Syntax" or (type == "Any" and other.text() != "Any");
+        return false;
+        // const auto& type = text();
+        // return type == "Syntax" or (type == "Any" and other.text() != "Any");
+    }
+
+    bool ExprType::operator>=(const Type& other) const {
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
+
+        return text() == other.text(); // only check for equality sine ExprType is never greater than any other ExprType
+        // const auto& type = text();
+        // return type == "Syntax" or type == "Any" or type == other.text();
     }
 
 
-    bool ExprType::operator>=(const Type& other) const {
+
+    // * Builtins * //
+    bool BuiltinType::operator>(const Type& other) const {
+        if (dynamic_cast<const TryReassign*>(&other)) return true;
+
+        const auto type = text();
+        return type == "Syntax" or (type == "Any" and other.text() != "Any");
+    }
+
+    bool BuiltinType::operator>=(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
 
         const auto& type = text();
@@ -28,8 +47,20 @@ namespace type {
     }
 
 
-    std::string BuiltinType::text(const size_t) const { return t; }
 
+    // * Value Type * //
+    std::string ValueType::text(const size_t indent) const { return stringify(*val, indent); }
+
+    bool ValueType::operator>=(const Type& other) const {
+        const auto* other_type = dynamic_cast<const ValueType*>(&other);
+        if (not other_type) return false;
+
+        // return *this == other; // I think that's fine
+        return *val == *other_type->val;
+    }
+
+
+    // * Class Type * //
     std::string LiteralType::text(const size_t indent) const {
         // return stringify(*cls, indent);
         std::string s;
@@ -62,22 +93,57 @@ namespace type {
 
     bool LiteralType::operator>(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
-        if (not dynamic_cast<const LiteralType*>(&other)) return false;
 
-        const auto& type = text();
+        if (const auto other_cls = dynamic_cast<const LiteralType*>(&other)) {
+            for (const auto& [name, type, _] : cls->blueprint->members) {
+                const auto& iter = std::ranges::find_if(other_cls->cls->blueprint->members, [&name] (const auto& member) {
+                    const auto& [n, _, __] = member;
+                    return n.name == name.name;
+                });
+
+                if (iter == other_cls->cls->blueprint->members.cend()) return false;
+
+                const auto& [__, t, ___] = *iter;
+                if (not (*type > *t)) return false;
+            }
+
+            return true;
+        }
+
+        const auto type = text();
         return type == "Syntax" or (type == "Any" and other.text() != "Any");
     }
 
 
     bool LiteralType::operator>=(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
-        if (not dynamic_cast<const LiteralType*>(&other)) return false;
+        // if (not dynamic_cast<const LiteralType*>(&other)) return false;
 
-        const auto& type = text();
-        return type == "Syntax" or type == "Any" or type == other.text();
+        if (const auto other_cls = dynamic_cast<const LiteralType*>(&other)) {
+            if (text() == other.text()) return true;
+
+            for (const auto& [name, type, _] : cls->blueprint->members) {
+                const auto& iter = std::ranges::find_if(other_cls->cls->blueprint->members, [&name] (const auto& member) {
+                    const auto& [n, _, __] = member;
+                    return n.name == name.name;
+                });
+
+                if (iter == other_cls->cls->blueprint->members.cend()) return false;
+
+                const auto& [__, t, ___] = *iter;
+                if (not (*type >= *t)) return false;
+            }
+
+            return true;
+        }
+
+        const auto type = text();
+        return type == "Syntax" or type == "Any"; // or type == other.text();
     }
 
 
+
+    // * Union Type * //
     std::string UnionType::text(const size_t indent) const {
         std::string s = "union { ";
 
@@ -109,14 +175,10 @@ namespace type {
         return std::ranges::any_of(types, [&other](const auto& type) { return *type >= other; });
     };
 
-    std::string SpaceType::text(const size_t) const { return "Space"; }
-    // a namespace is only not greater than any other type...
-    bool SpaceType::operator>(const Type&) const { return false; }
-    // ...so >= only needs to check for equality!
-    bool SpaceType::operator>=(const Type& other) const { return *this == other; }
 
 
 
+    // * Function Type * //
     std::string FuncType::text(const size_t indent) const {
         std::string t = params.empty() ? "" : params[0]->text(indent);
         for (size_t i = 1uz; i < params.size(); ++i)
@@ -171,6 +233,7 @@ namespace type {
 
 
 
+    // * Variadic Type * //
     std::string VariadicType::text(const size_t indent) const { return "..." + type->text(indent); }
 
     bool VariadicType::operator>(const Type& other) const {
@@ -188,6 +251,7 @@ namespace type {
 
 
 
+    // * List Type * //
     std::string ListType::text(const size_t indent) const { return '{' + type->text(indent) + '}'; }
 
     bool ListType::operator>(const Type& other) const {
@@ -204,6 +268,7 @@ namespace type {
 
 
 
+    // * Map Type * //
     std::string MapType::text(const size_t indent) const {
         return '{' + key_type->text(indent + 4) + ": " + val_type->text(indent + 4) + '}';
     }

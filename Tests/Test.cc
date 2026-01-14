@@ -9,6 +9,110 @@
 
 
 
+TEST_CASE("Redefining builtin type, espacially Any", "[Type]") {
+    const auto src = R"(
+Any = class { };
+
+f = (a) => a;
+f("");
+
+f = (a: Any): Any => a;
+f(Any());
+)";
+
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+
+TEST_CASE("Class + Object Equality", "[Object][Class]") {
+    const auto src = R"(
+print = __builtin_print;
+
+x = 1;
+y = 1;
+ns = space {
+    x: Any = 2;
+    y = 2;
+
+    printX1 = () => print(::x);
+    printX2 = () => print(x);
+
+    printY1 = () => print(::y);
+    printY2 = () => print(y);
+};
+
+ns::printX1();
+ns::printX2();
+
+ns::printY1();
+ns::printY2();
+)";
+
+
+    REQUIRE(run(src) == R"(1
+2
+2
+2)");
+}
+
+
+// TEST_CASE("Class + Object Equality", "[Object][Class]") {
+//     const auto src = R"(
+// print = __builtin_print;
+
+// X = class { a = 1; b = a; };
+// Y = class { a = 1; b = 1; };
+// print(__builtin_eq(X, Y));
+// print(__builtin_eq(X(2), Y(2)));
+// print(X(2));
+// print(Y(2));
+// )";
+
+// // maybe the first shouldn't be true
+//     REQUIRE(run(src) == R"(true
+// true
+// Object {
+//     a = 2;
+//     b = 1;
+// }
+// Object {
+//     a = 2;
+//     b = 1;
+// })");
+// }
+
+
+TEST_CASE("Class + Object Equality with NaN", "[Object][Class][Type]") {
+    const auto src = R"(
+print = __builtin_print;
+
+A = class { value = __builtin_div(0.0, 0.0); };
+x = __builtin_div(0.0, 0.0);
+print(__builtin_eq(A(), A()));
+print(__builtin_eq(x, x));
+)";
+
+    REQUIRE(run(src) == "false\nfalse");
+}
+
+
+
+TEST_CASE("Class + Object Equality", "[Object][Class][Type]") {
+    const auto src = R"(
+print = __builtin_print;
+
+B = class { value = __builtin_neg(0.0); };
+C = class { value = 0.0; };
+print(__builtin_eq(B, C));
+print(__builtin_eq(B(), C()));
+
+)";
+
+    REQUIRE(run(src) == "true\ntrue");
+}
+
+
 TEST_CASE("Returning Function with Member Variable Capture", "[Var][Func][Class]") {
     const auto src = R"(
 print = __builtin_print;

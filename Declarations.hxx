@@ -2,25 +2,7 @@
 
 #include <memory>
 
-
 inline namespace pie {
-
-inline namespace value {
-
-struct Members;
-struct ClassValue { std::shared_ptr<Members> blueprint; };
-struct NameSpace  { std::shared_ptr<Members> members  ; };
-
-struct Elements;
-struct ListValue { std::shared_ptr<Elements> elts; };
-
-struct Items;
-struct MapValue { std::shared_ptr<Items> items; };
-
-using PackList = std::shared_ptr<Elements>;
-}
-
-
 
 namespace expr {
 

@@ -724,6 +724,7 @@ make
 
 
 - [ ] Lexically Scoped Operators
+- [ ] Functions as types (concepts)
 - [ ] Remove preprocessor
 - [ ] File IO
 - [ ] Use Big Int instead of `int64_t`

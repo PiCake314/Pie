@@ -264,7 +264,7 @@ public:
             // either a grouping or a closure - (or a closure type)
             case L_PAREN: {
                 if (match(R_PAREN)) { // nullary closure
-                    type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
+                    type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::_();
 
                     consume(FAT_ARROW);
                     // It's a closure
@@ -491,7 +491,7 @@ public:
         if (not match(L_PAREN)) {
             // trying to write code that avoids move
 
-            auto type = type::builtins::Any();
+            auto type = type::builtins::_();
             if (match(COLON)) {
                 type = parseType();
                 has_type = true;
@@ -592,10 +592,9 @@ public:
             // if (type::shouldReassign(type)) type = type::builtins::Any();
 
 
-            if (type::shouldReassign(ass->type))
-                fields.push_back({expr::Name{ass->lhs->stringify()}, type::builtins::Any(), std::move(ass)->rhs});
-
-            else
+            // if (type::shouldReassign(ass->type))
+            //     fields.push_back({expr::Name{ass->lhs->stringify()}, type::builtins::Any(), std::move(ass)->rhs});
+            // else
                 fields.push_back({expr::Name{ass->lhs->stringify()}, std::move(ass)->type , std::move(ass)->rhs});
         }
 
@@ -793,7 +792,7 @@ public:
                 if (match(COLON))
                     params_types.push_back(parseType());
                 else 
-                    params_types.push_back(type::builtins::Any());
+                    params_types.push_back(type::builtins::_());
             }
             while (match(COMMA));
 
@@ -809,7 +808,7 @@ public:
         }
 
 
-        type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::Any();
+        type::TypePtr return_type = match(COLON) ? parseType() : type::builtins::_();
 
         consume(FAT_ARROW);
 

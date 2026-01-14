@@ -1,12 +1,12 @@
 # Compiler configuration
 
-CC = g++
+CC = clang++
 # CC = g++-15
 VER = -std=c++23
 OPT = -O3
 ARGS = -Wall -Wextra -Wpedantic -Wno-missing-braces #-Wnrvo
-CPP = Type/*.cxx
-SAN = -fsanitize=address -fsanitize=undefined
+CPP = Type/*.cxx Interp/*.cxx
+SAN = -fsanitize=address -fsanitize=undefined -g3
 
 ## Library directories
 

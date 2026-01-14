@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <memory>
 
-// #include "../Declarations.hxx"
 
 inline namespace pie {
 
@@ -15,7 +14,11 @@ namespace expr {
     using ExprPtr = std::shared_ptr<expr::Expr>;
 }
 
-inline namespace value { struct ClassValue; }
+inline namespace value {
+    struct ClassValue;
+    struct Value;
+    // struct ValuePtr;
+}
 
 namespace type {
     struct Type {
@@ -46,19 +49,54 @@ namespace type {
     };
 
 
-    struct BuiltinType final : ExprType {
+    struct BuiltinType : Type {
         std::string t;
 
-        explicit BuiltinType(std::string s) noexcept : ExprType{nullptr}, t{std::move(s)} {}
-        std::string text(const size_t = 0) const;
+        explicit BuiltinType(std::string s) noexcept : t{std::move(s)} {}
+        std::string text(const size_t = 0) const override { return t; };
+
+        bool involvesT(const Type& T) const override { return T == *this; }
+
+        bool operator>(const Type& other) const override;
+        bool operator>=(const Type& other) const override;
     };
 
 
+    struct ValueType : Type {
+        std::shared_ptr<pie::value::Value> val;
+
+        explicit ValueType(std::shared_ptr<pie::value::Value> v) noexcept : val{std::move(v)} {}
+
+        std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return T == *this; }
+
+        // // no value is greater than another value
+        bool operator>(const Type&) const override { return false; }
+        // // since no value is greater than another, >= checks for equality only
+        bool operator>=(const Type&) const override;
+    };
+
+
+    // struct ConceptType : Type {
+    //     std::shared_ptr<pie::value::ValuePtr> val;
+
+    //     explicit ConceptType(std::shared_ptr<pie::value::ValuePtr> v) noexcept : val{std::move(v)} {}
+
+    //     std::string text(const size_t indent = 0) const override;
+    //     bool involvesT(const Type& T) const override { return T == *this; }
+
+    //     // // no value is greater than another value
+    //     bool operator>(const Type&) const override { return false; }
+    //     // // since no value is greater than another, >= checks for equality only
+    //     bool operator>=(const Type& other) const override { return *this == other; }
+    // };
+
+
     struct LiteralType : Type {
-        std::shared_ptr<ClassValue> cls;
+        std::shared_ptr<pie::value::ClassValue> cls;
         // std::string t;
 
-        explicit LiteralType(std::shared_ptr<ClassValue> c) noexcept : cls{std::move(c)} {}
+        explicit LiteralType(std::shared_ptr<pie::value::ClassValue> c) noexcept : cls{std::move(c)} {}
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return T == *this; }
@@ -86,11 +124,14 @@ namespace type {
 
         // SpaceType() = default;
 
-        std::string text(const size_t indent = 0) const override;
+        std::string text(const size_t = 0) const override { return "Space"; }
+
         bool involvesT(const Type& T) const override { return T == *this; }
 
-        bool operator>(const Type& other) const override;
-        bool operator>=(const Type& other) const override;
+        // a namespace is only not greater than any other type...
+        bool operator>(const Type&) const override { return false; }
+        // ...so >= only needs to check for equality!
+        bool operator>=(const Type& other) const override { return *this == other; }
     };
 
 
@@ -183,14 +224,16 @@ namespace type {
 
 
 
-
-
     inline const FuncType* isFunction(const TypePtr& t) noexcept {
         return dynamic_cast<const FuncType*>(t.get());
     }
 
     inline const LiteralType* isClass(const TypePtr& t) noexcept {
         return dynamic_cast<const LiteralType*>(t.get());
+    }
+
+    inline const ValueType* isValue(const TypePtr& t) noexcept {
+        return dynamic_cast<const ValueType*>(t.get());
     }
 
     inline const UnionType* isUnion(const TypePtr& t) noexcept {
@@ -211,6 +254,10 @@ namespace type {
 
     inline const BuiltinType* isBuiltin(const TypePtr& t) noexcept {
         return dynamic_cast<const BuiltinType*>(t.get());
+    }
+
+    inline bool isAny(const TypePtr& t) noexcept {
+        return isBuiltin(t) && t->text() == "Any";
     }
 
     inline bool shouldReassign(const TypePtr& t) {
