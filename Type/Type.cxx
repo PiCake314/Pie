@@ -2,6 +2,7 @@
 #include "../Interp/Interpreter.hxx"
 
 #include <ranges>
+#include <variant>
 
 
 
@@ -24,7 +25,7 @@ namespace type {
     bool ExprType::operator>=(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
 
-        return text() == other.text(); // only check for equality sine ExprType is never greater than any other ExprType
+        return text() == other.text(); // only check for equality since ExprType is never greater than any other ExprType
         // const auto& type = text();
         // return type == "Syntax" or type == "Any" or type == other.text();
     }
@@ -51,12 +52,41 @@ namespace type {
     // * Value Type * //
     std::string ValueType::text(const size_t indent) const { return stringify(*val, indent); }
 
-    bool ValueType::operator>=(const Type& other) const {
-        const auto* other_type = dynamic_cast<const ValueType*>(&other);
-        if (not other_type) return false;
+    bool ValueType::typeCheck(interp::Visitor*, [[maybe_unused]] const value::Value& v, const TypePtr& other) const {
+        if (std::holds_alternative<expr::Closure>(*val)) { // concept case. test the upcoming value
 
-        // return *this == other; // I think that's fine
-        return *val == *other_type->val;
+        }
+
+        if (*val == v) return true;
+
+        return *this >= *other;
+    }
+
+
+
+    // * Concept Type * //
+    std::string ConceptType::text(const size_t indent) const { return stringify(*func, indent); }
+
+    bool ConceptType::typeCheck(interp::Visitor* visitor, [[maybe_unused]] const value::Value& v, const TypePtr& other) const {
+        // const auto* f = dynamic_cast<const expr::Closure*>(func.get());
+        const auto& f = get<expr::Closure>(*func);
+        interp::Visitor::ScopeGuard sg{visitor, interp::Visitor::EnvTag::FUNC, f.args_env, f.env};
+
+
+        if (not f.type.params[0]->typeCheck(visitor, v, other)) return false;
+
+        sg.addEnv({{f.params[0],
+            {
+                std::make_shared<value::Value>(v),
+                other
+            }}}
+        );
+
+
+        auto ret = visitor->checkReturnType(std::visit(*visitor, f.body->variant()), f.type.ret);
+        if (std::holds_alternative<bool>(ret)) return get<bool>(ret);
+
+        throw except::TypeMismatch{"Concept didn't return a boolean: " + stringify(*func)};
     }
 
 
@@ -152,7 +182,6 @@ namespace type {
             s += t->text(indent + 4) + "; ";
         }
 
-
         return s + '}';
     }
 
@@ -163,11 +192,11 @@ namespace type {
         return false;
     }
 
-    bool UnionType::operator> (const Type& other) const {
-        // for (const auto& type : types)
-        //     if (*type > other) return true;
-        // return false;
+    bool UnionType::typeCheck(interp::Visitor* visitor, [[maybe_unused]] const value::Value& v, const TypePtr& other) const {
+        return std::ranges::any_of(types, [visitor, &v, &other](const auto& type) { return type->typeCheck(visitor, v, other); });
+    }
 
+    bool UnionType::operator> (const Type& other) const {
         return std::ranges::any_of(types, [&other](const auto& type) { return *type > other; });
     };
 
@@ -218,10 +247,6 @@ namespace type {
         const auto& that = dynamic_cast<const FuncType&>(other);
 
         for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
-            // std::clog << "type1: " << type1->text() << std::endl;
-            // std::clog << "type2: " << type2->text() << std::endl;
-            // std::clog << "not (" << type2->text() << " >= " << type1->text() << "): " << not (*type2 >= *type1) << std::endl;
-
             // if (*type1 > *type2) return false; // args have an inverse relationship
 
             if (not (*type2 >= *type1)) return false; // args have an inverse relationship

@@ -49,6 +49,8 @@ struct Value : VariantType {
     using VariantType::operator=;
 };
 
+using ValuePtr = std::shared_ptr<Value>;
+
 
 std::string stringify(const Value& value, const size_t indent = {});
 [[nodiscard]] bool operator==(const Value& lhs, const Value& rhs) noexcept;
@@ -86,7 +88,7 @@ template <typename ...Ts>
 using Environment = std::unordered_map<
     std::string,
     std::pair<
-        std::shared_ptr<Value>,
+             ValuePtr,
         type::TypePtr
     >
 >;

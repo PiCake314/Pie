@@ -5,6 +5,8 @@
 #include <exception>
 
 
+inline namespace pie {
+
 namespace except {
     class TypeMismatch : public std::exception {
         std::string err;
@@ -15,3 +17,5 @@ namespace except {
     };
 }
 
+
+} // namespace pie

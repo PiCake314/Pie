@@ -17,23 +17,30 @@ namespace expr {
 inline namespace value {
     struct ClassValue;
     struct Value;
-    // struct ValuePtr;
+    using ValuePtr = std::shared_ptr<Value>;
+}
+
+namespace interp {
+    struct Visitor;
 }
 
 namespace type {
+
+    using TypePtr = std::shared_ptr<struct Type>;
+
     struct Type {
         virtual std::string text(const size_t indent = 0) const = 0;
 
-        virtual bool involvesT(const Type& T) const = 0;
+        virtual bool involvesT(const Type&) const = 0;
+        virtual bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr&) const = 0;
 
         virtual bool operator==(const Type& other) const { return text() == other.text(); }
-        virtual bool operator> (const Type& other) const = 0;
-        virtual bool operator>=(const Type& other) const = 0;
+        virtual bool operator> (const Type&) const = 0;
+        virtual bool operator>=(const Type&) const = 0;
 
         virtual ~Type() = default;
     };
 
-    using TypePtr = std::shared_ptr<Type>;
 
 
     struct ExprType : Type {
@@ -43,6 +50,7 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return T == *this; }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -53,9 +61,10 @@ namespace type {
         std::string t;
 
         explicit BuiltinType(std::string s) noexcept : t{std::move(s)} {}
-        std::string text(const size_t = 0) const override { return t; };
 
+        std::string text(const size_t = 0) const override { return t; };
         bool involvesT(const Type& T) const override { return T == *this; }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -69,27 +78,31 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return T == *this; }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr&) const override;
 
         // // no value is greater than another value
         bool operator>(const Type&) const override { return false; }
         // // since no value is greater than another, >= checks for equality only
-        bool operator>=(const Type&) const override;
+        bool operator>=(const Type& other) const override {
+            return *this == other; // I think that's fine
+        }
     };
 
 
-    // struct ConceptType : Type {
-    //     std::shared_ptr<pie::value::ValuePtr> val;
+    struct ConceptType : Type {
+        value::ValuePtr func; // should this be std::shared_ptr<expr::Closure>?? or 
 
-    //     explicit ConceptType(std::shared_ptr<pie::value::ValuePtr> v) noexcept : val{std::move(v)} {}
+        explicit ConceptType(value::ValuePtr v) noexcept : func{std::move(v)} {}
 
-    //     std::string text(const size_t indent = 0) const override;
-    //     bool involvesT(const Type& T) const override { return T == *this; }
+        std::string text(const size_t indent = 0) const override;
+        bool involvesT(const Type& T) const override { return T == *this; }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr&) const override;
 
-    //     // // no value is greater than another value
-    //     bool operator>(const Type&) const override { return false; }
-    //     // // since no value is greater than another, >= checks for equality only
-    //     bool operator>=(const Type& other) const override { return *this == other; }
-    // };
+        // // no value is greater than another value
+        bool operator>(const Type&) const override { return false; }
+        // // since no value is greater than another, >= checks for equality only
+        bool operator>=(const Type& other) const override { return *this == other; }
+    };
 
 
     struct LiteralType : Type {
@@ -100,7 +113,9 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return T == *this; }
-
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override {
+            return *this >= *other; // not checking value...for now at least to see how things go
+        }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -114,6 +129,7 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override;
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr&) const override;
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -122,11 +138,9 @@ namespace type {
 
     struct SpaceType : Type {
 
-        // SpaceType() = default;
-
         std::string text(const size_t = 0) const override { return "Space"; }
-
         bool involvesT(const Type& T) const override { return T == *this; }
+        bool typeCheck(interp::Visitor*, [[maybe_unused]] const value::Value& v, const TypePtr& other) const override { return *this >= *other; }
 
         // a namespace is only not greater than any other type...
         bool operator>(const Type&) const override { return false; }
@@ -139,11 +153,11 @@ namespace type {
         std::vector<TypePtr> params;
         TypePtr ret;
 
-
         FuncType(std::vector<TypePtr> ps, TypePtr r) noexcept : params{std::move(ps)}, ret{std::move(r)} {}
 
         std::string text(const size_t = 0) const override;
         bool involvesT(const Type& T) const override;
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -156,6 +170,7 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return type->involvesT(T); }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -168,6 +183,14 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return type->involvesT(T); }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override {
+            // if (std::holds_alternative<value::ListValue>(v)) {
+            //     const auto& l = get<value::ListValue>(v);
+            //     if (l.elts->values.size() == 1 and )
+            // }
+
+            return *this >= *other;
+        }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -181,6 +204,7 @@ namespace type {
 
         std::string text(const size_t indent = 0) const override;
         bool involvesT(const Type& T) const override { return key_type->involvesT(T) or val_type->involvesT(T); }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
@@ -190,6 +214,7 @@ namespace type {
     struct TryReassign : Type {
         std::string text(const size_t = 0) const override { return ""; }
         bool involvesT(const Type&) const override { return false; }
+        bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr&) const override { return true; };
 
         bool operator> (const Type&) const override { return false; };
         bool operator>=(const Type&) const override { return false; };
@@ -258,6 +283,14 @@ namespace type {
 
     inline bool isAny(const TypePtr& t) noexcept {
         return isBuiltin(t) && t->text() == "Any";
+    }
+
+    inline bool isSyntax(const TypePtr& t) noexcept {
+        return isBuiltin(t) && t->text() == "Syntax";
+    }
+
+    inline bool isType(const TypePtr& t) noexcept {
+        return isBuiltin(t) && t->text() == "Type";
     }
 
     inline bool shouldReassign(const TypePtr& t) {

@@ -33,7 +33,7 @@ void REPL(
     const bool run
 ) {
     Parser parser{canonical_root};
-    Visitor visitor;
+    interp::Visitor visitor;
 
     for (;;) try {
         std::string line;
@@ -103,7 +103,7 @@ void runFile(
     if(run and (print_parsed or print_preprocessed or print_tokens)) puts("Output:\n");
 
     if (run) {
-        Visitor visitor{std::move(ops)};
+        interp::Visitor visitor{std::move(ops)};
         for (auto&& expr : exprs)
             std::visit(visitor, std::move(expr)->variant());
     }

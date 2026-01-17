@@ -28,7 +28,7 @@
 
 inline namespace pie {
 
-inline namespace interp {
+namespace interp {
 
 struct Visitor {
 
@@ -122,10 +122,6 @@ struct Visitor {
         // interesting!
         // how about a special value?
 
-        // if (not type::shouldReassign(n->type))
-        //     error("Declarations annotated with a type need to be assigned a value: " + n->name + ": " + n->type->text());
-
-
         if (const auto& var = getVar(n->name); var) return var->first;
         if (const auto var = checkThis(n->name); var) return *var;
 
@@ -133,7 +129,7 @@ struct Visitor {
         // maybe i need to return some builtin type or smth. IDK
         if (isBuiltin(n->name)) return n->name;
 
-        // if (isBuiltinTypeName(n->name)) return n->name;
+
         if (n->name == "Any"    ) return type::builtins::Any   ();
         if (n->name == "Int"    ) return type::builtins::Int   ();
         if (n->name == "Double" ) return type::builtins::Double();
@@ -180,18 +176,20 @@ struct Visitor {
     }
 
 
-    void typeCheck(const value::Value& value, const type::TypePtr& type, std::string err_msg = "") {
+    void typeCheck(const value::Value& value, const type::TypePtr& type, std::string err_msg = "", const std::source_location& location = std::source_location::current()) {
         const auto value_type = typeOf(value);
-
         if (err_msg.empty()) err_msg = "Expected type '" + type->text() + "', got type '" + value_type->text() + '\'';
 
-        if (type::isValue(type)) {
-            const auto& value_type = dynamic_cast<const type::ValueType&>(*type);
-            if (value != *value_type.val) error<except::TypeMismatch>(
-                "Expected value: " + type->text() + ", got value: " + stringify(value)
-            );
-        }
-        else if (not (*type >= *value_type)) error<except::TypeMismatch>(err_msg);
+        if (not type->typeCheck(this, value, value_type)) error<except::TypeMismatch>(err_msg, location);
+
+
+        // if (type::isValue(type)) {
+        //     const auto& value_type = dynamic_cast<const type::ValueType&>(*type);
+        //     if (value != *value_type.val) error<except::TypeMismatch>(
+        //         "Expected value: " + type->text() + ", got value: " + stringify(value)
+        //     );
+        // }
+        // else if (not (*type >= *value_type)) error<except::TypeMismatch>(err_msg);
     }
 
 
@@ -249,7 +247,6 @@ struct Visitor {
                 //     );
 
 
-
                 typeCheck(ret, func->type.params[first_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                     "', parameter '" + func->params[0] +
@@ -274,7 +271,7 @@ struct Visitor {
                 );
 
                 Environment args_env;
-                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret  ), func->type.params[ first_idx]};
                 args_env[func->params[second_idx]] = {std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
@@ -287,11 +284,13 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             for (const auto& value : values) {
-                auto type1 = validateType(typeOf(ret  ));
-                auto type2 = validateType(typeOf(value));
 
                 // if the overload set is resolved, no need to type check again...i think!!!
-                func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+                func = resolveOverloadSet(
+                    op->OpName(), op->funcs,
+                    {ret, value}
+                    // {validateType(typeOf(ret)), validateType(typeOf(value))},
+                );
                 func->type.ret                = validateType(std::move(func)->type.ret               );
                 func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
                 func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
@@ -387,23 +386,39 @@ struct Visitor {
 
 
             for (const auto& value : values) {
-                // these two lines could be dried out...
-                // along with at least 7 more instances of the same line scattered througout the codebase
-                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                        "', parameter '" + func->params[0] +
-                        "' expected: " + func->type.params[0]->text() +
-                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                    );
 
-                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                        "', parameter '" + func->params[1] +
-                        "' expected: " + func->type.params[1]->text() +
-                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                    );
+                typeCheck(ret, func->type.params[first_idx],
+                    "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
+                );
+
+                // // these two lines could be dried out...
+                // // along with at least 7 more instances of the same line scattered througout the codebase
+                // if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                //         "', parameter '" + func->params[0] +
+                //         "' expected: " + func->type.params[0]->text() +
+                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                //     );
+
+
+                typeCheck(ret, func->type.params[second_idx],
+                    "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                    "', parameter '" + func->params[1] +
+                    "' expected: " + func->type.params[1]->text() +
+                    ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                //         "', parameter '" + func->params[1] +
+                //         "' expected: " + func->type.params[1]->text() +
+                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                //     );
 
 
                 Environment args_env;
@@ -413,23 +428,6 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                // Value ret;
-                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                //     ret = std::visit(*this, func->body->variant());
-
-                //     if (std::holds_alternative<expr::Closure>(ret)) {
-                //         captureEnvForClosure(get<expr::Closure>(ret));
-                //     }
-                // }
-                // else ret = std::visit(*this, func->body->variant());
-
-                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                //     const auto& f = get<expr::Closure>(ret);
-                //     f.captureThis(*func->self);
-                // }
-
-                // checkReturnType(ret, func->type.ret);
-
                 ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
@@ -438,10 +436,10 @@ struct Visitor {
 
             for (const auto& value : values) {
 
-                auto type1 = validateType(typeOf(ret  ));
-                auto type2 = validateType(typeOf(value));
+                // auto type1 = validateType(typeOf(ret  ));
+                // auto type2 = validateType(typeOf(value));
 
-                func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+                func = resolveOverloadSet(op->OpName(), op->funcs, {ret, value});
                 // I think these lines are needed. Have to check 
                 func->type.ret                = validateType(std::move(func)->type.ret             );
                 func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
@@ -454,23 +452,6 @@ struct Visitor {
 
 
                 ScopeGuard sg{this, args_env};
-
-                // Value ret;
-                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                //     ret = std::visit(*this, func->body->variant());
-
-                //     if (std::holds_alternative<expr::Closure>(ret)) {
-                //         captureEnvForClosure(get<expr::Closure>(ret));
-                //     }
-                // }
-                // else ret = std::visit(*this, func->body->variant());
-
-                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                //     const auto& f = get<expr::Closure>(ret);
-                //     f.captureThis(*func->self);
-                // }
-
-                // checkReturnType(ret, func->type.ret);
 
                 ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
@@ -549,23 +530,39 @@ struct Visitor {
 
             for (Environment args_env; const auto& value : values) {
 
-                // these two lines could be dried out...
-                // along with at least 7 more instances of the same line scattered througout the codebase
-                if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                        "', parameter '" + func->params[0] +
-                        "' expected: " + func->type.params[0]->text() +
-                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                    );
+                typeCheck(ret, func->type.params[first_idx],
+                    "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
+                );
 
-                if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
-                    error<except::TypeMismatch>(
+                // // these two lines could be dried out...
+                // // along with at least 7 more instances of the same line scattered througout the codebase
+                // if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                //         "', parameter '" + func->params[0] +
+                //         "' expected: " + func->type.params[0]->text() +
+                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                //     );
+
+
+
+                typeCheck(ret, func->type.params[second_idx],
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                         "', parameter '" + func->params[1] +
                         "' expected: " + func->type.params[1]->text() +
-                        ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                    );
+                        ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
+                //         "', parameter '" + func->params[1] +
+                //         "' expected: " + func->type.params[1]->text() +
+                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
+                //     );
 
 
 
@@ -599,10 +596,10 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             for (Environment args_env; const auto& value : values) {
-                auto type1 = validateType(typeOf(ret  ));
-                auto type2 = validateType(typeOf(value));
+                // auto type1 = validateType(typeOf(ret  ));
+                // auto type2 = validateType(typeOf(value));
 
-                func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+                func = resolveOverloadSet(op->OpName(), op->funcs, {ret, value});
                 // * may be not needed....idk tho ;-;
                 func->type.ret                = validateType(std::move(func)->type.ret               );
                 func->type.params[ first_idx] = validateType(std::move(func)->type.params[ first_idx]);
@@ -665,13 +662,17 @@ struct Visitor {
 
         const Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
-        //TODO: Dry this out!
-        if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
-            error<except::TypeMismatch>(
-                "In assignment: " + ass->stringify() +
-                "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text()
-            );
-        }
+        typeCheck(value, get<type::TypePtr>(*found),
+            "In assignment: " + ass->stringify() +
+            "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
+        );
+
+        // if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
+        //     error<except::TypeMismatch>(
+        //         "In assignment: " + ass->stringify() +
+        //         "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text()
+        //     );
+        // }
 
         get<Value>(*found) = value;
 
@@ -707,13 +708,17 @@ struct Visitor {
 
 
 
-        if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
-            // std::println(std::cerr, "In assignment: {}", ass->stringify());
-            error<except::TypeMismatch>(
-                "In assignment: " + ass->stringify() +
-                "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text()
-            );
-        }
+        typeCheck(value, get<type::TypePtr>(*found),
+            "In assignment: " + ass->stringify() +
+            "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
+        );
+
+        // if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
+        //     error<except::TypeMismatch>(
+        //         "In assignment: " + ass->stringify() +
+        //         "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text()
+        //     );
+        // }
 
         get<Value>(*found) = value;
 
@@ -782,7 +787,7 @@ struct Visitor {
             auto value = std::visit(*this, ass->rhs->variant());
 
 
-            // reassigning to an existing namespace. special
+            // reassigning to an existing namespace. special | I think I don't have to use typeCheck here..maybe!
             if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) {
                 if (not std::holds_alternative<NameSpace>(getVar(name->name)->first))
                     changeVar(name->name, NameSpace{std::make_shared<Members>()});
@@ -792,12 +797,6 @@ struct Visitor {
 
 
 
-            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value)) { // if not a super type..
-            //     error<except::TypeMismatch>(
-            //         "In assignment: " + ass->stringify() +
-            //         "\nType mis-match! Expected: " + type->text() + ", got: " + type_of_value->text()
-            //     );
-            // }
             typeCheck(value, type,
                 "In assignment: " + ass->stringify() +
                 "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
@@ -868,20 +867,21 @@ struct Visitor {
             else {
                 type = validateType(std::move(type));
 
-
-                // if (const auto& c = getVar(type->text()); c and std::holds_alternative<ClassValue>(c->first))
-                //     type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
-
-
                 v = std::visit(*this, expr->variant());
 
-                if (const auto& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
-                    std::println(std::cerr, "In class member assignment: {}: {} = {}",
-                        name.stringify(),
-                        typ->text(),
-                        expr->stringify());
-                    error<except::TypeMismatch>("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
-                }
+                typeCheck(v, type,
+                    "In class member assignment '" +
+                    name.stringify() + ": " + typ->text() + " = " + expr->stringify() +
+                    "Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
+                );
+
+                // if (const auto& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
+                //     std::println(std::cerr, "In class member assignment: {}: {} = {}",
+                //         name.stringify(),
+                //         typ->text(),
+                //         expr->stringify());
+                //     error<except::TypeMismatch>("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
+                // }
             }
 
             env.back().first[name.stringify()] = {std::make_shared<Value>(v), type}; // so other members can refer to members before them.
@@ -1056,6 +1056,7 @@ struct Visitor {
             const auto& [name, typ, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
             const auto type = validateType(typ);
 
+            // not gonna use typeCheck for now. Let's see how it goes
             if (not (*type >= *typeOf(value))) return false;
 
             if (val_expr) {
@@ -1423,19 +1424,35 @@ struct Visitor {
         return;
     }
 
-    static expr::Closure* resolveOverloadSet(
+    expr::Closure* resolveOverloadSet(
         const std::string& name,
-        const std::vector<expr::ExprPtr>& funcs,
-        const std::vector<type::TypePtr>& types
+        const std::vector< expr::ExprPtr >& funcs,
+        // const std::vector< type::TypePtr >& types,
+        const std::vector<value::Value>& values
     ) {
         std::vector<expr::Closure*> set;
+
+        std::vector<type::TypePtr> types;
+        types.reserve(values.size());
+        for (const auto& v : values) types.push_back(validateType(typeOf(v)));
+
+        // std::transform(values.begin(), values.end(),
+        //     std::back_inserter(types),
+        //     [this] (const auto& v) { return validateType(typeOf(v)); }
+        // );
+
 
         for (const auto& func : funcs) {
             auto closure = dynamic_cast<expr::Closure*>(func.get());
 
             bool found = true;
-            for (const auto& [arg_type, param_type] : std::views::zip(types, closure->type.params)) {
-                if (not (*param_type >= *arg_type)) {
+            for (const auto& [arg_value, arg_type, param_type] : std::views::zip(values, types, closure->type.params)) {
+                // if (not (*param_type >= *arg_type)) {
+                //     found = false;
+                //     break;
+                // }
+
+                if (not param_type->typeCheck(this, arg_value, arg_type)) {
                     found = false;
                     break;
                 }
@@ -1459,18 +1476,20 @@ struct Visitor {
 
 
     const Value& checkReturnType(const Value& ret, type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
-        // std::clog << return_type->text() << std::endl;
-        // return_type = validateType(std::move(return_type));
-        // std::clog << return_type->text() << std::endl;
+        const auto type_of_return_value = typeOf(ret);
 
-        const auto& type_of_return_value = typeOf(ret);
+        typeCheck(ret, return_type,
+            "Type mis-match! Function return type expected: " +
+            return_type->text() + ", got: " + type_of_return_value->text(),
+            location
+        );
 
-        if (not (*return_type >= *type_of_return_value))
-            error<except::TypeMismatch>(
-                "Type mis-match! Function return type expected: " +
-                return_type->text() + ", got: " + type_of_return_value->text(),
-                location
-            );
+        // if (not (*return_type >= *type_of_return_value))
+        //     error<except::TypeMismatch>(
+        //         "Type mis-match! Function return type expected: " +
+        //         return_type->text() + ", got: " + type_of_return_value->text(),
+        //         location
+        //     );
 
 
         return ret;
@@ -1497,13 +1516,19 @@ struct Visitor {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg = std::visit(*this, up->expr->variant());
-                if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match! Prefix operator '" + up->op + 
-                        "' expected: " + func->type.params[0]->text() +
-                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                        // ", got: " + type_of_arg->text()
-                    );
+
+                typeCheck(arg, func->type.params[0],
+                    "Type mis-match! Prefix operator '" + up->op + 
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match! Prefix operator '" + up->op + 
+                //         "' expected: " + func->type.params[0]->text() +
+                //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                //     );
 
                 // addVar(func->params.front(), arg);
                 //* maybe should use Syntax() instead of Any();
@@ -1513,10 +1538,9 @@ struct Visitor {
         else { // do selection based on type
             checkNoSyntaxType(op->funcs);
 
-            const auto arg  = std::visit(*this, up->expr->variant());
-            auto type = validateType(typeOf(arg));
+            const auto arg = std::visit(*this, up->expr->variant());
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type)});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
             args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
         }
@@ -1564,13 +1588,21 @@ struct Visitor {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg1 = std::visit(*this, bp->lhs->variant());
-                if (const auto& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match! Infix operator '" + bp->op + 
-                        "', parameter '" + func->params[0] +
-                        "' expected: " + func->type.params[0]->text() +
-                        ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
-                    );
+
+                typeCheck(arg1, func->type.params[0],
+                    "Type mis-match! Infix operator '" + bp->op + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg1) + " which is " + typeOf(arg1)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match! Infix operator '" + bp->op + 
+                //         "', parameter '" + func->params[0] +
+                //         "' expected: " + func->type.params[0]->text() +
+                //         ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
+                //     );
 
                 // addVar(func->params[0], arg1);
                 args_env[func->params[0]] = {std::make_shared<Value>(arg1), func->type.params[0]};
@@ -1584,14 +1616,21 @@ struct Visitor {
                 func->type.params[1] = validateType(std::move(func)->type.params[1]);
 
                 const auto& arg2 = std::visit(*this, bp->rhs->variant());
-                if (const auto& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match! Infix operator '" + bp->op + 
-                        "', parameter '" + func->params[1] +
-                        "' expected: " + func->type.params[1]->text() +
-                        ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
-                        // ", got: " + type_of_arg->text()
-                    );
+
+                typeCheck(arg2, func->type.params[1],
+                    "Type mis-match! Infix operator '" + bp->op + 
+                    "', parameter '" + func->params[1] +
+                    "' expected: " + func->type.params[1]->text() +
+                    ", got: " + stringify(arg2) + " which is " + typeOf(arg2)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match! Infix operator '" + bp->op + 
+                //         "', parameter '" + func->params[1] +
+                //         "' expected: " + func->type.params[1]->text() +
+                //         ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
+                //     );
 
 
                 args_env[func->params[1]] = {std::make_shared<Value>(arg2), func->type.params[1]};
@@ -1602,12 +1641,9 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg1  = std::visit(*this, bp->lhs->variant());
-            auto type1 = validateType(typeOf(arg1));
-
             const auto arg2  = std::visit(*this, bp->rhs->variant());
-            auto type2 = validateType(typeOf(arg2));
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type1), std::move(type2)});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {arg1, arg2});
 
             args_env[func->params[0]] = {std::make_shared<Value>(arg1), func->type.params[0]};
             args_env[func->params[1]] = {std::make_shared<Value>(arg2), func->type.params[1]};
@@ -1659,14 +1695,21 @@ struct Visitor {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg = std::visit(*this, pp->expr->variant());
-                if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match! Suffix operator '" + pp->op + 
-                        "', parameter '" + func->params[0] +
-                        "' expected: " + func->type.params[0]->text() +
-                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                        // ", got: " + type_of_arg->text()
-                    );
+
+                typeCheck(arg, func->type.params[0],
+                    "Type mis-match! Suffix operator '" + pp->op + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match! Suffix operator '" + pp->op + 
+                //         "', parameter '" + func->params[0] +
+                //         "' expected: " + func->type.params[0]->text() +
+                //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                //     );
 
                 args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
@@ -1676,9 +1719,8 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg  = std::visit(*this, pp->expr->variant());
-            auto type = validateType(typeOf(arg));
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {type});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
             args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]};
         }
@@ -1727,14 +1769,22 @@ struct Visitor {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
 
                 const auto& arg = std::visit(*this, cp->expr->variant());
-                if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                    error<except::TypeMismatch>(
-                        "Type mis-match! Suffix operator '" + cp->op1 + 
-                        "', parameter '" + func->params[0] +
-                        "' expected: " + func->type.params[0]->text() +
-                        ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                        // ", got: " + type_of_arg->text()
-                    );
+
+                typeCheck(arg, func->type.params[0],
+                    "Type mis-match! Suffix operator '" + cp->op1 + 
+                    "', parameter '" + func->params[0] +
+                    "' expected: " + func->type.params[0]->text() +
+                    ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
+                );
+
+                // if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match! Suffix operator '" + cp->op1 + 
+                //         "', parameter '" + func->params[0] +
+                //         "' expected: " + func->type.params[0]->text() +
+                //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                //         // ", got: " + type_of_arg->text()
+                //     );
 
                 // addVar(func->params[0], std::visit(*this, co->expr->variant()));
                 args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
@@ -1744,9 +1794,8 @@ struct Visitor {
             checkNoSyntaxType(op->funcs);
 
             const auto arg  = std::visit(*this, cp->expr->variant());
-            auto type = validateType(typeOf(arg));
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, {std::move(type)});
+            func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
             args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]};
         }
@@ -1797,16 +1846,23 @@ struct Visitor {
                     param_type = validateType(std::move(param_type));
 
                     const auto& arg = std::visit(*this, arg_expr->variant());
-                    if (const auto& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
-                        const auto& op_name = oc->first + 
-                            std::accumulate(oc->rest.cbegin(), oc->rest.cend(), std::string{}, [](const auto& acc, const auto& e) { return acc + ':' + e; });
-                        error<except::TypeMismatch>(
-                            "Type mis-match! Operator '" + op_name + 
-                            "', parameter '" + param +
-                            "' expected: " + param_type->text() +
-                            ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                        );
-                    }
+
+                    const auto op_name = op->OpName();
+                    typeCheck(arg, param_type,
+                        "Type mis-match! Parameter '" +
+                        op_name + "' expected type: " + param_type->text() + ", got: " + typeOf(arg)->text()
+                    );
+
+                    // if (const auto& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
+                    //     const auto& op_name = oc->first + 
+                    //         std::accumulate(oc->rest.cbegin(), oc->rest.cend(), std::string{}, [](const auto& acc, const auto& e) { return acc + ':' + e; });
+                    //     error<except::TypeMismatch>(
+                    //         "Type mis-match! Operator '" + op_name + 
+                    //         "', parameter '" + param +
+                    //         "' expected: " + param_type->text() +
+                    //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
+                    //     );
+                    // }
 
                     // addVar(func->params[0], std::visit(*this, co->expr->variant()));
                     args_env[param] = {std::make_shared<Value>(arg), param_type}; //? fix Any Type!!
@@ -1820,11 +1876,11 @@ struct Visitor {
             std::vector<type::TypePtr> types;
             for (const auto& expr : oc->exprs) {
                 args .push_back(std::visit(*this, expr->variant()));
-                types.push_back(typeOf(args.back()));
-                types.back() = validateType(std::move(types).back());
+                // types.push_back(validateType(typeOf(args.back())));
+                // // types.back() = validateType(std::move(types).back());
             }
 
-            func = resolveOverloadSet(op->OpName(), op->funcs, std::move(types));
+            func = resolveOverloadSet(op->OpName(), op->funcs, args);
 
             for (const auto& [param, arg, type] : std::views::zip(func->params, args, func->type.params))
                 args_env[param] = {std::make_shared<Value>(arg), type};
@@ -1957,14 +2013,12 @@ struct Visitor {
 
         // curry! 
         if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
-            const auto val =  partialApplication(call, func, args_size, std::move(expand_at), std::move(args), is_variadic);
-            return val;
+            return partialApplication(call, func, args_size, std::move(expand_at), std::move(args), is_variadic);
         }
+
 
         //* full call. Don't curry!
         ScopeGuard sg{this, EnvTag::FUNC, func.args_env, func.env};
-        // ScopeGuard sg2{this, func.env};
-        // ScopeGuard the_scope{this};
         Environment args_env; // in case the lambda needs to capture 
 
         for (const auto& [name, expr] : call->named_args) {
@@ -1976,7 +2030,7 @@ struct Visitor {
                 }
             }
 
-            if (not type) error(); //* should never happen anyway
+            if (not type) error(); // should never happen anyway
 
             Value value;
             if (type->text() == "Syntax") value = expr->variant();
@@ -1984,8 +2038,13 @@ struct Visitor {
                 value = std::visit(*this, expr->variant());
 
                 // if the param type not a super type of arg type, error out
-                if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                    error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+
+                typeCheck(value, type,
+                    "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                );
             }
 
             // the_scope.addEnv({{name, {value, type}}});
@@ -2022,15 +2081,6 @@ struct Visitor {
             ) {
                 auto& [name, type] = pos_params[param_index];
 
-                // bool found{};
-                // auto type_name = type->text();
-                // for (size_t i{}; i <= param_index; ++i) {
-                //     if (func.params[i] == type_name) {
-                //         found = true; break;
-                //     }
-                // }
-                // if (found) type = validateType(std::move(type));
-
                 Value value;
 
                 if (param_index == variadic_index){
@@ -2039,11 +2089,16 @@ struct Visitor {
                         if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
                             value = std::move(expand_at[curr_expansion].second[pack_index++]);
 
-                            if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error<except::TypeMismatch>("Type mis-match! Parameter '" + name
-                                    + "' expected type: "+ type->text()
-                                    + ", got: " + type_of_value->text()
-                                );
+                            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                            //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name
+                            //         + "' expected type: "+ type->text()
+                            //         + ", got: " + type_of_value->text()
+                            //     );
+
+                            typeCheck(value, type,
+                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                            );
+
 
                             if (pack_index >= expand_at[curr_expansion].second.size()) {
                                 ++arg_index;
@@ -2061,12 +2116,16 @@ struct Visitor {
                             else {
                                 value = std::visit(*this, expr->variant());
 
-                                // if the param type not a super type of arg type, error out
-                                if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                    error<except::TypeMismatch>("Type mis-match! Parameter '" + name
-                                        + "' expected type: "+ type->text() 
-                                        + ", got: " + type_of_value->text()
-                                    );
+
+                                // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                                //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name
+                                //         + "' expected type: "+ type->text() 
+                                //         + ", got: " + type_of_value->text()
+                                //     );
+
+                                typeCheck(value, type,
+                                    "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                                );
                             }
 
                             ++arg_index;
@@ -2084,8 +2143,13 @@ struct Visitor {
                     if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
                         value = expand_at[curr_expansion].second[pack_index++];
 
-                        if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                        typeCheck(value, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                        );
+
 
                         if (pack_index >= expand_at[curr_expansion].second.size()) {
                             ++arg_index;
@@ -2096,14 +2160,16 @@ struct Visitor {
                     else {
                         const auto& expr = args[arg_index];
 
-                        if (type->text() == "Syntax") {
-                            value = expr->variant();
-                        }
+                        if (type->text() == "Syntax") value = expr->variant();
                         else {
                             value = std::visit(*this, expr->variant());
 
-                            if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                            //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                            typeCheck(value, type,
+                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                            );
                         }
 
                         ++arg_index;
@@ -2118,10 +2184,6 @@ struct Visitor {
 
 
             if (variadic_size == 0) {
-                // the_scope.addEnv({{
-                //     pos_params[variadic_index].first,
-                //     { makePack(), pos_params[variadic_index].second }
-                // }});
                 sg.addEnv({{
                     pos_params[variadic_index].first,
                     { std::make_shared<Value>(makePack()), pos_params[variadic_index].second }
@@ -2147,14 +2209,20 @@ struct Visitor {
             };
 
             for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
+
                 if (curr < expand_at.size() and i == expand_at[curr].first) {
                     for (const auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
+                        if (findType(p, type)) type = validateType(std::move(type));
+                        ++p; // important!
 
-                        if (findType(p++, type)) type = validateType(std::move(type));
+                        // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
 
-                        if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                            error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        typeCheck(val, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
+                        );
+
 
                         // the_scope.addEnv({{name, {val, type}}});
                         sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
@@ -2164,21 +2232,22 @@ struct Visitor {
                 }
                 else {
                     auto& [name, type] = pos_params[p];
-
                     if (findType(p, type)) type = validateType(std::move(type));
 
                     const auto& expr = args[i];
-                    Value value;
 
-                    if (type->text() == "Syntax") {
-                        value = expr->variant();
-                    }
+                    Value value;
+                    if (type->text() == "Syntax") value = expr->variant();
                     else {
                         value = std::visit(*this, expr->variant());
 
-                        // if the param type not a super type of arg type, error out
-                        if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        // // if the param type not a super type of arg type, error out
+                        // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                        typeCheck(value, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                        );
                     }
 
                     // the_scope.addEnv({{name, {value, type}}});
@@ -2188,30 +2257,22 @@ struct Visitor {
             }
         }
 
-        if (
-            not type::shouldReassign(func.type.ret) and
-            std::ranges::find_if(
-                func.params,
-                [&type = func.type.ret](const auto& param) {
-                    auto t = type::ExprType{std::make_shared<expr::Name>(param)};
-                    return type->involvesT(t);
-                }
-            ) != func.params.cend()
-        )
-            func.type.ret = validateType(std::move(func.type.ret));
+        // TODO!!!! LOOK AT
+        // if (
+        //     std::ranges::find_if(
+        //         func.params, [&type = func.type.ret](const auto& param) {
+        //             return type->involvesT(type::ExprType{std::make_shared<expr::Name>(param)});
+        //         }
+        //     ) != func.params.cend()
+        // )
+            // func.type.ret = validateType(std::move(func.type.ret));
 
 
         //* should I capture the env and bundle it with the function before returning it?
-        if (func.type.ret->text() == "Syntax") return func.body->variant();
+        if (type::isSyntax(func.type.ret)) return func.body->variant();
 
 
-        // ScopeGuard sg1{this, func.env}; // in case the lambda had captures
-        // ScopeGuard sg3{this, args_env};
         sg.addEnv(args_env);
-        // Value ret = std::visit(*this, func.body->variant());
-        // if (std::holds_alternative<expr::Closure>(ret)) {
-        //     captureEnvForClosure(get<expr::Closure>(ret));
-        // }
 
         Value ret;
         if (not dynamic_cast<expr::Block*>(func.body.get())) {
@@ -2254,8 +2315,8 @@ struct Visitor {
         std::vector<expr::ExprPtr> args, 
         const bool is_variadic
     ) {
-        Environment argument_capture_list = func.env;
-        ScopeGuard the_scope{this};
+        ScopeGuard sg{this, EnvTag::FUNC, func.args_env, func.env};
+        Environment args_env = func.env;
 
         for (const auto& [name, expr] : call->named_args) {
             type::TypePtr type;
@@ -2273,16 +2334,20 @@ struct Visitor {
             else {
                 value = std::visit(*this, expr->variant());
 
-                // if the param type not a super type of arg type, error out
-                if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                    error<except::TypeMismatch>(
-                        "Type mis-match! Parameter '" + name + "' "
-                        "expected type: " + type->text() + ", got: " + type_of_value->text()
-                    );
+                // // if the param type not a super type of arg type, error out
+                // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                //     error<except::TypeMismatch>(
+                //         "Type mis-match! Parameter '" + name + "' "
+                //         "expected type: " + type->text() + ", got: " + type_of_value->text()
+                //     );
+
+                typeCheck(value, type,
+                    "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                );
             }
 
-            the_scope.addEnv({{name, {std::make_shared<Value>(value), type}}});
-            argument_capture_list[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+            sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+            args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
 
@@ -2323,10 +2388,9 @@ struct Visitor {
             if (args_size > variadic_index) {
                 normal = false;
 
-
                 // FIX: first add the empty pack
-                the_scope.addEnv({{pos_params[variadic_index].first, {std::make_shared<Value>(makePack()), pos_params[variadic_index].second}}});
-                argument_capture_list[pos_params[variadic_index].first] = {std::make_shared<Value>(makePack()), std::move(pos_params[variadic_index]).second};
+                sg.addEnv({{pos_params[variadic_index].first, {std::make_shared<Value>(makePack()), pos_params[variadic_index].second}}});
+                args_env[pos_params[variadic_index].first] = {std::make_shared<Value>(makePack()), std::move(pos_params[variadic_index]).second};
                 // only then should you remove the parameter
                 // previously, I only had the following. So the pack was left as undefined instead of empty
                 pos_params.erase(std::next(pos_params.begin(), variadic_index));
@@ -2335,81 +2399,131 @@ struct Visitor {
                 closure.params.erase(closure.params.begin());
                 closure.type.params.erase(closure.type.params.begin());
 
-                for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
-                    const auto& [name, type] = param;
-                    Value value;
+                // for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
+                for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
 
                     if (curr < expand_at.size() and i == expand_at[curr].first) {
                         for (const auto& val : expand_at[curr++].second) {
-                            if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                                error<except::TypeMismatch>(
-                                    "Type mis-match! Parameter '" + name + "' "
-                                    "expected type: " + type->text() + ", got: " + type_of_value->text()
-                                );
+                            // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                            //     error<except::TypeMismatch>(
+                            //         "Type mis-match! Parameter '" + name + "' "
+                            //         "expected type: " + type->text() + ", got: " + type_of_value->text()
+                            //     );
+                            auto& [name, type] = pos_params[p];
+                            // if (findType(p, type)) type = validateType(std::move(type));
+                            ++p;
+
+                            typeCheck(val, type,
+                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
+                            );
+
+                            sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
+                            args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
                         }
+                        --p;
                     }
                     else {
-                        if (type->text() == "Syntax") {
-                            value = expr->variant();
-                        }
+                        auto& [name, type] = pos_params[p];
+                        const auto& expr = args[i];
+                        // if (findType(p, type)) type = validateType(std::move(type));
+
+                        Value value;
+                        if (type->text() == "Syntax") value = expr->variant();
+
                         else {
                             value = std::visit(*this, expr->variant());
 
-                            if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                error<except::TypeMismatch>(
-                                    "Type mis-match! Parameter '" + name + "' "
-                                    "expected type: " + type->text() + ", got: " + type_of_value->text()
-                                );
-                        }
-                    }
+                            typeCheck(value, type,
+                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                            );
 
-                    ++i;
-                    the_scope.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                    argument_capture_list[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+                            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                            //     error<except::TypeMismatch>(
+                            //         "Type mis-match! Parameter '" + name + "' "
+                            //         "expected type: " + type->text() + ", got: " + type_of_value->text()
+                            //     );
+                        }
+                        sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                        args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+                    }
                 }
             }
         }
 
-        /* else */
-        if (normal) for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
-            auto& [name, type] = param;
+        if (normal) {
+            const auto findType = [&func] (const size_t p, const type::TypePtr& type) {
+                // it doesn't matter if there are multiple arguments with this name
+                // `validateType` will choose the lastly-bounded one
+                // we just need to proof that A parameter exists in order to call `validateType`
+                for (size_t i{}; i <= p; ++i)
+                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
+                        return true;
 
-            bool found{};
-            for (size_t j{}; j <= i; ++j) {
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[j])})) {
-                    found = true; break;
+                // look in the arguments env (from a partially evaluated function that yielded this function)
+                for (const auto& [key, _] : func.args_env)
+                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
+                        return true;
+
+                return false;
+            };
+
+            // for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
+            for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
+                // bool found{};
+                // for (size_t j{}; j <= i; ++j) {
+                //     if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[j])})) {
+                //         found = true; break;
+                //     }
+                // }
+                // if (found) type = validateType(std::move(type));
+
+
+
+                if (curr < expand_at.size() and i == expand_at[curr].first) {
+                    for (const auto& val : expand_at[curr++].second) {
+                        auto& [name, type] = pos_params[p];
+                        if (findType(p, type)) type = validateType(std::move(type));
+                        ++p;
+
+                        typeCheck(val, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
+                        );
+                        // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
+                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+
+                        sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
+                        args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
+                    }
+                    --p;
                 }
-            }
-            if (found) type = validateType(std::move(type));
-
-            Value value;
-
-            if (curr < expand_at.size() and i == expand_at[curr].first) {
-                for (const auto& val : expand_at[curr++].second) {
-                    if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                        error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-                }
-            }
-            else {
-                if (type->text() == "Syntax") value = expr->variant();
                 else {
-                    value = std::visit(*this, expr->variant());
+                    auto& [name, type] = pos_params[p];
+                    if (findType(p, type)) type = validateType(std::move(type));
+                    const auto& expr = args[i];
 
-                    // if the param type not a super type of arg type, error out
-                    if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                        error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                    Value value;
+                    if (type->text() == "Syntax") value = expr->variant();
+                    else {
+                        value = std::visit(*this, expr->variant());
+
+                        typeCheck(value, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                        );
+
+                        // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
+                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                    }
+
+                    sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                    args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
                 }
             }
-
-            ++i;
-            the_scope.addEnv({{name, {std::make_shared<Value>(value), type}}});
-            argument_capture_list[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
 
 
         // closure.capture(argument_capture_list); // maybe need to uncomment
-        closure.captureArgs(argument_capture_list);
+        closure.captureArgs(args_env);
         // closure.capture(env.back());
         // accelerate
         // axe-lerate
@@ -2461,12 +2575,18 @@ struct Visitor {
         for (size_t i{}; i < call->args.size(); ++i) {
             const auto& v = std::visit(*this, call->args[i]->variant());
 
-            if (not (*get<type::TypePtr>(obj.second->members[i]) >= *typeOf(v)))
-                error<except::TypeMismatch>(
-                    "Type mis-match in constructor of:\n" + stringify(type) + "\nMember `" +
-                    get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() +
-                    "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
-                );
+            typeCheck(v, get<type::TypePtr>(obj.second->members[i]),
+                "Type mis-match in constructor of:\n" + stringify(type) + "\nMember `" +
+                get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() + "\n"
+                "but got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
+            );
+
+            // if (not (*get<type::TypePtr>(obj.second->members[i]) >= *typeOf(v)))
+            //     error<except::TypeMismatch>(
+            //         "Type mis-match in constructor of:\n" + stringify(type) + "\nMember `" +
+            //         get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() +
+            //         "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
+            //     );
 
             get<Value>(obj.second->members[i]) = v;
         }
@@ -2498,8 +2618,7 @@ struct Visitor {
         if (
             std::ranges::find_if(
                 closure.params, [&type = closure.type.ret](const auto& p) {
-                    auto t = type::ExprType{std::make_shared<expr::Name>(p)};
-                    return type->involvesT(t);
+                    return type->involvesT(type::ExprType{std::make_shared<expr::Name>(p)});
                 }
             ) == closure.params.cend()
         )
@@ -2528,18 +2647,6 @@ struct Visitor {
 
 
         if (std::holds_alternative<expr::Closure>(ret)) {
-            // const auto& func = get<expr::Closure>(ret);
-            // puts("All envs:");
-            // printEnv(envStackToEnvMap());
-            // puts("Capturing at the end of a block!");
-            // printEnv(env.back());
-
-            // puts("We already have:");
-            // printEnv(func.env);
-
-            // puts("with args:");
-            // printEnv(func.args_env);
-
             captureEnvForClosure(get<expr::Closure>(ret));
             // func.capture(env.back().first);
             // func.capture<expr::Closure::OverrideMode::OVERRIDE_EXISTING>(env.back());
@@ -3225,12 +3332,13 @@ struct Visitor {
 
         //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (auto var = getVar(type->text()); var) {
-            if (typeOf(var->first)->text() != "Type") {
+            if (auto t = typeOf(var->first); not type::isType(t)) {
                 // error("'" + stringify(var->first) + "' does not name a type!");
-                return 
-                std::make_shared<type::ValueType>(
-                    std::make_shared<value::Value>(std::move(var)->first)
-                );
+
+                if (type::isFunction(t))
+                    return std::make_shared<type::ConceptType>(std::make_shared<value::Value>(std::move(var)->first));
+
+                return std::make_shared<type::ValueType>(std::make_shared<value::Value>(std::move(var)->first));
             }
 
             if (std::holds_alternative<type::TypePtr>(var->first))
@@ -3432,7 +3540,6 @@ struct Visitor {
 
     Value eval(expr::ExprPtr& expr) { return std::visit(*this, expr->variant()); }
 
-private:
 
     struct ScopeGuard {
         Visitor* v;

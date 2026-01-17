@@ -81,7 +81,7 @@ std::string run(const char* src) {
 
     Capture c{};
 
-    Visitor visitor{std::move(ops)};
+    interp::Visitor visitor{std::move(ops)};
     for (const auto& expr : exprs)
         std::visit(visitor, expr->variant());
 

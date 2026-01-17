@@ -9,6 +9,127 @@
 
 
 
+
+TEST_CASE("Concepts 2", "[Type]") {
+    const auto src = R"(
+MoreThan10 = (x: Int) => __builtin_gt(x, 10);
+LessThan20 = (x: Int) => __builtin_lt(x, 20);
+func = (x: MoreThan10): LessThan20 => __builtin_add(x, 5);
+func("meow");
+)";
+
+    REQUIRE_THROWS_AS(run(src), pie::except::TypeMismatch);
+}
+
+
+TEST_CASE("Concepts", "[Type]") {
+    const auto src1 = R"(
+MoreThan10 = (x: Int) => __builtin_gt(x, 10);
+LessThan20 = (x: Int) => __builtin_lt(x, 20);
+a: MoreThan10 = 15;
+func = (x: MoreThan10): LessThan20 => __builtin_add(x, 5);
+func(13);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+
+    const auto src2 = R"(
+MoreThan10 = (x: Int) => __builtin_gt(x, 10);
+a: MoreThan10 = 5;
+)";
+
+    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+
+    const auto src3 = R"(
+MoreThan10 = (x: Int) => __builtin_gt(x, 10);
+LessThan20 = (x: Int) => __builtin_lt(x, 20);
+func = (x: MoreThan10): LessThan20 => __builtin_add(x, 5);
+func(17);
+)";
+
+    REQUIRE_THROWS_AS(run(src3), pie::except::TypeMismatch);
+}
+
+
+
+TEST_CASE("Types as Values - List of Bool vs {Bool}", "[Type]") {
+    const auto src1 = R"(
+a: {Bool} = {true, false};
+v: {Type} = {Bool};
+x: v = {Bool};
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+
+    const auto src2 = R"(
+x: {Bool} = {Bool};
+)";
+
+    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+}
+
+
+
+TEST_CASE("Expanding Pack in Partial Application", "[Func]") {
+    const auto src = R"(
+print = __builtin_print;
+f = (a, b, c, z) => print(a, b, c, z);
+caller = (args: ...Any) => f(10, args...);
+new_closure = caller(1, 2);
+new_closure(1000);
+)";
+
+
+    REQUIRE(run(src) == "10 1 2 1000");
+}
+
+
+
+
+TEST_CASE("Values as types w unions", "[Type]") {
+    const auto src1 = R"(
+print = __builtin_print;
+
+l1 = {1, 2, 3};
+l2 = {5, 6};
+x: union { l1; l2; } = {5, 6};
+print(x);
+x = {1, 2,3};
+print(x);
+
+y: union { 1; "hi"; Bool; } = 1;
+print(y);
+y = "hi";
+print(y);
+y = true;
+print(y);
+y = false;
+print(y);
+)";
+
+    REQUIRE(run(src1) == R"({5, 6}
+{1, 2, 3}
+1
+hi
+true
+false)");
+
+    const auto src2 = R"(
+l1 = {1, 2, 3};
+l2 = {5, 6};
+x: union { l1; l2; } = {1, 2, 3, 5, 6};
+)";
+
+    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+
+    const auto src3 = R"(
+y: union { 1; "hi"; Bool; } = "bye";
+)";
+
+    REQUIRE_THROWS_AS(run(src3), pie::except::TypeMismatch);
+}
+
+
 TEST_CASE("Redefining builtin type, espacially Any", "[Type]") {
     const auto src = R"(
 Any = class { };
@@ -442,7 +563,7 @@ x: d = 1.2;
 )";
 
     REQUIRE_THROWS(run(src));
-    REQUIRE_THROWS_MATCHES(run(src), except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+    REQUIRE_THROWS_MATCHES(run(src), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
 }
 
 
@@ -1365,7 +1486,7 @@ add(z = 1);
 
 
     REQUIRE_THROWS_MATCHES(run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument" )));
-    REQUIRE_THROWS_MATCHES(run(src2), except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+    REQUIRE_THROWS_MATCHES(run(src2), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
 }
 
 
