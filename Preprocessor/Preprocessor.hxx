@@ -102,7 +102,7 @@ std::string process(std::string src, const std::filesystem::path& root) {
         auto path = std::filesystem::canonical(filename);
         // auto path = std::filesystem::absolute(filename);
 
-        auto module = readFile2(path);
+        auto module = readFile2(path.string());
 
         module = preprocess(std::move(module), std::move(path));
 

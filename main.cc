@@ -82,7 +82,7 @@ void runFile(
     const bool print_parsed,
     const bool run
 ) {
-    auto src = readFile(fname);
+    auto src = readFile(fname.string());
 
     auto processed_src = preprocess(std::move(src), fname);
     if (print_preprocessed) std::println(std::clog, "{}", processed_src);
