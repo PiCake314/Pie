@@ -38,28 +38,6 @@ template <typename Except = std::runtime_error, bool print_loc = true>
     throw Except{std::string{msg}};
 }
 
-#include <execinfo.h>
-#include <stdio.h>
-#include <stdlib.h>
-
-inline void trace() {
-    void *callstack[128]; // Array to store addresses
-    int frames = backtrace(callstack, 128); // Get addresses
-    char **symbols = backtrace_symbols(callstack, frames); // Get symbol names
-
-    if (symbols == NULL) {
-        perror("backtrace_symbols");
-        return;
-    }
-
-    fprintf(stderr, "Stack Trace:\n");
-    for (int i = 0; i < frames; ++i) {
-        fprintf(stderr, "%s\n", symbols[i]);
-    }
-
-    free(symbols);
-}
-
 
 [[noreturn]] inline void expected(const TokenKind exp, const Token& got, const std::source_location& location = std::source_location::current()) {
     error(std::string{"Expected token "} + stringify(exp) + " and found " + stringify(got.kind) + ": " + got.text, location);
