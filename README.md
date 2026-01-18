@@ -604,6 +604,45 @@ Some types, like function types, are not valid expressions, and therefore, the p
 Func = :(Int, Any): String;
 f: Func = (x, y): String => "hi";
 ```
+#### Values as Types
+Values as types (AKA: Literal Types in TypeScript) is a feature that allows you to use values as, well, ...types!
+
+
+Here, `x` has type `1`, which means it can only be assigned to the value 1. It's sorta the only way to make "constants" in Pie for now.
+```pie
+x: 1 = 1;
+```
+
+Values can be used in [unions](#unions) too:
+```pie
+OneTwoThree: union { 1; 2; 3; } = 1;
+OneTwoThree = 2;
+OneTwoThree = 3;
+
+OneTwoThree = 4; .: Error!
+```
+
+Mixing values of different types as types as well:
+```pie
+
+infix | = (t1, t2) => union { t1; t2; };
+
+x: 1 | "hi" | false = 1;
+x = "hi";
+x = false;
+x = true;  .: Error!
+```
+
+#### Concepts
+Concepts (taken from C++) are unary predicate functions which are used as types. The value assigned to a variable with such type is checked by the unary function in order to type check.
+```pie
+infix > = (a, b) => __builtin_gt(a, b);
+
+MoreThan10 = (x: Int): Bool => x > 10;
+a: MoreThan10 = 15; .: type checks!
+a = 5; .: Error!
+```
+Concepts also allow for what's know as "Design by Contract" where pre-conditions are the types of the arguments, and the post-condition is the return type.
 
 #### Syntax Type
 
