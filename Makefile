@@ -1,6 +1,6 @@
 # Compiler configuration
 
-CC = clang++
+CC = g++
 # CC = g++-15
 VER = -std=c++23
 OPT = -O3
