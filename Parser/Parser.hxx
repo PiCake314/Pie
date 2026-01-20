@@ -400,7 +400,6 @@ public:
             return std::make_shared<type::VariadicType>(parseType<false>());
         }
 
-
         // either a function type
         if (check(L_PAREN)) {
             if (check(R_PAREN, 1)) { // nullary function type
@@ -424,7 +423,6 @@ public:
             }();
 
 
-
             if (func_type) { // function type with more than one parameter
                 consume(L_PAREN);
 
@@ -438,7 +436,6 @@ public:
                 type.ret = parseType();
                 return std::make_shared<type::FuncType>(std::move(type));
             }
-
 
             // just a grouping at this point, which means it's an expression
             return std::make_shared<type::ExprType>(parseExpr());
@@ -458,18 +455,8 @@ public:
             return std::make_shared<type::MapType>(std::move(type1), std::move(type2));
         }
 
-        // auto type = parseExpr(prec::ASSIGNMENT_VALUE);
 
         if (check(NAME)) { // checking for builtin types..this is a quick hack I think
-        // if (dynamic_cast<expr::Name*>(type.get())) { // checking for builtin types..this is a quick hack I think
-            // auto name = type->stringify();
-            // if (name == "Int"    ) return type::builtins::Int   ();
-            // if (name == "Double" ) return type::builtins::Double();
-            // if (name == "Bool"   ) return type::builtins::Bool  ();
-            // if (name == "String" ) return type::builtins::String();
-            // if (name == "Any"    ) return type::builtins::Any   ();
-            // if (name == "Syntax" ) return type::builtins::Syntax();
-            // if (name == "Type"   ) return type::builtins::Type  ();
             if (match("Int"   )) return type::builtins::Int   ();
             if (match("Double")) return type::builtins::Double();
             if (match("Bool"  )) return type::builtins::Bool  ();
@@ -478,12 +465,9 @@ public:
             if (match("Syntax")) return type::builtins::Syntax();
             if (match("Type"  )) return type::builtins::Type  ();
         }
+
         // or an expression
         return std::make_shared<type::ExprType>(parseExpr(prec::ASSIGNMENT_VALUE));
-        // return std::make_shared<type::ExprType>(std::move(type));
-
-        // log();
-        // error("Invalid type!");
     }
 
     std::unique_ptr<expr::Match::Case::Pattern> parsePattern() {
