@@ -276,11 +276,11 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     if (std::holds_alternative<PackList>(lhs) and std::holds_alternative<PackList>(rhs))
         return get<PackList>(lhs)->values == get<PackList>(rhs)->values;
 
-    if (std::holds_alternative<ListValue>(lhs) and std::holds_alternative<ListValue>(lhs)) {
+    if (std::holds_alternative<ListValue>(lhs) and std::holds_alternative<ListValue>(rhs)) {
         return get<ListValue>(lhs).elts->values == get<ListValue>(rhs).elts->values;
     }
 
-    if (std::holds_alternative<MapValue>(lhs) and std::holds_alternative<MapValue>(lhs)) {
+    if (std::holds_alternative<MapValue>(lhs) and std::holds_alternative<MapValue>(rhs)) {
         return get<MapValue>(lhs).items->map == get<MapValue>(rhs).items->map;
     }
 

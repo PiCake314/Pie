@@ -267,7 +267,7 @@ struct Visitor {
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                     "', parameter '" + func->params[1] +
                     "' expected: " + func->type.params[1]->text() +
-                    ", got: " + stringify(ret) + " which is " + typeOf(value)->text()
+                    ", got: " + stringify(value) + " which is " + typeOf(value)->text()
                 );
 
                 Environment args_env;
