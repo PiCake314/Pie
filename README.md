@@ -135,7 +135,7 @@ y: U = 3.14;
 z: U = "Hello";
 ```
 
-**Note:** The old syntax `Union { Int | Double | String }` is deprecated. Use the `union` keyword with semicolons as shown above.
+**Note:** The old syntax `union { Int | Double | String }` is deprecated. Use the `union` keyword with semicolons as shown above.
 
 Unions also work with user-defined types.
 
