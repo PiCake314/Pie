@@ -1,6 +1,7 @@
 #pragma once
 
 #include <memory>
+#include <string_view>
 
 inline namespace pie {
 
@@ -54,6 +55,7 @@ using Node = std::variant<
 struct Expr {
     virtual ~Expr() = default;
     virtual std::string stringify(const size_t indent = 0) const = 0;
+    virtual bool involvesName(const std::string_view sv) const = 0;
 
     virtual Node variant() const = 0;
 };

@@ -6,7 +6,7 @@ VER = -std=c++23
 OPT = -O3
 ARGS = -Wall -Wextra -Wpedantic -Wno-missing-braces #-Wnrvo
 CPP = Type/*.cxx Interp/*.cxx
-SAN = -fsanitize=address -fsanitize=undefined -g3
+SAN = -fsanitize=address -fsanitize=undefined # -g3
 
 ## Library directories
 
@@ -34,7 +34,7 @@ test: checklibs Tests/Test.cc
 gh-actions: checklibs Tests/Test.cc
 	$(CC) $(CPP) $(ARGS) $(VER) $(INCLUDE) -O0 Tests/Test.cc Tests/catch.cpp -o run_tests -DNO_ERR_LOC && ./run_tests
 
-# Check and clone libraries if they don't exist
+
 checklibs:
 	@mkdir -p $(REMOTE_INCLUDE_DIR)
 	@if [ ! -d "$(MP11_DIR)" ]; then \
@@ -46,7 +46,7 @@ checklibs:
         git clone https://github.com/intel/cpp-std-extensions $(CPP_STD_EXT_DIR); \
 	fi
 
-# Clean up
+
 clean:
 	rm -f Pie run_tests
 

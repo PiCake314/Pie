@@ -80,7 +80,9 @@ public:
                 const auto t = lookAhead();
                 if (t.kind == TokenKind::NAME) {
                     std::string msg = "Operator '" + t.text + "' not found!";
-                    if (t.text.length() > 1) msg += "Did you, perhaps, forget a ';' on the previous line?";
+
+                    // most operators are 1 or 2 chars long
+                    if (t.text.length() > 2) msg += " Did you, perhaps, forget a ';' on the previous line?";
                     error(msg + '\n' + expressions.back()->stringify());
                 }
                 expected(TokenKind::SEMI, t);
@@ -398,18 +400,48 @@ public:
             return std::make_shared<type::VariadicType>(parseType<false>());
         }
 
+
         // either a function type
-        if (match(L_PAREN)) {
-            // type::TypePtr type = std::make_shared<type::FuncType>();
-            type::FuncType type{{}, {}};
+        if (check(L_PAREN)) {
+            if (check(R_PAREN, 1)) { // nullary function type
+                consume(L_PAREN);
+                consume(R_PAREN);
+                consume(COLON);
+                return std::make_shared<type::FuncType>(std::vector<type::TypePtr>{}, parseType());
+            }
 
-            if (not check(R_PAREN)) do type.params.push_back(parseType()); while(match(COMMA));
+            const bool func_type = [this] {
+                size_t i = 1; // skip the L_PAREN check above
+                for (; /* not atEnd(i) and */ not check(R_PAREN , i); ++i) {
+                    if (check(L_BRACE, i)) while (not check(R_BRACE, i)) ++i;
+                    if (check(L_PAREN, i)) while (not check(R_PAREN, i)) ++i;
 
-            consume(R_PAREN);
-            consume(COLON);
+                    if (check(COMMA, i)) return true; // Comma Separated List can only appear in function arguments list
+                }
+                ++i;
 
-            type.ret = parseType();
-            return std::make_shared<type::FuncType>(std::move(type));
+                return check(COLON, i); // ( ... ):
+            }();
+
+
+
+            if (func_type) { // function type with more than one parameter
+                consume(L_PAREN);
+
+                type::FuncType type{{}, {}};
+
+                do type.params.push_back(parseType()); while(match(COMMA));
+
+                consume(R_PAREN);
+                consume(COLON);
+
+                type.ret = parseType();
+                return std::make_shared<type::FuncType>(std::move(type));
+            }
+
+
+            // just a grouping at this point, which means it's an expression
+            return std::make_shared<type::ExprType>(parseExpr());
         }
 
         if (match(L_BRACE)) { // list or map type

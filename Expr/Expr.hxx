@@ -61,6 +61,7 @@ struct Num : Expr {
     explicit Num(std::string n) noexcept : num{std::move(n)} {}
 
     std::string stringify(const size_t = 0) const override { return num; }
+    bool involvesName(const std::string_view sv) const override { return sv == stringify(); }
 
     Node variant() const override { return this; }
 };
@@ -72,6 +73,7 @@ struct Bool : Expr {
     explicit Bool(const bool b) noexcept : boo{b} {}
 
     std::string stringify(const size_t = 0) const override { return boo ? "true" : "false"; }
+    bool involvesName(const std::string_view sv) const override { return sv == stringify(); }
 
     Node variant() const override { return this; }
 };
@@ -83,6 +85,7 @@ struct String : Expr {
     explicit String(std::string s) noexcept : str{std::move(s)} {}
 
     std::string stringify(const size_t = 0) const override { return '"' + str + '"'; }
+    bool involvesName(const std::string_view sv) const override { return sv == stringify(); }
 
     Node variant() const override { return this; }
 };
@@ -90,16 +93,11 @@ struct String : Expr {
 
 struct Name : Expr {
     std::string name;
-    // type::TypePtr type;
 
-
-    // Name(std::string n, type::TypePtr t = type::builtins::Any()) noexcept : name{std::move(n)}, type{std::move(t)} {}
     explicit Name(std::string n) noexcept : name{std::move(n)} {}
 
-    std::string stringify(const size_t = 0) const override {
-        return name;
-        // return name + ": " + type->text();
-    }
+    std::string stringify(const size_t = 0) const override { return name; }
+    bool involvesName(const std::string_view sv) const override { return sv == stringify(); }
 
     Node variant() const override { return this; }
 };
@@ -146,6 +144,12 @@ struct List : Expr {
         return s + "}";
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or std::ranges::any_of(elements, [sv] (const auto& e) {
+            return e->involvesName(sv);
+        });
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -170,6 +174,13 @@ struct Map : Expr {
         return s + "}";
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or std::ranges::any_of(items, [sv] (const auto& e) {
+            const auto& [key, value] = e;
+            return key->involvesName(sv) or value->involvesName(sv); 
+        });
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -182,6 +193,10 @@ struct Expansion : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return pack->stringify(indent) + "...";
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or pack->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -204,6 +219,10 @@ struct UnaryFold : Expr {
             return "(... " + op + ' ' + pack->stringify(indent) + ')';
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or pack->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -218,6 +237,10 @@ struct SeparatedUnaryFold : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return '(' + lhs->stringify(indent) + ' ' + op + " ... " + op + ' ' + rhs->stringify(indent) + ')';
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or lhs->involvesName(sv) or rhs->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -251,6 +274,10 @@ struct BinaryFold : Expr {
             return "(... " + op + ' ' + pack->stringify(indent) + ' ' + op + ' ' + init->stringify(indent) + ')';
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or pack->involvesName(sv) or init->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -272,6 +299,10 @@ struct Assignment : Expr {
         }
 
         return lhs->stringify(indent) + " = " + rhs->stringify(indent);
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or lhs->involvesName(sv) or rhs->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -299,6 +330,15 @@ struct Class : Expr {
         return s + std::string(indent, ' ') + "}";
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or std::ranges::any_of(fields,
+            [sv] (const auto& e) {
+                const auto& [_, __, expr] = e;
+                return expr->involvesName(sv);
+            }
+        );
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -319,6 +359,8 @@ struct Union : Expr {
 
         return s + std::string(indent, ' ') + "}";
     }
+
+    bool involvesName(const std::string_view) const override { return false; }
 
     Node variant() const override { return this; }
 };
@@ -381,6 +423,10 @@ struct Match : Expr {
         return s + std::string(indent, ' ') + "}";
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 
 
@@ -420,6 +466,10 @@ struct Type : Expr {
 
     std::string stringify(const size_t indent = 0) const override { return type->text(indent); }
 
+    bool involvesName(const std::string_view) const override {
+        return false; // temp
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -448,6 +498,14 @@ struct Loop : Expr {
         return s;
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify()
+            or kind->involvesName(sv)
+            or var ->involvesName(sv)
+            or body->involvesName(sv)
+            or els ->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -460,6 +518,10 @@ struct Break : Expr {
         if (expr) return "break " + expr->stringify(indent + 4);
 
         return "break";
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -476,6 +538,10 @@ struct Continue : Expr {
         return "continue";
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -490,6 +556,10 @@ struct Access : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return var->stringify(indent) + '.' + name;
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or var->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -513,6 +583,10 @@ struct Namespace : Expr {
         return s + std::string(indent, ' ') + "}";
     }
 
+    bool involvesName(const std::string_view) const override {
+        return false; // temp
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -526,6 +600,10 @@ struct Use : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return "use " + ns->stringify(indent);
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or ns->involvesName(sv);
     }
 
 
@@ -565,6 +643,10 @@ struct SpaceAccess : Expr {
         return "::" + member;
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or space->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -575,6 +657,10 @@ struct Grouping : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return '(' + expr->stringify(indent) + ')';
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -594,6 +680,10 @@ struct UnaryOp : Expr {
         return '(' + op + ' ' + expr->stringify(indent) + ')';
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -609,6 +699,10 @@ struct BinOp : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return '(' + lhs->stringify(indent) + ' ' + op + ' ' + rhs->stringify(indent) + ')';
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or lhs->involvesName(sv) or rhs->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -627,6 +721,10 @@ struct PostOp : Expr {
         return '(' + expr->stringify(indent) + ' ' + op + ')';
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -640,6 +738,10 @@ struct CircumOp : Expr {
 
     std::string stringify(const size_t indent = 0) const override {
         return '(' + op1 + ' ' + expr->stringify(indent) + ' ' + op2 + ')';
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or expr->involvesName(sv);
     }
 
     Node variant() const override { return this; }
@@ -674,17 +776,15 @@ struct OpCall : Expr {
             else s += ' ' + exprs[i++]->stringify(indent);
         }
 
-
-        // // if it begins with an expr, we already exhausted the first op
-        // for (size_t i = not op_pos[0]; i < rest.size(); ++i) {
-        //     // s += ':' + ops[i];
-        //     s += exprs[i]->stringify(indent) + ' ' + rest[i - op_pos[0]];
-        // }
-
-        // if (not op_pos.back()) s += ' ' + exprs.back()->stringify(indent);
-
         return '(' + s + ')';
-        // return '(' + op1 + ' ' + expr->stringify(indent) + ' ' + op2 + ')';
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or std::ranges::any_of(exprs,
+            [sv] (const auto& e) {
+                return e->involvesName(sv);
+            }
+        );
     }
 
     Node variant() const override { return this; }
@@ -721,6 +821,21 @@ struct Call : Expr {
         }
 
         return s + ')';
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or func->involvesName(sv)
+            or std::ranges::any_of(named_args,
+                [sv] (const auto& e) {
+                    const auto& [_, expr] = e;
+                    return expr->involvesName(sv);
+                }
+            )
+            or std::ranges::any_of(args,
+                [sv] (const auto& e) {
+                    return e->involvesName(sv);
+                }
+            );
     }
 
     Node variant() const override { return this; }
@@ -783,6 +898,10 @@ struct Closure : Expr {
         return s + "): " + type.ret->text() + " => " + body->stringify(indent);
     }
 
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or body->involvesName(sv);
+    }
+
     Node variant() const override { return this; }
 };
 
@@ -802,6 +921,14 @@ struct Block : Expr {
         }
 
         return s + std::string(indent, ' ') + "}";
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or std::ranges::any_of(lines,
+            [sv] (const auto& e) {
+                return e->involvesName(sv);
+            }
+        );
     }
 
 
@@ -826,6 +953,14 @@ struct Fix : Expr {
     : name{std::move(n)}, high{std::move(up)}, low{std::move(down)}, shift{s}, funcs{std::move(cs)} {}
 
 
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or std::ranges::any_of(funcs,
+            [sv] (const auto& e) {
+                return e->involvesName(sv);
+            }
+        );
+    }
 
     virtual std::unique_ptr<Fix> clone() const = 0;
     virtual std::string OpName() const = 0;

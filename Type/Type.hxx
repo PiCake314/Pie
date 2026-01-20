@@ -49,7 +49,7 @@ namespace type {
         explicit ExprType(expr::ExprPtr s) noexcept : t{std::move(s)} {}
 
         std::string text(const size_t indent = 0) const override;
-        bool involvesT(const Type& T) const override { return T == *this; }
+        bool involvesT(const Type& T) const override;
         bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
         bool operator>(const Type& other) const override;
@@ -168,7 +168,7 @@ namespace type {
 
         explicit VariadicType(TypePtr t) : type{std::move(t)} {}
 
-        std::string text(const size_t indent = 0) const override;
+        std::string text(const size_t = 0) const override;
         bool involvesT(const Type& T) const override { return type->involvesT(T); }
         bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override { return *this >= *other; }
 
@@ -181,7 +181,7 @@ namespace type {
 
         explicit ListType(TypePtr t) : type{std::move(t)} {}
 
-        std::string text(const size_t indent = 0) const override;
+        std::string text(const size_t = 0) const override;
         bool involvesT(const Type& T) const override { return type->involvesT(T); }
         bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr& other) const override {
             // if (std::holds_alternative<value::ListValue>(v)) {

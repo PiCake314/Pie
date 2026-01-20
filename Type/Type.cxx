@@ -13,6 +13,14 @@ namespace type {
         return t->stringify(indent);
     }
 
+    bool ExprType::involvesT(const Type& T) const {
+        // if (auto expr_type = dynamic_cast<const ExprType*>(&T)) {
+        //     return t->
+        // }
+
+        return T == *this or t->involvesName(T.text());
+    }
+
     bool ExprType::operator>(const Type& other) const {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
         // if (not dynamic_cast<const ExprType   *>(&other)) return false;

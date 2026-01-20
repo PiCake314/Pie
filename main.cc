@@ -153,7 +153,11 @@ int main(int argc, char *argv[]) {
             print_preprocessed, print_tokens, print_parsed, run
         );
     }
-    else {
+    else try {
         runFile(std::move(fname), print_preprocessed, print_tokens, print_parsed, run);
+    }
+    catch(const std::exception& e) {
+        std::cerr << e.what() << std::endl;
+        return 1;
     }
 }
