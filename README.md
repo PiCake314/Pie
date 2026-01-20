@@ -508,61 +508,63 @@ Note that `.pie` is omitted in the `import` directive.
 
 ## Builtins
 
-Since Pie doesn't provide any operators, how does one achieve ANYTHING at all with Pie?\
+Since Pie doesn't provide any operators, how does one achieve _ANYTHING_ at all with Pie?\
 Pie reserves the names starting with `__builtin_`.
 
-### Nullary Functions
 
-- `__builtin_true ` (legacy)
-- `__builtin_false` (legacy)
+#### IO
 - `__builtin_input_int`
 - `__builtin_input_str`
+- `__builtin_print` (variadic - returns the last argument)
 
-### Unary Functions
-
-- `__builtin_neg`
-- `__builtin_not`
-- `__builtin_len` (accepts strings, packs, lists, and maps)
-- `__builtin_to_string`
-- `__builtin_to_int`
-- `__builtin_to_double`
-- `__builtin_reset`
-- `__builtin_eval`
-
-### Binary Functions
-
+#### Arithmatic
 - `__builtin_add`
-- `__builtin_sub`
-- `__builtin_mul`
 - `__builtin_div`
 - `__builtin_mod`
+- `__builtin_mul`
+- `__builtin_neg`
 - `__builtin_pow`
-- `__builtin_gt`
-- `__builtin_geq`
+- `__builtin_sub`
+
+#### predicates
 - `__builtin_eq`
+- `__builtin_geq`
+- `__builtin_gt`
 - `__builtin_leq`
 - `__builtin_lt`
+
+#### Boolean
+- `__builtin_not`
 - `__builtin_and`
 - `__builtin_or`
-- `__builtin_get`
 
-### Trinary Functions
+#### Containers
+- `__builtin_get`  (accepts strings, packs, lists, and maps)
+- `__builtin_len`  (accepts strings, packs, lists, and maps)
+- `__builtin_pop`  (for lists)
+- `__builtin_push` (for lists)
+- `__builtin_set`  (for lists and maps)
 
-- `__builtin_conditional(cond, then, else)`
-- `__builtin_set(container, index, item)`
-
-### Quaternary Functions
-
+#### String
+- `__builtin_concat` (variadic)
 - `__builtin_str_slice(str, start, steps, end)`
 
-### Variadic Functions
+#### Conversion
+- `__builtin_to_double`
+- `__builtin_to_int`
+- `__builtin_to_string`
 
-- `__builtin_print` (returns the last argument)
-- `__builtin_concat`
+#### Macros
+- `__builtin_eval`
+- `__builtin_reset`
+
+#### Control Flow
+- `__builtin_conditional(cond, then, else)`
+
 
 ## Types
 
-#### Pie has 10 types.
+#### Pie has 13 types.
 
 
 ##### 7 builtin types
@@ -590,6 +592,9 @@ If something is left un-typed, it will be given the `Any` type.
 ##### Pack Types
 - `...Type`
 Read more about packs in the [packs sections](#packs)
+
+#### Custom Types
+See (Unions)[#unions] and (Classes)[#classes]
 
 #### Types as Values
 Types are values in Pie. A simple use case to demonstrate this is `Type Aliases`:

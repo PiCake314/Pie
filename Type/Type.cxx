@@ -254,9 +254,9 @@ namespace type {
         // this might throw, but it technically shouldn't
         const auto& that = dynamic_cast<const FuncType&>(other);
 
-        for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
-            // if (*type1 > *type2) return false; // args have an inverse relationship
+        if (params.size() != that.params.size()) return false;
 
+        for (const auto& [type1, type2] : std::views::zip(params, that.params)) {
             if (not (*type2 >= *type1)) return false; // args have an inverse relationship
         }
 

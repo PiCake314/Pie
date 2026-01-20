@@ -1976,7 +1976,7 @@ struct Visitor {
             return var;
         }
 
-         error("Can't pass arguments to values!");
+        error("Can't pass arguments to values!");
     }
 
     Value closureCall(
@@ -2003,7 +2003,7 @@ struct Visitor {
         }
 
 
-        const bool is_variadic = std::ranges::any_of(func.type.params, type::isVariadic);
+        const bool is_variadic = std::ranges::any_of(func.type.params, [] (const auto& e) { return type::isVariadic(e); });
         const size_t args_size =
         args.size() +
         std::ranges::fold_left(expand_at, size_t{}, [] (const auto& acc, const auto& elt) { return acc + elt.second.size(); }) // plus the expansions
@@ -2018,9 +2018,12 @@ struct Visitor {
 
 
         //* full call. Don't curry!
-        ScopeGuard sg{this, EnvTag::FUNC, func.args_env, func.env};
+        // ScopeGuard sg{this, EnvTag::FUNC, func.args_env, func.env};
+        ScopeGuard sg{this, EnvTag::FUNC, func.env};
         Environment args_env; // in case the lambda needs to capture 
 
+
+        // !
         for (const auto& [name, expr] : call->named_args) {
             type::TypePtr type;
             for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
@@ -2047,8 +2050,7 @@ struct Visitor {
                 );
             }
 
-            // the_scope.addEnv({{name, {value, type}}});
-            sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+            // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
             args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
@@ -2110,9 +2112,9 @@ struct Visitor {
                             const auto& expr = args[arg_index];
 
                             if (type->text() == "Syntax") {
-                                error(); //* remove!
-                                // value = expr->variant();L
+                                error(); //* allow this the future
                             }
+
                             else {
                                 value = std::visit(*this, expr->variant());
 
@@ -2135,8 +2137,8 @@ struct Visitor {
                     }
 
                     ++param_index;
-                    // the_scope.addEnv({{name, {value, type}}});
-                    sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+
+                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
                     args_env[name] = {std::make_shared<Value>(std::move(pack)), std::move(type)};
                 }
                 else {
@@ -2176,8 +2178,7 @@ struct Visitor {
                     }
 
                     ++param_index;
-                    // the_scope.addEnv(Environment{{name, {value, type}}});
-                    sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
                     args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
                 }
             }
@@ -2213,26 +2214,29 @@ struct Visitor {
                 if (curr < expand_at.size() and i == expand_at[curr].first) {
                     for (const auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
-                        if (findType(p, type)) type = validateType(std::move(type));
-                        ++p; // important!
+                        if (findType(p, type)) {
+                            ScopeGuard sg{this, func.args_env, args_env};
+                            type = validateType(std::move(type));
+                        }
 
-                        // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        ++p; // important!
 
                         typeCheck(val, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                         );
 
 
-                        // the_scope.addEnv({{name, {val, type}}});
-                        sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
+                        // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
                         args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
                     }
                     --p; // the parameter index will have gone one too far. bring it back
                 }
                 else {
                     auto& [name, type] = pos_params[p];
-                    if (findType(p, type)) type = validateType(std::move(type));
+                    if (findType(p, type)) {
+                        ScopeGuard sg{this, func.args_env, args_env};
+                        type = validateType(std::move(type));
+                    }
 
                     const auto& expr = args[i];
 
@@ -2241,22 +2245,18 @@ struct Visitor {
                     else {
                         value = std::visit(*this, expr->variant());
 
-                        // // if the param type not a super type of arg type, error out
-                        // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-
                         typeCheck(value, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                         );
                     }
 
-                    // the_scope.addEnv({{name, {value, type}}});
-                    sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
                     args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
                 }
             }
         }
 
+        // TODO: PLEASE REMEMBER!
         // TODO!!!! LOOK AT
         // if (
         //     std::ranges::find_if(
@@ -2272,6 +2272,7 @@ struct Visitor {
         if (type::isSyntax(func.type.ret)) return func.body->variant();
 
 
+        sg.addEnv(func.args_env);
         sg.addEnv(args_env);
 
         Value ret;
@@ -2297,8 +2298,6 @@ struct Visitor {
 
     void captureEnvForClosure(const expr::Closure& c) {
         for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
-            // puts("printEnv()");
-            // printEnv(env[i].first);
             c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[i].first);
             if (env[i].second == EnvTag::FUNC) break;
 
@@ -2315,7 +2314,8 @@ struct Visitor {
         std::vector<expr::ExprPtr> args, 
         const bool is_variadic
     ) {
-        ScopeGuard sg{this, EnvTag::FUNC, func.args_env, func.env};
+        // ScopeGuard sg{this, EnvTag::FUNC, func.args_env, func.env};
+        ScopeGuard sg{this, EnvTag::FUNC, func.env};
         Environment args_env = func.env;
 
         for (const auto& [name, expr] : call->named_args) {
@@ -2346,7 +2346,7 @@ struct Visitor {
                 );
             }
 
-            sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+            // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
             args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
@@ -2417,7 +2417,7 @@ struct Visitor {
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                             );
 
-                            sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
+                            // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
                             args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
                         }
                         --p;
@@ -2443,7 +2443,7 @@ struct Visitor {
                             //         "expected type: " + type->text() + ", got: " + type_of_value->text()
                             //     );
                         }
-                        sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                        // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
                         args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
                     }
                 }
@@ -2469,36 +2469,32 @@ struct Visitor {
 
             // for(size_t i{}, curr{}; const auto& [param, expr] : std::views::zip(pos_params, args)) {
             for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
-                // bool found{};
-                // for (size_t j{}; j <= i; ++j) {
-                //     if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[j])})) {
-                //         found = true; break;
-                //     }
-                // }
-                // if (found) type = validateType(std::move(type));
-
-
 
                 if (curr < expand_at.size() and i == expand_at[curr].first) {
                     for (const auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
-                        if (findType(p, type)) type = validateType(std::move(type));
+                        if (findType(p, type)) {
+                            ScopeGuard sg{this, func.args_env, args_env};
+                            type = validateType(std::move(type));
+                        }
                         ++p;
 
                         typeCheck(val, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                         );
-                        // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
 
-                        sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
+                        // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
                         args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
                     }
                     --p;
                 }
                 else {
                     auto& [name, type] = pos_params[p];
-                    if (findType(p, type)) type = validateType(std::move(type));
+                    if (findType(p, type)) {
+                        ScopeGuard sg{this, func.args_env, args_env};
+                        type = validateType(std::move(type));
+                    }
+
                     const auto& expr = args[i];
 
                     Value value;
@@ -2514,7 +2510,7 @@ struct Visitor {
                         //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
                     }
 
-                    sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
                     args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
                 }
             }
@@ -2522,11 +2518,8 @@ struct Visitor {
 
 
 
-        // closure.capture(argument_capture_list); // maybe need to uncomment
+        // printEnv(args_env);
         closure.captureArgs(args_env);
-        // closure.capture(env.back());
-        // accelerate
-        // axe-lerate
         return closure;
     }
 
@@ -2785,7 +2778,7 @@ struct Visitor {
                         ) return x;
 
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
-                        return std::stoll(x);
+                            return std::stoll(x);
                     }),
                     TypeList<ssize_t>,
                     TypeList<double>,
@@ -3237,10 +3230,10 @@ struct Visitor {
             const auto& stride_v = std::visit(*this, args[3]->variant());
 
             if (
-                not std::holds_alternative<std::string>(value1) or
-                not std::holds_alternative<ssize_t>(start_v ) or
-                not std::holds_alternative<ssize_t>(end_v   ) or
-                not std::holds_alternative<ssize_t>(stride_v)
+                not std::holds_alternative<std::string>(value1  ) or
+                not std::holds_alternative<ssize_t    >( start_v) or
+                not std::holds_alternative<ssize_t    >(   end_v) or
+                not std::holds_alternative<ssize_t    >(stride_v)
             )
             error(
                 "Invalid argument: __builtin_str_slice("

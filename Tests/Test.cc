@@ -9,6 +9,58 @@
 
 
 
+TEST_CASE("Complex Lazy Param Types", "[Func][Param][Type]") {
+    const auto src1 = R"(
+infix + = (a, b) => __builtin_add(a, b);
+infix | = (a, b) => union {a; b;};
+
+func = (1 + 2, x: (1 + 2) | 4) => x;
+func(String, "hi");
+func(String, 4);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+
+    const auto src2 = R"(
+infix + = (a, b) => __builtin_add(a, b);
+infix | = (a, b) => union {a; b;};
+
+func = (1 + 2, x: (1 + 2) | 4) => x;
+func(String, 1 + 2);
+)";
+
+    REQUIRE_THROWS(run(src2));
+}
+
+
+TEST_CASE("Leaky Argument 2", "[Func][Param][Type]") {
+    const auto src1 = R"(
+    func = (T, a: T) => __builtin_print(1);
+    func2 = func(Type);
+    func2(T);
+)";
+
+    REQUIRE_THROWS(run(src1));
+}
+
+
+TEST_CASE("Testing Leaky Argument", "[Func][Param][Type]") {
+    const auto src1 = R"(
+func = (T, x: T) => __builtin_print(x);
+func(Int, 1);
+)";
+
+    REQUIRE(run(src1) == "1");
+
+
+    const auto src2 = R"(
+func = (T, x: T) => __builtin_print(x);
+func(Int, T);
+)";
+
+    REQUIRE_THROWS_WITH(run(src2), Catch::Matchers::ContainsSubstring("not defined"));
+}
+
 
 TEST_CASE("Concepts 2", "[Type]") {
     const auto src = R"(
@@ -1485,7 +1537,7 @@ add(z = 1);
 )";
 
 
-    REQUIRE_THROWS_MATCHES(run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument" )));
+    REQUIRE_THROWS_MATCHES(run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument")));
     REQUIRE_THROWS_MATCHES(run(src2), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
 }
 
