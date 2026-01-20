@@ -451,7 +451,7 @@ public:
         // return std::make_shared<type::ExprType>(std::move(type));
 
         // log();
-        error("Invalid type!");
+        // error("Invalid type!");
     }
 
     std::unique_ptr<expr::Match::Case::Pattern> parsePattern() {
