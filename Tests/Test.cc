@@ -1,12 +1,42 @@
 #define CATCH_CONFIG_MAIN
 #include "catch.hpp"
 
-#include "TestSuite.hxx"
 #include <stdexcept>
+#include "TestSuite.hxx"
 
 #include "../Type/Type.hxx"
 
 
+
+
+
+
+TEST_CASE("Lazy Function Parameter Types", "[Func][Param][Type]") {
+    const auto src = R"(
+House1 = class { T = String; };
+House2 = class { T = Int; };
+
+X = Int;
+func = (h, a: h.T, x: X) => 1;
+
+func(House1(), "1", 1);
+
+X = Bool;
+func(House2(), 1, 1);
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+
+
+TEST_CASE("Function Type Checking", "[Func][Type]") {
+    const auto src = R"(
+func: (Int): Bool = (x: Int, s: String): Bool => true;
+)";
+
+    REQUIRE_THROWS(run(src));
+}
 
 
 TEST_CASE("Complex Lazy Param Types", "[Func][Param][Type]") {
