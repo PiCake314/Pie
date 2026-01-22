@@ -768,7 +768,6 @@ make
 
 
 - [ ] Lexically Scoped Operators
-- [ ] Functions as types (concepts)
 - [ ] Remove preprocessor
 - [ ] File IO
 - [ ] Use Big Int instead of `int64_t`
@@ -787,7 +786,8 @@ make
 ---
 
 ### Done
-- [ ] Eager Parameter Evaluation (mostly done, needs more work)
+- [x] Functions as types (concepts)
+- [x] Eager Parameter Evaluation (Lazy Function Parameter Types)
 - [x] add `lex` and `value` namespaces to codebase
 - [x] Add REPL
 - [x] Changed error system to exceptions (will allow REPL)

@@ -10,6 +10,74 @@
 
 
 
+TEST_CASE("Self 2", "[Class][Var]") {
+    const auto src1 = R"(
+    self = 5;
+    __builtin_print(self);
+)";
+
+    REQUIRE(run(src1) == R"(5)");
+
+
+    const auto src2 = R"(
+    __builtin_print(self);
+)";
+
+    REQUIRE_THROWS(run(src2));
+}
+
+
+
+TEST_CASE("Self", "[Class][Var]") {
+    const auto src = R"(
+Human = class {
+    name = "";
+    age = 0;
+
+    printSelf = () => __builtin_print(self);
+};
+
+Human("x", 2).printSelf();
+)";
+
+    REQUIRE(run(src) == R"(Object {
+    name = "x";
+    age = 2;
+    printSelf = (): Any => __builtin_print(self);
+})");
+}
+
+
+
+TEST_CASE("Types as Values 2", "[Func][Type]") {
+    const auto src = R"(
+:Int = 4;
+f = (x: Int): Int => x;
+f(5);
+)";
+
+    REQUIRE_THROWS(run(src));
+}
+
+TEST_CASE("Types as Values", "[Func][Type]") {
+    const auto src = R"(
+:(Int, Double): String = :(Any, Any): Any;
+f: (Int, Double): String = (a, b) => 1;
+f(4, false);
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
+TEST_CASE("Lazy Function Return Type", "[Func][Param][Type]") {
+    const auto src = R"(
+f = (T): T => 1;
+f(Int);
+)";
+
+    REQUIRE_NOTHROW(run(src));
+}
+
 
 TEST_CASE("Lazy Function Parameter Types", "[Func][Param][Type]") {
     const auto src = R"(

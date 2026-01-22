@@ -138,12 +138,12 @@ int main(int argc, char *argv[]) {
 
 
     if (print_opt) {
-        std::clog << std::boolalpha;
-        std::clog << "print tokens:        " << print_tokens       << std::endl;
-        std::clog << "print parsed:        " << print_parsed       << std::endl;
-        std::clog << "print pre-processed: " << print_preprocessed << std::endl;
-        std::clog << "run?                 " << run                << std::endl;
-        std::clog << "repl?                " << repl               << std::endl;
+        std::cout << std::boolalpha;
+        std::cout << "print tokens:        " << print_tokens       << '\n';
+        std::cout << "print parsed:        " << print_parsed       << '\n';
+        std::cout << "print pre-processed: " << print_preprocessed << '\n';
+        std::cout << "run?                 " << run                << '\n';
+        std::cout << "repl?                " << repl               << std::endl;
     }
 
 

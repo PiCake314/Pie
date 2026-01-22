@@ -124,8 +124,9 @@ struct Visitor {
 
         if (const auto& var = getVar(n->name); var) return var->first;
         if (const auto var = checkThis(n->name); var) return *var;
+        if (n->name == "self" and not selves.empty()) return selves.back();
 
-        // for now, buitlin functions and typename just return their names as strings...
+        // for now, buitlin functions just return their names as strings...
         // maybe i need to return some builtin type or smth. IDK
         if (isBuiltin(n->name)) return n->name;
 
@@ -1136,7 +1137,11 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::Type* type) { return validateType(type->type); };
+    Value operator()(const expr::Type* type) {
+        if (const auto& var = getVar(type->stringify()); var) return var->first;
+
+        return validateType(type->type);
+    };
 
 
     Value operator()(const expr::Loop *loop) {
@@ -2258,14 +2263,16 @@ struct Visitor {
 
         // TODO: PLEASE REMEMBER!
         // TODO!!!! LOOK AT
-        // if (
-        //     std::ranges::find_if(
-        //         func.params, [&type = func.type.ret](const auto& param) {
-        //             return type->involvesT(type::ExprType{std::make_shared<expr::Name>(param)});
-        //         }
-        //     ) != func.params.cend()
-        // )
-            // func.type.ret = validateType(std::move(func.type.ret));
+        if (
+            std::ranges::find_if(
+                func.params, [&type = func.type.ret](const auto& param) {
+                    return type->involvesT(type::ExprType{std::make_shared<expr::Name>(param)});
+                }
+            ) != func.params.cend()
+        ) {
+            ScopeGuard sg{this, func.args_env, args_env};
+            func.type.ret = validateType(std::move(func.type.ret));
+        }
 
 
         //* should I capture the env and bundle it with the function before returning it?
@@ -2295,6 +2302,7 @@ struct Visitor {
 
         return ret;
     }
+
 
     void captureEnvForClosure(const expr::Closure& c) {
         for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
@@ -2600,9 +2608,7 @@ struct Visitor {
             bool found{};
             for (size_t j{}; j < i; ++j) {
                 auto t = type::ExprType{std::make_shared<expr::Name>(closure.params[j])};
-                if (type->involvesT(t)) {
-                    found = true; break;
-                }
+                if (type->involvesT(t)) { found = true; break; }
             }
 
             if (not found) type = validateType(std::move(type));
@@ -2674,10 +2680,10 @@ struct Visitor {
             "print", "concat", 
 
             //* nullary
-            "panic", "true", "false", "input_str", "input_int", 
+            "panic", "true", "false", "input_str", "input_int",
 
             //* unary
-            "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
+            "type_of", "len", "reset", "eval","neg", "not", "to_int", "to_double", "to_string", //"read_file"
 
             //* binary
             "get", "push", "pop",
@@ -2691,8 +2697,8 @@ struct Visitor {
             "str_slice", // (str, start, end, step), should I add anothee overload for (str, start, length)??
 
 
-            //* File IO
-            "read_whole", "read_line", "read_lines"
+            // //* File IO
+            // "read_whole", "read_line", "read_lines"
         })
             if (make_builtin(builtin) == func) return true;
 
@@ -2750,6 +2756,40 @@ struct Visitor {
             >{},
 
             //* UNARY FUNCTIONS
+
+            MapEntry<
+                S<"len">,
+                Func<"len",
+                    decltype([](const auto& x, const auto&) {
+                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
+                             return static_cast<ssize_t>(x.length());
+
+                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::PackList>)
+                            return static_cast<ssize_t>(x->values.size());
+
+                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::ListValue>)
+                            return static_cast<ssize_t>(x.elts->values.size());
+                        else { // map value
+                            return static_cast<ssize_t>(x.items->map.size());
+                        }
+                    }),
+                    TypeList<std::string>,
+                    TypeList<value::PackList>,
+                    TypeList<value::ListValue>,
+                    TypeList<value::MapValue>
+                >
+            >{},
+
+            MapEntry<
+                S<"type_of">,
+                Func<"type_of",
+                    decltype([](const auto& x, const auto& that) {
+                        return that->typeOf(x);
+                    }),
+                    TypeList<Any>
+                >
+            >{},
+
             MapEntry<
                 S<"neg">,
                 Func<"neg",
@@ -2823,29 +2863,6 @@ struct Visitor {
                         return std::visit(*that, x);
                     }),
                     TypeList<expr::Node>
-                >
-            >{},
-
-            MapEntry<
-                S<"len">,
-                Func<"len",
-                    decltype([](const auto& x, const auto&) {
-                        if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
-                             return static_cast<ssize_t>(x.length());
-
-                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::PackList>)
-                            return static_cast<ssize_t>(x->values.size());
-
-                        else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::ListValue>)
-                            return static_cast<ssize_t>(x.elts->values.size());
-                        else { // map value
-                            return static_cast<ssize_t>(x.items->map.size());
-                        }
-                    }),
-                    TypeList<std::string>,
-                    TypeList<value::PackList>,
-                    TypeList<value::ListValue>,
-                    TypeList<value::MapValue>
                 >
             >{},
 
@@ -3143,10 +3160,11 @@ struct Visitor {
 
 
 
+        if (name == "type_of"  ) return execute<1>(stdx::get<S<"type_of"   >>(functions).value, {value1}, this);
+        if (name == "len"      ) return execute<1>(stdx::get<S<"len"       >>(functions).value, {value1}, this);
         if (name == "eval"     ) return execute<1>(stdx::get<S<"eval"      >>(functions).value, {value1}, this);
         if (name == "neg"      ) return execute<1>(stdx::get<S<"neg"       >>(functions).value, {value1}, this);
         if (name == "not"      ) return execute<1>(stdx::get<S<"not"       >>(functions).value, {value1}, this);
-        if (name == "len"      ) return execute<1>(stdx::get<S<"len"       >>(functions).value, {value1}, this);
         if (name == "pop"      ) return execute<1>(stdx::get<S<"pop"       >>(functions).value, {value1}, this);
         if (name == "to_int"   ) return execute<1>(stdx::get<S<"to_int"    >>(functions).value, {value1}, this);
         if (name == "to_double") return execute<1>(stdx::get<S<"to_double" >>(functions).value, {value1}, this);
@@ -3314,17 +3332,15 @@ struct Visitor {
 
 
 
-    void print(const Value& value, const bool new_line = true) const {
-        std::print("{}{}", stringify(value), new_line? '\n' : '\0');
-    }
+    void print(const Value& value, const bool new_line = true) const { std::print("{}{}", stringify(value), new_line? '\n' : '\0'); }
 
 
     type::TypePtr validateType(const type::TypePtr& type) {
         if (type::shouldReassign(type)) return type::builtins::Any();
-        if (type::isBuiltin(type)) return type;
 
         //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
         if (auto var = getVar(type->text()); var) {
+
             if (auto t = typeOf(var->first); not type::isType(t)) {
                 // error("'" + stringify(var->first) + "' does not name a type!");
 
@@ -3337,6 +3353,8 @@ struct Visitor {
             if (std::holds_alternative<type::TypePtr>(var->first))
                 return get<type::TypePtr>(var->first);
         }
+        else if (type::isBuiltin(type)) return type;
+
 
         if (const auto var_type = dynamic_cast<type::ExprType*>(type.get())) {
             // if (type::isBuiltin(type)) return type;

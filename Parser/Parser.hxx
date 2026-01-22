@@ -395,7 +395,7 @@ public:
         using enum TokenKind;
 
         if (match(ELLIPSIS)) {
-            if (not allow_variadic) error("Can't have a variadic of a variadic type!");
+            if constexpr (not allow_variadic) error("Can't have a variadic of a variadic type!");
 
             return std::make_shared<type::VariadicType>(parseType<false>());
         }

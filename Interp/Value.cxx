@@ -24,9 +24,6 @@ using Object = std::pair<type::TypePtr, std::shared_ptr<Members>>;
 //     ListValue,
 //     MapValue
 // >;
-
-
-// struct ValuePtr { std::shared_ptr<Value> value; };
 }
 }
 
