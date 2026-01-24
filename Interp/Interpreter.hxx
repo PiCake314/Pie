@@ -20,7 +20,7 @@
 #include "../Utils/utils.hxx"
 #include "../Utils/Exceptions.hxx"
 #include "../Utils/ConstexprLookup.hxx"
-#include "../Lexer/Lexer.hxx"
+#include "../Lex/Lexer.hxx"
 #include "../Expr/Expr.hxx"
 #include "../Parser/Parser.hxx"
 
@@ -146,6 +146,7 @@ struct Visitor {
 
     // Value operator()(const expr::Pack*) { error(); }
     Value operator()(const expr::Expansion*) { error("Can only expand in function calls or fold expressions!"); }
+
 
     Value operator()(const expr::List* list) {
         if (const auto& var = getVar(list->stringify()); var) return var->first;
@@ -948,6 +949,24 @@ struct Visitor {
 
         const auto& left = std::visit(*this, acc->var->variant());
         if (std::holds_alternative<Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
+
+
+        error("Can't access a non-class type!");
+    }
+
+    Value operator()(const expr::Cascade *acc) {
+        // if (auto var = dynamic_cast<const expr::Name*>(acc->var.get()); var and var->name == "self") {
+        //     if (selves.empty()) error("Can't use 'self' outside of class scope: " + acc->stringify());
+
+        //     const auto value = checkThis(acc->name);
+        //     if (not value)
+        //         error("Name '" + acc->name + "' not found in object '" + acc->var->stringify());
+
+        //     return *value;
+        // }
+
+        // const auto& left = std::visit(*this, acc->var->variant());
+        // if (std::holds_alternative<Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
 
 
         error("Can't access a non-class type!");

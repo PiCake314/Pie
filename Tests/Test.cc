@@ -10,6 +10,31 @@
 
 
 
+TEST_CASE("Type Of", "[Type][Builtin]") {
+    const auto src1 = R"(
+type = __builtin_type_of;
+
+f = (x, y: type(x), z: type(y)) => 1;
+f("1", "2", "3");
+
+
+f = (x, y: type(x), z: type(y)) => 2;
+f(1, 2, 3);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+
+    const auto src2 = R"(
+type = __builtin_type_of;
+
+f = (x, y: type(x), z: type(y)) => 3;
+f("1", "2", 3);
+)";
+
+    REQUIRE_THROWS(run(src2));
+}
+
+
 TEST_CASE("Self 2", "[Class][Var]") {
     const auto src1 = R"(
     self = 5;

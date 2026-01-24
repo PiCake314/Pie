@@ -10,7 +10,7 @@
 #include <type_traits>
 #include <stdexcept>
 
-#include "../Token/Token.hxx"
+#include "../Lex/Token.hxx"
 
 
 

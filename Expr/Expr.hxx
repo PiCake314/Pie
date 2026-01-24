@@ -17,7 +17,7 @@
 #include <memory>
 
 #include "../Utils/utils.hxx"
-#include "../Token/Token.hxx"
+#include "../Lex/Token.hxx"
 #include "../Declarations.hxx"
 #include "../Type/Type.hxx"
 
@@ -36,7 +36,7 @@ inline namespace value {
     using Environment = std::unordered_map<
         std::string,
         std::pair<
-            ValuePtr,
+            value::ValuePtr,
             type::TypePtr
         >
     >;
@@ -551,6 +551,26 @@ struct Access : Expr {
     std::string name;
 
     Access(ExprPtr v, std::string n) noexcept
+    : var{std::move(v)}, name{std::move(n)}
+    {}
+
+    std::string stringify(const size_t indent = 0) const override {
+        return var->stringify(indent) + '.' + name;
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify() or var->involvesName(sv);
+    }
+
+    Node variant() const override { return this; }
+};
+
+
+struct Cascade : Expr {
+    ExprPtr var;
+    std::string name;
+
+    Cascade(ExprPtr v, std::string n) noexcept
     : var{std::move(v)}, name{std::move(n)}
     {}
 

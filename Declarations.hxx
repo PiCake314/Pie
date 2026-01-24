@@ -31,6 +31,7 @@ using Node = std::variant<
     const struct Break             *,
     const struct Continue          *,
     const struct Access            *,
+    const struct Cascade           *,
     const struct Namespace         *,
     const struct Use               *,
 //  const struct Import               *,

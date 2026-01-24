@@ -7,28 +7,29 @@
 
 
 namespace prec {
-  inline constexpr auto BASE = 1 << 10;
+  inline constexpr auto BASE = 1 << 10; // 1024
 
   inline constexpr auto              LOW_VALUE = 0;
-  inline constexpr auto            COMMA_VALUE = BASE * (1 <<  0);
-  inline constexpr auto       ASSIGNMENT_VALUE = BASE * (1 <<  1);
-  inline constexpr auto               OR_VALUE = BASE * (1 <<  2);
-  inline constexpr auto              AND_VALUE = BASE * (1 <<  3);
-  inline constexpr auto            BITOR_VALUE = BASE * (1 <<  4);
-  inline constexpr auto           BITXOR_VALUE = BASE * (1 <<  5);
-  inline constexpr auto           BITAND_VALUE = BASE * (1 <<  6);
-  inline constexpr auto               EQ_VALUE = BASE * (1 <<  7);
-  inline constexpr auto              CMP_VALUE = BASE * (1 <<  8);
-  inline constexpr auto        SPACESHIP_VALUE = BASE * (1 <<  9);
-  inline constexpr auto            SHIFT_VALUE = BASE * (1 << 10);
-  inline constexpr auto              SUM_VALUE = BASE * (1 << 11);
-  inline constexpr auto             PROD_VALUE = BASE * (1 << 12);
-  inline constexpr auto           PREFIX_VALUE = BASE * (1 << 13);
-  inline constexpr auto           SUFFIX_VALUE = BASE * (1 << 14);
-  inline constexpr auto             CALL_VALUE = BASE * (1 << 15);
-  inline constexpr auto    MEMBER_ACCESS_VALUE = BASE * (1 << 15); // same as a call operator
-  inline constexpr auto SCOPE_RESOLUTION_VALUE = BASE * (1 << 16);
-  inline constexpr auto             HIGH_VALUE = BASE * (1 << 17);
+  inline constexpr auto            COMMA_VALUE = BASE;
+  inline constexpr auto       ASSIGNMENT_VALUE = 2 *            COMMA_VALUE;
+  inline constexpr auto               OR_VALUE = 2 *          ASSIGNMENT_VALUE;
+  inline constexpr auto              AND_VALUE = 2 *               OR_VALUE;
+  inline constexpr auto            BITOR_VALUE = 2 *              AND_VALUE;
+  inline constexpr auto           BITXOR_VALUE = 2 *            BITOR_VALUE;
+  inline constexpr auto           BITAND_VALUE = 2 *           BITXOR_VALUE;
+  inline constexpr auto               EQ_VALUE = 2 *           BITAND_VALUE;
+  inline constexpr auto              CMP_VALUE = 2 *               EQ_VALUE;
+  inline constexpr auto        SPACESHIP_VALUE = 2 *              CMP_VALUE;
+  inline constexpr auto            SHIFT_VALUE = 2 *        SPACESHIP_VALUE;
+  inline constexpr auto              SUM_VALUE = 2 *            SHIFT_VALUE;
+  inline constexpr auto             PROD_VALUE = 2 *              SUM_VALUE;
+  inline constexpr auto           PREFIX_VALUE = 2 *             PROD_VALUE;
+  inline constexpr auto           SUFFIX_VALUE = 2 *           PREFIX_VALUE;
+  inline constexpr auto             CALL_VALUE = 2 *           SUFFIX_VALUE;
+  inline constexpr auto    MEMBER_ACCESS_VALUE =                 CALL_VALUE; // same as a call operator
+  inline constexpr auto          CASCADE_VALUE =                 CALL_VALUE;
+  inline constexpr auto SCOPE_RESOLUTION_VALUE = 2 *             CALL_VALUE;
+  inline constexpr auto             HIGH_VALUE = 2 * SCOPE_RESOLUTION_VALUE;
 
 
   inline constexpr auto LOW                = "LOW";
@@ -121,7 +122,8 @@ namespace prec {
 
   inline std::string higher(const std::string& p, const Operators& ops) noexcept {
     if (p == "LOW")                                     return "=";
-    if (p == "=")                                       return "||";
+    if (p == "=")                                       return "..";
+    if (p == "..")                                      return "||";
     if (p == "||")                                      return "&&";
     if (p == "&&")                                      return "|";
     if (p == "|")                                       return "^";
@@ -149,7 +151,8 @@ namespace prec {
   inline std::string lower(const std::string& p, const Operators& ops) noexcept {
     if (p == "LOW") error("Can't go lower than LOW!");
     if (p == "=")                                       return "LOW";
-    if (p == "||")                                      return "=";
+    if (p == "..")                                      return "=";
+    if (p == "||")                                      return "..";
     if (p == "&&")                                      return "||";
     if (p == "|")                                       return "&&";
     if (p == "^")                                       return "|";

@@ -20,8 +20,8 @@
 #include <cassert>
 
 
-#include "../Lexer/Lexer.hxx"
-#include "../Token/Token.hxx"
+#include "../Lex/Lexer.hxx"
+#include "../Lex/Token.hxx"
 #include "../Expr/Expr.hxx"
 #include "../Parser/Precedence.hxx"
 #include "../Utils/utils.hxx"
@@ -1361,7 +1361,8 @@ public:
             // case COLON : return prec::SCOPE_RESOLUTION_VALUE;
             case SCOPE_RESOLVE : return prec::SCOPE_RESOLUTION_VALUE;
 
-            case DOT   : return prec::MEMBER_ACCESS_VALUE;
+            case DOT    : return prec::MEMBER_ACCESS_VALUE;
+            case CASCADE: return prec::CASCADE_VALUE;
 
             case NAME: {
                 // Probably in the middle of a mixfix() that takes 2 colons ': :' or more (2 expression arguments back to back)

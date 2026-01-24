@@ -6,7 +6,7 @@
 #include <utility>
 #include <stdexcept>
 
-#include "Lexer/Lexer.hxx"
+#include "Lex/Lexer.hxx"
 #include "Preprocessor/Preprocessor.hxx"
 #include "Parser/Parser.hxx"
 #include "Interp/Interpreter.hxx"
