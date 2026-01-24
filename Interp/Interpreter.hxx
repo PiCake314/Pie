@@ -954,7 +954,7 @@ struct Visitor {
         error("Can't access a non-class type!");
     }
 
-    Value operator()(const expr::Cascade *acc) {
+    Value operator()(const expr::Cascade *) {
         // if (auto var = dynamic_cast<const expr::Name*>(acc->var.get()); var and var->name == "self") {
         //     if (selves.empty()) error("Can't use 'self' outside of class scope: " + acc->stringify());
 
