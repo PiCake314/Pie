@@ -219,8 +219,11 @@ struct LexicalAnalysis {
 
 
     void operator()(const expr::Access *acc) {
-        checkName(acc->name);
         std::visit(*this, acc->var->variant());
+        // can't check the accessee
+        // since the type of the accessor is not know until runtime
+        // so..we just allow it (which is fine since it doesn't fall under lexical scoping)
+        // checkName(acc->name);
     }
 
 
@@ -235,7 +238,8 @@ struct LexicalAnalysis {
 
     void operator()(const expr::SpaceAccess *acc) {
         checkName(acc->member);
-        std::visit(*this, acc->space->variant());
+        if (acc->space) // in case of global ns access `::x`
+            std::visit(*this, acc->space->variant());
     }
 
 

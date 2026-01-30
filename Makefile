@@ -6,7 +6,7 @@ VER = -std=c++23
 OPT = -O3
 ARGS = -Wall -Wextra -Wpedantic -Wno-missing-braces #-Wnrvo
 CPP = Type/*.cxx Interp/*.cxx
-SAN = -fsanitize=address -fsanitize=undefined  -g3
+SAN = -fsanitize=address -fsanitize=undefined #-g3
 
 ## Library directories
 
