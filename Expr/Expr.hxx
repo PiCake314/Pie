@@ -226,6 +226,7 @@ struct UnaryFold : Expr {
     Node variant() const override { return this; }
 };
 
+
 struct SeparatedUnaryFold : Expr {
     ExprPtr lhs;
     ExprPtr rhs;
@@ -375,8 +376,7 @@ struct Match : Expr {
                 ExprPtr value;
             };
 
-            using Patterns  = std::vector<std::unique_ptr<Pattern>>;
-            // using Structure = std::pair<std::string, Patterns>;
+            using Patterns = std::vector<std::unique_ptr<Pattern>>;
             struct Structure { std::string type_name; Patterns patterns; };
 
 
@@ -385,10 +385,9 @@ struct Match : Expr {
                 Structure
             > pattern;
 
-            explicit Pattern(Single single) noexcept
-            : pattern{std::move(single)} {}
+            explicit Pattern(Single single) : pattern{std::move(single)} {}
 
-            Pattern(std::string name, Patterns structure) noexcept
+            Pattern(std::string name, Patterns structure)
             : pattern{Structure{std::move(name), std::move(structure)}}
             {}
         };
@@ -509,6 +508,7 @@ struct Loop : Expr {
     Node variant() const override { return this; }
 };
 
+
 struct Break : Expr {
     ExprPtr expr;
 
@@ -526,6 +526,7 @@ struct Break : Expr {
 
     Node variant() const override { return this; }
 };
+
 
 struct Continue : Expr {
     ExprPtr expr;
@@ -566,24 +567,24 @@ struct Access : Expr {
 };
 
 
-struct Cascade : Expr {
-    ExprPtr var;
-    std::string name;
+// struct Cascade : Expr {
+//     ExprPtr var;
+//     std::string name;
 
-    Cascade(ExprPtr v, std::string n) noexcept
-    : var{std::move(v)}, name{std::move(n)}
-    {}
+//     Cascade(ExprPtr v, std::string n) noexcept
+//     : var{std::move(v)}, name{std::move(n)}
+//     {}
 
-    std::string stringify(const size_t indent = 0) const override {
-        return var->stringify(indent) + '.' + name;
-    }
+//     std::string stringify(const size_t indent = 0) const override {
+//         return var->stringify(indent) + '.' + name;
+//     }
 
-    bool involvesName(const std::string_view sv) const override {
-        return sv == stringify() or var->involvesName(sv);
-    }
+//     bool involvesName(const std::string_view sv) const override {
+//         return sv == stringify() or var->involvesName(sv);
+//     }
 
-    Node variant() const override { return this; }
-};
+//     Node variant() const override { return this; }
+// };
 
 
 struct Namespace : Expr {
@@ -728,6 +729,7 @@ struct BinOp : Expr {
     Node variant() const override { return this; }
 };
 
+
 struct PostOp : Expr {
     std::string op;
     ExprPtr expr;
@@ -747,6 +749,7 @@ struct PostOp : Expr {
 
     Node variant() const override { return this; }
 };
+
 
 struct CircumOp : Expr {
     std::string op1;

@@ -10,6 +10,68 @@
 
 
 
+
+
+TEST_CASE("Match Invalid Name Case Scope", "[Match][Type][Lex]") {
+    const auto src = R"(
+print = __builtin_print;
+
+C = class {
+    T: Type = Int;
+    v = 0;
+};
+
+
+c = C(Bool, "meow");
+
+match c {
+    C(type, v: type) => print(type, v);
+
+    C(type) => print("not matched:", v);
+};
+)";
+
+    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+}
+
+
+TEST_CASE("Match Invalid Structure Type Name", "[Match][Type][Lex]") {
+    const auto src = R"(
+print = __builtin_print;
+
+C = class {
+    T: Type = Int;
+    v = 0;
+};
+
+c = C(Bool, "meow");
+
+match c {
+    C(type, v: type) => print(type, v);
+
+    SomeNonexistantTypeName(type) => print("not matched");
+};
+)";
+
+    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+}
+
+
+
+TEST_CASE("Assignment in Union", "[Type][Union]") {
+    const auto src = R"(
+U = union {
+    (T = Int);
+    T;
+};
+__builtin_print(U);
+)";
+
+    REQUIRE(run(src) == R"(union { Int; Int; })");
+}
+
+
+
 TEST_CASE("Type Of", "[Type][Builtin]") {
     const auto src1 = R"(
 type = __builtin_type_of;
@@ -181,7 +243,7 @@ func = (T, x: T) => __builtin_print(x);
 func(Int, T);
 )";
 
-    REQUIRE_THROWS_WITH(run(src2), Catch::Matchers::ContainsSubstring("not defined"));
+    REQUIRE_THROWS_WITH(run(src2), Catch::Matchers::ContainsSubstring("not found"));
 }
 
 

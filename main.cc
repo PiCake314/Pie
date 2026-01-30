@@ -9,6 +9,7 @@
 #include "Lex/Lexer.hxx"
 #include "Preprocessor/Preprocessor.hxx"
 #include "Parser/Parser.hxx"
+#include "Analysis/LexicalScoping.hxx"
 #include "Interp/Interpreter.hxx"
 
 
@@ -102,10 +103,16 @@ void runFile(
 
     if(run and (print_parsed or print_preprocessed or print_tokens)) puts("Output:\n");
 
+    pie::analysis::LexicalAnalysis anal;
+    for (const auto& expr : exprs)
+        std::visit(anal, expr->variant());
+
     if (run) {
+
+
         interp::Visitor visitor{std::move(ops)};
-        for (auto&& expr : exprs)
-            std::visit(visitor, std::move(expr)->variant());
+        for (const auto& expr : exprs)
+            std::visit(visitor, expr->variant());
     }
 }
 

@@ -249,6 +249,10 @@ namespace type {
 
 
 
+    inline const ExprType* isExpr(const TypePtr& t) noexcept {
+        return dynamic_cast<const ExprType*>(t.get());
+    }
+
     inline const FuncType* isFunction(const TypePtr& t) noexcept {
         return dynamic_cast<const FuncType*>(t.get());
     }

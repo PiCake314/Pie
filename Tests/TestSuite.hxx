@@ -9,6 +9,7 @@
 #include "../Lex/Lexer.hxx"
 #include "../Preprocessor/Preprocessor.hxx"
 #include "../Parser/Parser.hxx"
+#include "../Analysis/LexicalScoping.hxx"
 #include "../Interp/Interpreter.hxx"
 
 
@@ -78,6 +79,10 @@ std::string run(const char* src) {
 
     auto [exprs, ops] = p.parse();
 
+
+    pie::analysis::LexicalAnalysis anal;
+    for (const auto& expr : exprs)
+        std::visit(anal, expr->variant());
 
     Capture c{};
 

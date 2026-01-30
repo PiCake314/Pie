@@ -17,11 +17,14 @@
 
 #include <stdx/tuple.hpp>
 
+
+// #include "../Declarations.hxx"
 #include "../Utils/utils.hxx"
 #include "../Utils/Exceptions.hxx"
 #include "../Utils/ConstexprLookup.hxx"
 #include "../Lex/Lexer.hxx"
 #include "../Expr/Expr.hxx"
+#include "../Type/Type.hxx"
 #include "../Parser/Parser.hxx"
 
 #include "Value.hxx"
@@ -954,24 +957,6 @@ struct Visitor {
         error("Can't access a non-class type!");
     }
 
-    Value operator()(const expr::Cascade *) {
-        // if (auto var = dynamic_cast<const expr::Name*>(acc->var.get()); var and var->name == "self") {
-        //     if (selves.empty()) error("Can't use 'self' outside of class scope: " + acc->stringify());
-
-        //     const auto value = checkThis(acc->name);
-        //     if (not value)
-        //         error("Name '" + acc->name + "' not found in object '" + acc->var->stringify());
-
-        //     return *value;
-        // }
-
-        // const auto& left = std::visit(*this, acc->var->variant());
-        // if (std::holds_alternative<Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
-
-
-        error("Can't access a non-class type!");
-    }
-
 
     Value operator()(const expr::Namespace *ns) {
         if (const auto& var = getVar(ns->stringify()); var) return var->first;
@@ -1095,12 +1080,12 @@ struct Visitor {
 
         const auto var = getVar(type_name);
         if (not var)
-            error("Name '" + type_name + "' in match expression does not name a constructor");
+            error("Name `" + type_name + "` in match expression does not name a constructor");
 
         const Value type_value = var->first;
         // if (not std::holds_alternative<ClassValue>(type_value))
         if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
-            error("Name '" + type_name + "' in match expression does not name a constructor");
+            error("Name `" + type_name + "` in match expression does not name a constructor");
 
 
         // const auto& cls = get<ClassValue>(type_value);
@@ -1178,6 +1163,7 @@ struct Visitor {
             return Type::NONE;
         };
 
+        ScopeGuard sg{this};
 
         // push
         const auto current_counter = loop_counter;
@@ -1198,7 +1184,6 @@ struct Visitor {
 
                     if (loop->var) {
                         std::string var_name = loop->var->stringify();
-                        ScopeGuard sg{this};
 
                         for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
                             continued = false;
@@ -1230,7 +1215,6 @@ struct Visitor {
 
                     if (auto cond = kind; loop->var) {
                         std::string var_name = loop->var->stringify();
-                        ScopeGuard sg{this};
 
                         for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
                             continued = false;
@@ -1267,7 +1251,6 @@ struct Visitor {
 
                     if (loop->var) {
                         std::string var_name = loop->var->stringify();
-                        ScopeGuard sg{this};
 
                         for (const auto& elt : list.elts->values) {
                             continued = false;
@@ -1299,7 +1282,6 @@ struct Visitor {
 
                     if (loop->var) {
                         std::string var_name = loop->var->stringify();
-                        ScopeGuard sg{this};
 
                         for (const auto& elt : pack->values) {
                             continued = false;
@@ -1353,7 +1335,6 @@ struct Visitor {
 
                     if (loop->var) {
                         std::string var_name = loop->var->stringify();
-                        ScopeGuard sg{this};
 
                         while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
                             continued = false;
@@ -1386,7 +1367,6 @@ struct Visitor {
             continued = false;
 
             std::string var_name = loop->var->stringify();
-            ScopeGuard sg{this};
 
             for (loop_counter = 0; ; ++loop_counter) {
                 addVar(var_name, loop_counter); // will change to "proper type" soon. for now, `Any` will do
@@ -3622,18 +3602,18 @@ struct Visitor {
     void unscope() { env.pop_back(); }
 
     const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
-        if (const auto cls = type::isClass(t)) {
-            auto& obj = get<value::Object>(v);
-            for (size_t i{}; i < obj.second->members.size(); ++i) {
-                const auto [name, _, __] = obj.second->members[i];
+        // if (const auto cls = type::isClass(t)) {
+        //     auto& obj = get<value::Object>(v);
+        //     for (size_t i{}; i < obj.second->members.size(); ++i) {
+        //         const auto [name, _, __] = obj.second->members[i];
 
-                if (std::ranges::find_if(obj.second->members, [&name](const auto& member) {
-                    return get<expr::Name>(member).name == name.name;
-                }) == obj.second->members.cend()) {
-                    
-                }
-            }
-        }
+        //         if (std::ranges::find_if(obj.second->members, [&name](const auto& member) {
+        //             return get<expr::Name>(member).name == name.name;
+        //         }) == obj.second->members.cend()) {
+
+        //         }
+        //     }
+        // }
  
         env.back().first[name] = {std::make_shared<Value>(v), t};
         return v;
@@ -3648,11 +3628,12 @@ struct Visitor {
     }
 
     std::optional<std::pair<Value, type::TypePtr>> getVar(const std::string& name) const {
-        for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it)
+        for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it) {
             if (rev_it->first.contains(name)) {
                 const auto& [value_ptr, type_ptr] = rev_it->first.at(name);
                 return {{*value_ptr, type_ptr}};
             }
+        }
 
         return {};
     }
