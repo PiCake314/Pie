@@ -879,19 +879,11 @@ struct Visitor {
                     name.stringify() + ": " + typ->text() + " = " + expr->stringify() +
                     "Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
                 );
-
-                // if (const auto& type_of_value = typeOf(v); not (*type >= *type_of_value)) { // if not a super type..
-                //     std::println(std::cerr, "In class member assignment: {}: {} = {}",
-                //         name.stringify(),
-                //         typ->text(),
-                //         expr->stringify());
-                //     error<except::TypeMismatch>("Type mis-match! Expected: " + type->text() + ", got: " + type_of_value->text());
-                // }
             }
 
-            env.back().first[name.stringify()] = {std::make_shared<Value>(v), type}; // so other members can refer to members before them.
-            // .back() gets removed anyway (because of ScopeGuard!);
-            members.push_back({expr::Name{name.stringify()}, type, v});
+            // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
+            // addVar(name.stringify(), v, type);
+            members.push_back({name, type, v});
         }
 
         // return ClassValue{std::make_shared<Members>(std::move(members))};
