@@ -871,7 +871,7 @@ struct Closure : Expr {
     type::FuncType type;
 
     // I need to un-mutable those vars
-    mutable Environment args_env{};
+    // mutable Environment args_env{};
     mutable Environment env{};
 
     mutable std::optional<Object> self{};
@@ -882,31 +882,32 @@ struct Closure : Expr {
     }
 
 
-    enum class OverrideMode {
-        NO_OVERRIDE,
-        OVERRIDE_EXISTING,
-        NORAML,
-    };
+    // enum class OverrideMode {
+    //     NO_OVERRIDE,
+    //     OVERRIDE_EXISTING,
+    //     NORAML,
+    // };
 
-    template <OverrideMode MODE = OverrideMode::NORAML>
+    // template <OverrideMode MODE = OverrideMode::NORAML>
     void capture(const Environment& e) const { // const as in doesn't change params or body.
         for (const auto& [key, value] : e) {
-            // env[key] = value;
-            if constexpr (MODE == OverrideMode::NORAML) {
-                env[key] = value;
-            }
-            else if constexpr (MODE == OverrideMode::NO_OVERRIDE) {
-                if (not env.contains(key)) env[key] = value;
-            }
-            else if constexpr (MODE == OverrideMode::OVERRIDE_EXISTING) {
-                if (env.contains(key)) env[key] = value;
-            }
+            env[key] = value;
+
+            // if constexpr (MODE == OverrideMode::NORAML) {
+            //     env[key] = value;
+            // }
+            // else if constexpr (MODE == OverrideMode::NO_OVERRIDE) {
+            //     if (not env.contains(key)) env[key] = value;
+            // }
+            // else if constexpr (MODE == OverrideMode::OVERRIDE_EXISTING) {
+            //     if (env.contains(key)) env[key] = value;
+            // }
         }
     }
 
-    void captureArgs(const Environment& e) const {
-        for (const auto& [key, value] : e) args_env.insert_or_assign(key, value); // is this better than `env[key] = value`?
-    }
+    // void captureArgs(const Environment& e) const {
+    //     for (const auto& [key, value] : e) args_env.insert_or_assign(key, value); // is this better than `env[key] = value`?
+    // }
 
     void captureThis(const Object& obj) const { self = obj; }
 

@@ -145,10 +145,12 @@ struct LexicalAnalysis {
         ScopeGuard sg{this};
         addVar("self");
 
-        for (const auto& [name, type, value] : cls->fields) {
+         // needed for methods to access member variables
+        for (const auto& [name, _, __] : cls->fields) addVar(name.name);
+
+        for (const auto& [_, type, value] : cls->fields) {
             std::visit(*this, value->variant());
             std::visit(*this, std::make_shared<expr::Type>(type)->variant());
-            addVar(name.name);
         }
     }
 

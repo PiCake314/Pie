@@ -9,7 +9,30 @@
 
 
 
+TEST_CASE("Mutual Rec still Valid in Class Definition", "[Class]") {
+    const auto src = R"(
+    class {
+        f1 = () => f2();
+        f2 = () => f1();
+    };
+)";
 
+    REQUIRE_NOTHROW(run(src));
+}
+
+
+
+
+TEST_CASE("Previous Member in Other Member Init", "[Class]") {
+    const auto src = R"(
+    class {
+        x = 1;
+        y = x;
+    };
+)";
+
+    REQUIRE_THROWS_MATCHES(run(src), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("not defined!")));
+}
 
 
 TEST_CASE("Match Invalid Name Case Scope", "[Match][Type][Lex]") {

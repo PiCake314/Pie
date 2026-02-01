@@ -78,7 +78,8 @@ namespace type {
     bool ConceptType::typeCheck(interp::Visitor* visitor, [[maybe_unused]] const value::Value& v, const TypePtr& other) const {
         // const auto* f = dynamic_cast<const expr::Closure*>(func.get());
         const auto& f = get<expr::Closure>(*func);
-        interp::Visitor::ScopeGuard sg{visitor, interp::Visitor::EnvTag::FUNC, f.args_env, f.env};
+        // interp::Visitor::ScopeGuard sg{visitor, interp::Visitor::EnvTag::FUNC, f.args_env, f.env};
+        interp::Visitor::ScopeGuard sg{visitor, interp::Visitor::EnvTag::FUNC, f.env};
 
 
         if (not f.type.params[0]->typeCheck(visitor, v, other)) return false;

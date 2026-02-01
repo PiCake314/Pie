@@ -143,7 +143,7 @@ struct Visitor {
         if (n->name == "Syntax" ) return type::builtins::Syntax();
 
 
-        error("Name \"" + n->name + "\" is not defined");
+        error("Name \"" + n->name + "\" is not defined!");
     }
 
 
@@ -577,23 +577,6 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                // Value ret;
-                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                //     ret = std::visit(*this, func->body->variant());
-
-                //     if (std::holds_alternative<expr::Closure>(ret)) {
-                //         captureEnvForClosure(get<expr::Closure>(ret));
-                //     }
-                // }
-                // else ret = std::visit(*this, func->body->variant());
-
-                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                //     const auto& f = get<expr::Closure>(ret);
-                //     f.captureThis(*func->self);
-                // }
-
-                // checkReturnType(ret, func->type.ret);
-
                 ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
@@ -617,22 +600,6 @@ struct Visitor {
 
                 ScopeGuard sg{this, args_env};
 
-                // Value ret;
-                // if (not dynamic_cast<expr::Block*>(func->body.get())) {
-                //     ret = std::visit(*this, func->body->variant());
-
-                //     if (std::holds_alternative<expr::Closure>(ret)) {
-                //         captureEnvForClosure(get<expr::Closure>(ret));
-                //     }
-                // }
-                // else ret = std::visit(*this, func->body->variant());
-
-                // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
-                //     const auto& f = get<expr::Closure>(ret);
-                //     f.captureThis(*func->self);
-                // }
-
-                // checkReturnType(ret, func->type.ret);
                 ret = checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
             }
         }
@@ -1548,11 +1515,10 @@ struct Visitor {
         if (not dynamic_cast<expr::Block*>(func->body.get())) {
             ret = std::visit(*this, func->body->variant());
 
-            if (std::holds_alternative<expr::Closure>(ret)) {
+            if (std::holds_alternative<expr::Closure>(ret))
                 captureEnvForClosure(get<expr::Closure>(ret));
-            }
         }
-        else ret = std::visit(*this, func->body->variant());
+        else ret = std::visit(*this, func->body->variant()); // capturing logic will be done by the scope's visitor
 
         if (func->self and std::holds_alternative<expr::Closure>(ret)) {
             const auto& f = get<expr::Closure>(ret);
@@ -1646,6 +1612,22 @@ struct Visitor {
         }
 
 
+        // !for binary fold
+        // Value ret;
+        // if (not dynamic_cast<expr::Block*>(func->body.get())) {
+        //     ret = std::visit(*this, func->body->variant());
+
+        //     if (std::holds_alternative<expr::Closure>(ret)) {
+        //         captureEnvForClosure(get<expr::Closure>(ret));
+        //     }
+        // }
+        // else ret = std::visit(*this, func->body->variant());
+
+        // if (func->self and std::holds_alternative<expr::Closure>(ret)) {
+        //     const auto& f = get<expr::Closure>(ret);
+        //     f.captureThis(*func->self);
+        // }
+
 
         ScopeGuard sg{this, args_env};
 
@@ -1653,9 +1635,8 @@ struct Visitor {
         if (not dynamic_cast<expr::Block*>(func->body.get())) {
             ret = std::visit(*this, func->body->variant());
 
-            if (std::holds_alternative<expr::Closure>(ret)) {
+            if (std::holds_alternative<expr::Closure>(ret))
                 captureEnvForClosure(get<expr::Closure>(ret));
-            }
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1727,9 +1708,8 @@ struct Visitor {
         if (not dynamic_cast<expr::Block*>(func->body.get())) {
             ret = std::visit(*this, func->body->variant());
 
-            if (std::holds_alternative<expr::Closure>(ret)) {
+            if (std::holds_alternative<expr::Closure>(ret))
                 captureEnvForClosure(get<expr::Closure>(ret));
-            }
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1803,9 +1783,8 @@ struct Visitor {
         if (not dynamic_cast<expr::Block*>(func->body.get())) {
             ret = std::visit(*this, func->body->variant());
 
-            if (std::holds_alternative<expr::Closure>(ret)) {
+            if (std::holds_alternative<expr::Closure>(ret))
                 captureEnvForClosure(get<expr::Closure>(ret));
-            }
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1889,9 +1868,8 @@ struct Visitor {
         if (not dynamic_cast<expr::Block*>(func->body.get())) {
             ret = std::visit(*this, func->body->variant());
 
-            if (std::holds_alternative<expr::Closure>(ret)) {
+            if (std::holds_alternative<expr::Closure>(ret))
                 captureEnvForClosure(get<expr::Closure>(ret));
-            }
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -2197,8 +2175,9 @@ struct Visitor {
                     if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
                         return true;
 
-                // look in the arguments env (from a partially evaluated function that yielded this function)
-                for (const auto& [key, _] : func.args_env)
+                // // look in the arguments env (from a partially evaluated function that yielded this function)
+                // for (const auto& [key, _] : func.args_env)
+                for (const auto& [key, _] : func.env)
                     if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
                         return true;
 
@@ -2211,7 +2190,8 @@ struct Visitor {
                     for (const auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
                         if (findType(p, type)) {
-                            ScopeGuard sg{this, func.args_env, args_env};
+                            // ScopeGuard sg{this, func.args_env, args_env};
+                            ScopeGuard sg{this, func.env, args_env};
                             type = validateType(std::move(type));
                         }
 
@@ -2230,7 +2210,8 @@ struct Visitor {
                 else {
                     auto& [name, type] = pos_params[p];
                     if (findType(p, type)) {
-                        ScopeGuard sg{this, func.args_env, args_env};
+                        // ScopeGuard sg{this, func.args_env, args_env};
+                        ScopeGuard sg{this, func.env, args_env};
                         type = validateType(std::move(type));
                     }
 
@@ -2252,8 +2233,8 @@ struct Visitor {
             }
         }
 
-        // TODO: PLEASE REMEMBER!
-        // TODO!!!! LOOK AT
+
+
         if (
             std::ranges::find_if(
                 func.params, [&type = func.type.ret](const auto& param) {
@@ -2261,7 +2242,8 @@ struct Visitor {
                 }
             ) != func.params.cend()
         ) {
-            ScopeGuard sg{this, func.args_env, args_env};
+            // ScopeGuard sg{this, func.args_env, args_env};
+            ScopeGuard sg{this, func.env, args_env};
             func.type.ret = validateType(std::move(func.type.ret));
         }
 
@@ -2270,22 +2252,21 @@ struct Visitor {
         if (type::isSyntax(func.type.ret)) return func.body->variant();
 
 
-        sg.addEnv(func.args_env);
+        // sg.addEnv(func.args_env);
+        sg.addEnv(func.env);
         sg.addEnv(args_env);
 
         Value ret;
-        if (not dynamic_cast<expr::Block*>(func.body.get())) {
+        if (not dynamic_cast<const expr::Block*>(func.body.get())) {
             ret = std::visit(*this, func.body->variant());
 
-            if (std::holds_alternative<expr::Closure>(ret)) {
+            if (std::holds_alternative<expr::Closure>(ret))
                 captureEnvForClosure(get<expr::Closure>(ret));
-            }
         }
         else ret = std::visit(*this, func.body->variant());
 
         if (func.self and std::holds_alternative<expr::Closure>(ret)) {
-            const auto& f = get<expr::Closure>(ret);
-            f.captureThis(*func.self);
+            get<expr::Closure>(ret).captureThis(*func.self);
         }
 
 
@@ -2296,12 +2277,20 @@ struct Visitor {
 
 
     void captureEnvForClosure(const expr::Closure& c) {
-        for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
-            c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[i].first);
-            if (env[i].second == EnvTag::FUNC) break;
+        // for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
+        //     // c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[i].first);
+        //     c.capture(env[i].first);
+        //     if (env[i].second == EnvTag::FUNC) break;
 
-            if (i == 0) return; // unsigned nums can never be less than zero
+        //     if (i == 0) return; // unsigned nums can never be less than zero
+        // }
+
+        size_t found{};
+        for (size_t i{}; i < env.size(); ++i) {
+            if (env[i].second == EnvTag::FUNC) found = i;
         }
+
+        for (; found < env.size(); ++found) c.capture(env[found].first);
     }
 
 
@@ -2458,8 +2447,9 @@ struct Visitor {
                     if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
                         return true;
 
-                // look in the arguments env (from a partially evaluated function that yielded this function)
-                for (const auto& [key, _] : func.args_env)
+                // // look in the arguments env (from a partially evaluated function that yielded this function)
+                // for (const auto& [key, _] : func.args_env)
+                for (const auto& [key, _] : func.env)
                     if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
                         return true;
 
@@ -2473,7 +2463,8 @@ struct Visitor {
                     for (const auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
                         if (findType(p, type)) {
-                            ScopeGuard sg{this, func.args_env, args_env};
+                            // ScopeGuard sg{this, func.args_env, args_env};
+                            ScopeGuard sg{this, func.env, args_env};
                             type = validateType(std::move(type));
                         }
                         ++p;
@@ -2490,7 +2481,8 @@ struct Visitor {
                 else {
                     auto& [name, type] = pos_params[p];
                     if (findType(p, type)) {
-                        ScopeGuard sg{this, func.args_env, args_env};
+                        // ScopeGuard sg{this, func.args_env, args_env};
+                        ScopeGuard sg{this, func.env, args_env};
                         type = validateType(std::move(type));
                     }
 
@@ -2518,7 +2510,8 @@ struct Visitor {
 
 
         // printEnv(args_env);
-        closure.captureArgs(args_env);
+        // closure.captureArgs(args_env);
+        closure.capture(args_env);
         return closure;
     }
 
@@ -2627,8 +2620,13 @@ struct Visitor {
 
         ScopeGuard sg{this};
 
+
+        bool last_expr_is_block{};
+
         Value ret;
         for (const auto& line : block->lines) {
+            last_expr_is_block = dynamic_cast<const expr::Block*>(line.get());
+
             ret = std::visit(*this, line->variant()); // a scope's value is the last expression
 
             // if any expression above breaks or continues, stop execution
@@ -2636,11 +2634,9 @@ struct Visitor {
         }
 
 
-        if (std::holds_alternative<expr::Closure>(ret)) {
+
+        if (not last_expr_is_block and std::holds_alternative<expr::Closure>(ret))
             captureEnvForClosure(get<expr::Closure>(ret));
-            // func.capture(env.back().first);
-            // func.capture<expr::Closure::OverrideMode::OVERRIDE_EXISTING>(env.back());
-        }
 
         return ret;
     }
