@@ -3,7 +3,7 @@
 CC = g++
 # CC = g++-15
 VER = -std=c++23
-OPT = -O3
+OPT = -O2
 ARGS = -Wall -Wextra -Wpedantic -Wno-missing-braces #-Wnrvo
 CPP = Type/*.cxx Interp/*.cxx
 SAN = -fsanitize=address -fsanitize=undefined #-g3

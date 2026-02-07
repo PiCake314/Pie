@@ -34,7 +34,7 @@ using Node = std::variant<
     // const struct Cascade           *,
     const struct Namespace         *,
     const struct Use               *,
-//  const struct Import               *,
+    // const struct Import               *,
     const struct SpaceAccess       *,
     const struct Grouping          *,
     const struct UnaryOp           *,

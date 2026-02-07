@@ -65,7 +65,7 @@ struct std::hash<Value> { size_t operator()(const pie::value::Value& value) cons
 inline namespace pie {
 inline namespace value {
 
-struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members; };
+struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members; };
 struct Elements { std::vector<Value> values;                                         };
 struct Items    { std::unordered_map<Value, Value> map;                              };
 

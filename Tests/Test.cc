@@ -9,6 +9,171 @@
 
 
 
+TEST_CASE("Mutual Recursion", "[Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+infix + = (a: Int, b: Int) => __builtin_add(a, b);
+infix - = (a, b) => __builtin_sub(a, b);
+infix < = (a, b) => __builtin_lt(a, b);
+infix > = (a, b) => __builtin_gt(a, b);
+
+mixfix(LOW +) if : then : else : = (cond: Bool, thn: Syntax, els: Syntax)
+    => __builtin_eval(__builtin_conditional(cond, thn, els));
+
+xact = (f1, g, r) => {
+    if g.k then {
+        g.k = f1();
+        if (r > 0) then { xact(f1, g, r - 1); } else {};
+        if (r > 0) then { xact(f1, g, r - 1); } else {};
+    } else {};
+};
+
+act = (f2) => {
+  xact(f2, class{ k = true; }(), 32);
+};
+
+while = (c, f) => {
+    act(() => {
+        if c() then { f(); true; } else false;
+    });
+};
+
+x = 0;
+while(() => x < 10, () => {
+    x = x + 1;
+    print(x);
+});
+)";
+
+    REQUIRE(run(src) == R"(1
+2
+3
+4
+5
+6
+7
+8
+9
+10)");
+}
+
+
+
+TEST_CASE("Structural Subtyping + Functions", "[Class][Func]") {
+    const auto src = R"(
+print = __builtin_print;
+
+Named = class { name = "doesn't matter"; };
+
+changeName = (x: Named) => x.name = "bye";
+
+Human = class {
+    name = "";
+    age = 0;
+};
+
+h = Human("hi");
+print(h);
+changeName(h);
+print(h);
+)";
+
+    REQUIRE(run(src) == R"(Object {
+    name = "hi";
+    age = 0;
+}
+Object {
+    name = "bye";
+    age = 0;
+})");
+}
+
+
+TEST_CASE("Shaw's Shinanegans", "[Class]") {
+    const auto src = R"(
+print = __builtin_print;
+
+A = class {};
+B = class {};
+f = (x: B) => x;
+
+a = A();
+print(__builtin_eq(f(a), a));
+)";
+
+    REQUIRE(run(src) == "true");
+}
+
+
+
+TEST_CASE("Structural Subtyping", "[Class]") {
+    const auto src = R"(
+print = __builtin_print;
+
+Named = class {
+    name = "";
+};
+
+Human = class {
+    name = "John";
+    age = 0;
+};
+
+
+h = Human("Ali", 22);
+
+x: Named = h;
+
+print(h);
+print(x);
+
+x.name = "meow";
+)";
+
+    REQUIRE(run(src) == R"(Object {
+    name = "Ali";
+    age = 22;
+}
+Object {
+    name = "Ali";
+})");
+}
+
+
+TEST_CASE("Self Outside Class", "[Class]") {
+    const auto src = R"(
+f = () => std::print(self);
+C = class {
+    x = 1;
+
+    func = () => {
+        f();
+    };
+};
+C(10).func();
+)";
+
+    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+}
+
+
+TEST_CASE("Using Variable Before Definition", "[Var]") {
+    const auto src = R"(
+func1 = () => std::print(x);
+func2 = () => {
+    x = 22;
+    func1();
+};
+func2();
+
+)";
+
+    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+}
+
+
+
 TEST_CASE("Mutual Rec still Valid in Class Definition", "[Class]") {
     const auto src = R"(
     class {

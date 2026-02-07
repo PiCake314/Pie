@@ -497,6 +497,7 @@ public:
         //     has_name = true;
         // }
         // else
+
         if (check(NAME)) {
             name = consume(NAME).text;
             has_name = true;

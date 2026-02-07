@@ -100,7 +100,7 @@ struct Visitor {
         if (selves.empty()) return {};
 
         for (const auto& [member, _, value] : selves.back().second->members) {
-            if (member.name == name) return value;
+            if (member.name == name) return *value;
         }
 
         return {};
@@ -111,7 +111,7 @@ struct Visitor {
 
         for (auto& [member, _, value] : selves.back().second->members) {
             if (member.name == name) {
-                value = val;
+                *value = val;
                 return;
             }
         }
@@ -181,20 +181,32 @@ struct Visitor {
     }
 
 
-    void typeCheck(const value::Value& value, const type::TypePtr& type, std::string err_msg = "", const std::source_location& location = std::source_location::current()) {
+    value::Value typeCheck(Value value, const type::TypePtr& type, std::string err_msg = "", const std::source_location& location = std::source_location::current()) {
         const auto value_type = typeOf(value);
         if (err_msg.empty()) err_msg = "Expected type '" + type->text() + "', got type '" + value_type->text() + '\'';
 
         if (not type->typeCheck(this, value, value_type)) error<except::TypeMismatch>(err_msg, location);
 
+        if (const auto cls = type::isClass(type)) {
+            auto obj = get<value::Object>(value);
+            obj.second = std::make_shared<Members>(obj.second->members);
 
-        // if (type::isValue(type)) {
-        //     const auto& value_type = dynamic_cast<const type::ValueType&>(*type);
-        //     if (value != *value_type.val) error<except::TypeMismatch>(
-        //         "Expected value: " + type->text() + ", got value: " + stringify(value)
-        //     );
-        // }
-        // else if (not (*type >= *value_type)) error<except::TypeMismatch>(err_msg);
+            std::erase_if(
+                obj.second->members,
+                [cls] (const auto& member) {
+                    const auto& [name, _, __] = member;
+
+                    return std::ranges::find_if(cls->cls->blueprint->members, [&name](const auto& field) {
+                        return get<expr::Name>(field).name == name.name;
+                    }) == cls->cls->blueprint->members.cend();
+                }
+            );
+            obj.first = type;
+
+            return obj;
+        }
+
+        return value;
     }
 
 
@@ -646,7 +658,8 @@ struct Visitor {
         //     );
         // }
 
-        get<Value>(*found) = value;
+        // get<Value>(*found) = value;
+        *get<ValuePtr>(*found) = value;
 
         return value;
     }
@@ -692,7 +705,8 @@ struct Visitor {
         //     );
         // }
 
-        get<Value>(*found) = value;
+        // get<Value>(*found) = value;
+        *get<ValuePtr>(*found) = value;
 
         return value;
     }
@@ -706,7 +720,7 @@ struct Visitor {
             ) {
                 // explicit copying
                 get<type::TypePtr>(*it) = type;
-                get<Value>(*it) = value;
+                get<ValuePtr>(*it) = std::make_shared<Value>(*value);
             }
             // same here
             else ns1.members->members.push_back({name ,type, value});
@@ -735,20 +749,13 @@ struct Visitor {
                 return val;
             }
             else { // New var
-                if (type::shouldReassign(type)) {
-                    type = type::builtins::Any();
-                }
-                else {
-                    type = validateType(std::move(type));
 
-                //    if (const auto& c = getVar(type->text()); c) {
-                //        if (std::holds_alternative<ClassValue>(c->first))
-                //            type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(get<ClassValue>(c->first)));
+                type = type::shouldReassign(type) ? type::builtins::Any() : validateType(std::move(type));
 
-                //        if (std::holds_alternative<expr::Union>(c->first))
-                //            type = std::make_shared<type::UnionType>(get<expr::Union>(c->first).types);
-                //    }
-                }
+                // if (type::shouldReassign(type))
+                //  type = type::builtins::Any();
+                // else
+                //  type = validateType(std::move(type));
             }
 
 
@@ -768,8 +775,7 @@ struct Visitor {
             }
 
 
-
-            typeCheck(value, type,
+            value = typeCheck(value, type,
                 "In assignment: " + ass->stringify() +
                 "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
             );
@@ -823,7 +829,7 @@ struct Visitor {
         if (const auto& var = getVar(cls->stringify()); var) return var->first;
 
 
-        std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members;
+        std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
 
         ScopeGuard sg{this};
         for (const auto& [name, typ, expr] : cls->fields) {
@@ -850,10 +856,9 @@ struct Visitor {
 
             // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
             // addVar(name.stringify(), v, type);
-            members.push_back({name, type, v});
+            members.push_back({name, type, std::make_shared<Value>(v)});
         }
 
-        // return ClassValue{std::make_shared<Members>(std::move(members))};
         return // getting lispy :sob: fuck this memory ass shit
             std::make_shared<type::LiteralType>(
                 std::make_shared<ClassValue>(
@@ -879,8 +884,8 @@ struct Visitor {
         const auto& found = std::ranges::find_if(obj.second->members, [&name] (const auto& member) { return get<0>(member).stringify() == name; });
         if (found == obj.second->members.end()) error("Name '" + name + "' doesn't exist in object '" + /*acc->var->*/ stringify(obj) + '\'');
 
-        if (std::holds_alternative<expr::Closure>(get<Value>(*found))) {
-            const auto& closure = get<expr::Closure>(get<Value>(*found));
+        if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
+            const auto& closure = get<expr::Closure>(*get<ValuePtr>(*found));
 
             // Environment capture_list;
             // for (const auto& [name, value] : obj.second->members)
@@ -893,7 +898,7 @@ struct Visitor {
             return closure;
         }
 
-        return get<Value>(*found);
+        return *get<ValuePtr>(*found);
     }
 
 
@@ -920,21 +925,21 @@ struct Visitor {
     Value operator()(const expr::Namespace *ns) {
         if (const auto& var = getVar(ns->stringify()); var) return var->first;
 
-        Value value;
+        // Value value;
 
         ScopeGuard sg{this};
         // execute all the expressions in the namespace
-        for (const auto& expr : ns->expressions) {
-            value = std::visit(*this, expr->variant());
-        }
+        for (const auto& expr : ns->expressions)
+            // value =
+            std::visit(*this, expr->variant());
 
         // then add the variables that resulted from that execution
 
-        std::vector<std::tuple<expr::Name, type::TypePtr, Value>> members;
+        std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
         for (auto& [name, val] : env.back().first) {
             auto& [value, type] = val;
 
-            members.push_back({expr::Name{name}, std::move(type), *std::move(value)});
+            members.push_back({expr::Name{name}, std::move(type), std::move(value)});
         }
 
 
@@ -954,7 +959,7 @@ struct Visitor {
 
         Value ret;
         for (const auto& [name, type, value] : space.members->members)
-            ret = addVar(name.stringify(), value, type);
+            ret = addVar(name.stringify(), *value, type);
 
         return ret;
     }
@@ -999,19 +1004,19 @@ struct Visitor {
         if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
 
-        if (std::holds_alternative<expr::Closure>(get<Value>(*found))) {
-            const auto& closure = get<expr::Closure>(get<Value>(*found));
+        if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
+            const auto& closure = get<expr::Closure>(*get<ValuePtr>(*found));
 
             Environment capture_list;
             for (const auto& [name, type, value] : ns.members->members)
-                capture_list[name.stringify()] = {std::make_shared<Value>(value), typeOf(value)};
+                capture_list[name.stringify()] = {std::make_shared<Value>(*value), typeOf(*value)};
 
             closure.capture(capture_list);
 
             return closure;
         }
 
-        return get<Value>(*found);
+        return *get<ValuePtr>(*found);
     }
 
 
@@ -1064,7 +1069,7 @@ struct Visitor {
         if (obj.second->members.size() != obj.second->members.size()) error("idek what error message this should be..!");
 
         for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
-            if (not match(get<Value>(member), *pat)) return false;
+            if (not match(*get<ValuePtr>(member), *pat)) return false;
         }
 
         return true;
@@ -1438,12 +1443,11 @@ struct Visitor {
 
 
 
-    const Value& checkReturnType(const Value& ret, type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
-        const auto type_of_return_value = typeOf(ret);
+    const Value& checkReturnType(const Value& ret, const type::TypePtr return_type, const std::source_location& location = std::source_location::current()) {
 
         typeCheck(ret, return_type,
             "Type mis-match! Function return type expected: " +
-            return_type->text() + ", got: " + type_of_return_value->text(),
+            return_type->text() + ", got: " + typeOf(ret)->text(),
             location
         );
 
@@ -1885,9 +1889,9 @@ struct Visitor {
 
     std::optional<value::Value> objectIsCallable(const value::Object& obj) {
         for (const auto& [name, type, value] : obj.second->members) {
-            if (name.name == "call" and type::isFunction(typeOf(value))) {
-                get<expr::Closure>(value).captureThis(obj);
-                return value;
+            if (name.name == "call" and type::isFunction(typeOf(*value))) {
+                get<expr::Closure>(*value).captureThis(obj);
+                return *value;
             }
         }
 
@@ -2019,7 +2023,7 @@ struct Visitor {
                 //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
 
 
-                typeCheck(value, type,
+                value = typeCheck(value, type,
                     "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                 );
             }
@@ -2071,7 +2075,7 @@ struct Visitor {
                             //         + ", got: " + type_of_value->text()
                             //     );
 
-                            typeCheck(value, type,
+                            value = typeCheck(value, type,
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                             );
 
@@ -2099,7 +2103,7 @@ struct Visitor {
                                 //         + ", got: " + type_of_value->text()
                                 //     );
 
-                                typeCheck(value, type,
+                                value = typeCheck(value, type,
                                     "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                                 );
                             }
@@ -2122,7 +2126,7 @@ struct Visitor {
                         // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
                         //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
 
-                        typeCheck(value, type,
+                        value = typeCheck(value, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                         );
 
@@ -2143,7 +2147,7 @@ struct Visitor {
                             // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
                             //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
 
-                            typeCheck(value, type,
+                            value = typeCheck(value, type,
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                             );
                         }
@@ -2187,7 +2191,7 @@ struct Visitor {
             for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
 
                 if (curr < expand_at.size() and i == expand_at[curr].first) {
-                    for (const auto& val : expand_at[curr++].second) {
+                    for (auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
                         if (findType(p, type)) {
                             // ScopeGuard sg{this, func.args_env, args_env};
@@ -2197,7 +2201,7 @@ struct Visitor {
 
                         ++p; // important!
 
-                        typeCheck(val, type,
+                        val = typeCheck(val, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                         );
 
@@ -2222,7 +2226,7 @@ struct Visitor {
                     else {
                         value = std::visit(*this, expr->variant());
 
-                        typeCheck(value, type,
+                        value = typeCheck(value, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                         );
                     }
@@ -2329,7 +2333,7 @@ struct Visitor {
                 //         "expected type: " + type->text() + ", got: " + type_of_value->text()
                 //     );
 
-                typeCheck(value, type,
+                value = typeCheck(value, type,
                     "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                 );
             }
@@ -2391,7 +2395,7 @@ struct Visitor {
                 for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
 
                     if (curr < expand_at.size() and i == expand_at[curr].first) {
-                        for (const auto& val : expand_at[curr++].second) {
+                        for (auto& val : expand_at[curr++].second) {
                             // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
                             //     error<except::TypeMismatch>(
                             //         "Type mis-match! Parameter '" + name + "' "
@@ -2401,7 +2405,7 @@ struct Visitor {
                             // if (findType(p, type)) type = validateType(std::move(type));
                             ++p;
 
-                            typeCheck(val, type,
+                            val = typeCheck(val, type,
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                             );
 
@@ -2421,7 +2425,7 @@ struct Visitor {
                         else {
                             value = std::visit(*this, expr->variant());
 
-                            typeCheck(value, type,
+                            value = typeCheck(value, type,
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                             );
 
@@ -2460,7 +2464,7 @@ struct Visitor {
             for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
 
                 if (curr < expand_at.size() and i == expand_at[curr].first) {
-                    for (const auto& val : expand_at[curr++].second) {
+                    for (auto& val : expand_at[curr++].second) {
                         auto& [name, type] = pos_params[p];
                         if (findType(p, type)) {
                             // ScopeGuard sg{this, func.args_env, args_env};
@@ -2469,7 +2473,7 @@ struct Visitor {
                         }
                         ++p;
 
-                        typeCheck(val, type,
+                        val = typeCheck(val, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                         );
 
@@ -2493,7 +2497,7 @@ struct Visitor {
                     else {
                         value = std::visit(*this, expr->variant());
 
-                        typeCheck(value, type,
+                        value = typeCheck(value, type,
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                         );
 
@@ -2553,7 +2557,11 @@ struct Visitor {
             error("Too many arguments passed to constructor of class: " + stringify(type));
 
         // copying defaults field values from class definition
-        Object obj{type, std::make_shared<Members>(cls->blueprint->members) };
+        auto members = cls->blueprint->members;
+        for (auto& [_, __, value_ptr] : members)
+            value_ptr = std::make_shared<Value>(*value_ptr);
+
+        Object obj{type, std::make_shared<Members>(std::move(members)) };
 
         // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
         // const auto& [arg, value] : std::views::zip(call->args, obj->members)
@@ -2566,14 +2574,7 @@ struct Visitor {
                 "but got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
             );
 
-            // if (not (*get<type::TypePtr>(obj.second->members[i]) >= *typeOf(v)))
-            //     error<except::TypeMismatch>(
-            //         "Type mis-match in constructor of:\n" + stringify(type) + "\nMember `" +
-            //         get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() +
-            //         "\nbut got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
-            //     );
-
-            get<Value>(obj.second->members[i]) = v;
+            *get<ValuePtr>(obj.second->members[i]) = v;
         }
 
         return obj;
@@ -3589,21 +3590,28 @@ struct Visitor {
 
     void unscope() { env.pop_back(); }
 
-    const Value& addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
+    Value addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
         // if (const auto cls = type::isClass(t)) {
-        //     auto& obj = get<value::Object>(v);
-        //     for (size_t i{}; i < obj.second->members.size(); ++i) {
-        //         const auto [name, _, __] = obj.second->members[i];
+        //     auto obj = get<value::Object>(v);
+        //     obj.second = std::make_shared<Members>(obj.second->members);
 
-        //         if (std::ranges::find_if(obj.second->members, [&name](const auto& member) {
-        //             return get<expr::Name>(member).name == name.name;
-        //         }) == obj.second->members.cend()) {
+        //     std::erase_if(
+        //         obj.second->members,
+        //         [cls] (const auto& member) {
+        //             const auto& [name, _, __] = member;
 
+        //             return std::ranges::find_if(cls->cls->blueprint->members, [&name](const auto& field) {
+        //                 return get<expr::Name>(field).name == name.name;
+        //             }) == cls->cls->blueprint->members.cend();
         //         }
-        //     }
+        //     );
+
+        //     env.back().first[name] = {std::make_shared<Value>(obj), t};
+        //     return obj;
         // }
- 
-        env.back().first[name] = {std::make_shared<Value>(v), t};
+        // else {
+        // }
+        env.back().first[name] = {std::make_shared<Value>(v  ), t};
         return v;
     }
 

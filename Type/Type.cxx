@@ -113,10 +113,10 @@ namespace type {
             for (const auto& [name, type, value] : cls->blueprint->members) {
                 s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
-                const bool is_string = std::holds_alternative<std::string>(value);
+                const bool is_string = std::holds_alternative<std::string>(*value);
                 if (is_string) s += '\"';
 
-                s += stringify(value, indent + 4);
+                s += stringify(*value, indent + 4);
 
                 if (is_string) s += '\"';
 

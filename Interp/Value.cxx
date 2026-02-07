@@ -62,39 +62,6 @@ std::string stringify(const Value& value, const size_t indent) {
         s = v.stringify(indent);
     }
 
-    // else if (std::holds_alternative<ClassValue>(value)) {
-    //     const auto& v = std::get<ClassValue>(value);
-
-    //     if (v.blueprint->members.empty())
-    //         s = "class { }";
-    //     else {
-    //         s = "class {\n";
-
-    //         const std::string space(indent + 4, ' ');
-    //         for (const auto& [name, type, value] : v.blueprint->members) {
-    //             s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
-
-    //             const bool is_string = std::holds_alternative<std::string>(value);
-    //             if (is_string) s += '\"';
-
-    //             s += stringify(value, indent + 4);
-
-    //             if (is_string) s += '\"';
-
-    //             s += ";\n";
-    //         }
-
-    //         s += std::string(indent, ' ') + '}';
-    //     }
-    // }
-
-    // else if (std::holds_alternative<expr::Union>(value)) {
-    //     const auto& v = std::get<expr::Union>(value);
-
-    //     s = v.stringify(indent);
-    // }
-
-
     else if (std::holds_alternative<type::TypePtr>(value)) s = get<type::TypePtr>(value)->text();
 
     else if (std::holds_alternative<NameSpace>(value)) {
@@ -109,10 +76,10 @@ std::string stringify(const Value& value, const size_t indent) {
             for (const auto& [name, type, value] : v.members->members) {
                 s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
 
-                const bool is_string = std::holds_alternative<std::string>(value);
+                const bool is_string = std::holds_alternative<std::string>(*value);
                 if (is_string) s += '\"';
 
-                s += stringify(value, indent + 4);
+                s += stringify(*value, indent + 4);
 
                 if (is_string) s += '\"';
 
@@ -136,10 +103,10 @@ std::string stringify(const Value& value, const size_t indent) {
             for (const auto& [name, _, value] : v.second->members) {
                 s += space + name.stringify() + " = ";
 
-                const bool is_string = std::holds_alternative<std::string>(value);
+                const bool is_string = std::holds_alternative<std::string>(*value);
                 if (is_string) s += '\"';
 
-                s += stringify(value, indent + 4);
+                s += stringify(*value, indent + 4);
 
                 if (is_string) s += '\"';
 
@@ -240,7 +207,7 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
 
                         return name1.stringify() == name2.stringify()
                                     and *type1 == *type2
-                                    and value1 == value2;
+                                    and *value1 == *value2;
                     }
                 );
         }
@@ -262,7 +229,7 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
 
                     return name1.stringify() == name2.stringify()
                                   and *type1 == *type2
-                                  and value1 == value2;
+                                  and *value1 == *value2;
                 }
             );
     }
