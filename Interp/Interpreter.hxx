@@ -2757,9 +2757,9 @@ struct Visitor {
 
                         else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::ListValue>)
                             return static_cast<ssize_t>(x.elts->values.size());
-                        else { // map value
+
+                        else // map value
                             return static_cast<ssize_t>(x.items->map.size());
-                        }
                     }),
                     TypeList<std::string>,
                     TypeList<value::PackList>,
@@ -2799,14 +2799,15 @@ struct Visitor {
                 S<"to_int">,
                 Func<"to_int",
                     decltype([](const auto& x, const auto&) -> ssize_t {
-                        if constexpr (
-                            std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
-                            std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
-                            std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
-                        ) return x;
-
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
                             return std::stoll(x);
+
+                        // if constexpr (
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
+                        // )
+                        else return x;
                     }),
                     TypeList<ssize_t>,
                     TypeList<double>,
@@ -2819,15 +2820,15 @@ struct Visitor {
                 S<"to_double">,
                 Func<"to_double",
                     decltype([](const auto& x, const auto&) -> double {
-                        if constexpr (
-                            std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
-                            std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
-                            std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
-                        ) return x;
-
-
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
-                        return std::stod(x);
+                            return std::stod(x);
+
+                        // if constexpr (
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
+                        // )
+                        else return x;
                     }),
                     TypeList<ssize_t>,
                     TypeList<double>,
