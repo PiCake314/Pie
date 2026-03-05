@@ -114,7 +114,7 @@ Human: Type = class {
 };
 ```
 
-Construct an object by calling the constructor of the class. Optionally pass initial values to the data members:
+Construct an object by calling the constructor of the class. Optionally, pass initial values to the data members:
 
 ```pie
 h: Human = Human("Pie", 1);
@@ -182,6 +182,7 @@ Note that the braces can be omitted (with or without the loop variable).
 
 
 **Kinds of Loops:**
+
 There are 4 kinds of loops in Pie. They all utilize the `loop` keyword. The kind of the loop depends on the type of the loop operand
 
 #### For Loop
@@ -293,7 +294,7 @@ my_space = space {
 };
 ```
 
-Namespaces could seem like just syntactic sugar for `class`es, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may only have assignments.
+Namespaces could seem like just syntactic sugar for classes, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may only have assignments.
 
 To access a member of a `namespace`, use the "scope resolution operator", or `::`:
 
@@ -360,9 +361,12 @@ x = {
 };
 ```
 
-Since scopes take the value of their last expression, scopes cannot be empty!\
-The following line will error:
+<!-- Since scopes take the value of their last expression, scopes cannot be empty!\
+The following line will error: -->
 
+**Note:**
+
+The following line is not an emtpy scope, but rather, and empty list!!
 ```pie
 x = { };
 ```
@@ -390,7 +394,7 @@ Here is how to define your own operator:
 prefix(!) always_one = (x) => 1;
 ```
 
-`always_one` is now a prefix operator that when applied, always returns `1`!\
+`always_one` is now a prefix operator, with the same precedence as operator `!`, that when applied, always returns `1`\
 In this example, `a` will come out as 1.
 
 ```pie
