@@ -47,20 +47,29 @@ size_t findSpace(const std::string& src, size_t ind) {
 }
 
 
-void removeAllBetween(std::string& s, const std::string_view begin, const std::string_view end) {
-    for (size_t ind = s.find(begin); ind != std::string::npos; ind = s.find(begin)) {
-        const size_t end_ind = s.find(end, ind); // look for end starting from index "ind"
-        s.erase(ind, end_ind - ind);
+void removeBlockComments(std::string& s) {
+    for (size_t ind = s.find(".::"); ind != std::string::npos; ind = s.find(".::")) {
+        const size_t end_ind = s.find("::.", ind); // look for end starting from index "ind"
+        s.erase(ind, end_ind - ind + 3); // 3 == length("::.")
     }
 }
 
 
+void removeLineComments(std::string& s) {
+    for (size_t ind = s.find(".:"); ind != std::string::npos; ind = s.find(".:")) {
+        const size_t end_ind = s.find("\n", ind); // look for end starting from index "ind"
+        s.erase(ind, end_ind - ind + 1); // 3 == length("\n")
+    }
+}
+
+
+// needed so we don't process imports inside comments sections.
 std::string removeComments(std::string src) {
     // removing block comments
     // doing that first so that we don't confuse ".:" with ".::"
-    removeAllBetween(src, ".::", "::.");
+    removeBlockComments(src);
 
-    removeAllBetween(src, ".:", "\n");
+    removeLineComments(src);
 
     return src;
 }
