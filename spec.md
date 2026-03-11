@@ -244,7 +244,7 @@ The following program is ill-formed:
 However, other regular parameters are allowed:
 
 ```pie
-getFirstNum  = (first: Int,      rest: ...Int) => first;
+getFirstNum  = (first: Int, rest: ...Int) => first;
 getFirstNum(1);       .: returns 1
 getFirstNum(1, 2, 3); .: returns 1
 
@@ -487,7 +487,7 @@ If no value is provided for a data members in the constructor call, its initiali
 C = class {
     a = 0;
     b: String = "";
-    c: bool = false;
+    c: Bool = false;
 };
 
 object1 = C();
