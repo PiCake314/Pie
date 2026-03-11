@@ -44,7 +44,7 @@ class Parser {
 
 
     enum class Context {
-        NONE = 0,
+        NONE,   // i don't care about the values
         MATCH,
         MAP,
         CALL,
@@ -390,12 +390,12 @@ public:
     }
 
 
-    template <bool allow_variadic = true>
+    template <bool ALLOW_VARIADIC = true>
     type::TypePtr parseType() {
         using enum TokenKind;
 
         if (match(ELLIPSIS)) {
-            if constexpr (not allow_variadic) error("Can't have a variadic of a variadic type!");
+            if constexpr (not ALLOW_VARIADIC) error("Can't have a variadic of a variadic type!");
 
             return std::make_shared<type::VariadicType>(parseType<false>());
         }
@@ -427,8 +427,18 @@ public:
                 consume(L_PAREN);
 
                 type::FuncType type{{}, {}};
+                type.params.push_back(parseType());
+                bool seen_variadic = type::isVariadic(type.params.back());
 
-                do type.params.push_back(parseType()); while(match(COMMA));
+                while(match(COMMA)) {
+                    type.params.push_back(parseType());
+
+                    if (type::isVariadic(type.params.back())) {
+                        if (seen_variadic)
+                            error("Variadic parameters can only appear once in parameter list!");
+                        else seen_variadic = true;
+                    }
+                }
 
                 consume(R_PAREN);
                 consume(COLON);
