@@ -124,8 +124,11 @@ inline bool validNameChar(const char c) noexcept {
                     break;
                 }
 
-                bool is_float = src[index] == '.';
-                if (is_float) while (isdigit(src.at(++index)));
+                bool is_float = false;
+                if (src[index] == '.' and isdigit(src.at(index + 1))) {
+                    is_float = true;
+                    while (isdigit(src.at(++index)));
+                }
 
                 lines.back().emplace_back(is_float ? FLOAT : INT, src.substr(beginning, index - beginning));
                 --index;
@@ -210,6 +213,7 @@ inline bool validNameChar(const char c) noexcept {
                             src.substr(index, 3) != "::.";
                             ++index
                         );
+
                         index += 2;
                     }
                     else while(++index < src.length() and src[index] != '\n');
@@ -220,7 +224,7 @@ inline bool validNameChar(const char c) noexcept {
                     // lines.back().push_back({CASCADE , {src[index], src[++index],             }});
                     error();
                 else
-                    lines.back().push_back({DOT     , {src[index],                           }});
+                    lines.back().push_back({DOT, {src[index]}});
 
                 break;
 
