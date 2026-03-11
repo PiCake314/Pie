@@ -38,6 +38,8 @@ namespace type {
         virtual bool operator> (const Type&) const = 0;
         virtual bool operator>=(const Type&) const = 0;
 
+        virtual TypePtr clone() const = 0;
+
         virtual ~Type() = default;
     };
 
@@ -54,6 +56,9 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+
+        TypePtr clone() const override { return std::make_shared<ExprType>(*this); }
     };
 
 
@@ -68,6 +73,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<BuiltinType>(*this); }
     };
 
 
@@ -86,6 +93,8 @@ namespace type {
         bool operator>=(const Type& other) const override {
             return *this == other; // I think that's fine
         }
+
+        TypePtr clone() const override { return std::make_shared<ValueType>(*this); }
     };
 
 
@@ -102,6 +111,8 @@ namespace type {
         bool operator>(const Type&) const override { return false; }
         // // since no value is greater than another, >= checks for equality only
         bool operator>=(const Type& other) const override { return *this == other; }
+
+        TypePtr clone() const override { return std::make_shared<ConceptType>(*this); }
     };
 
 
@@ -119,6 +130,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<LiteralType>(*this); }
     };
 
 
@@ -133,6 +146,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<UnionType>(*this); }
     };
 
 
@@ -146,6 +161,8 @@ namespace type {
         bool operator>(const Type&) const override { return false; }
         // ...so >= only needs to check for equality!
         bool operator>=(const Type& other) const override { return *this == other; }
+
+        TypePtr clone() const override { return std::make_shared<SpaceType>(*this); }
     };
 
 
@@ -161,6 +178,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<FuncType>(*this); }
     };
 
     struct VariadicType final : Type {
@@ -174,6 +193,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<VariadicType>(*this); }
     };
 
     struct ListType final : Type {
@@ -194,6 +215,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<ListType>(*this); }
     };
 
     struct MapType final : Type {
@@ -208,6 +231,8 @@ namespace type {
 
         bool operator>(const Type& other) const override;
         bool operator>=(const Type& other) const override;
+
+        TypePtr clone() const override { return std::make_shared<MapType>(*this); }
     };
 
 
@@ -216,8 +241,18 @@ namespace type {
         bool involvesT(const Type&) const override { return false; }
         bool typeCheck(interp::Visitor*, const value::Value&, const TypePtr&) const override { return true; };
 
-        bool operator> (const Type&) const override { return false; };
-        bool operator>=(const Type&) const override { return false; };
+        bool operator> (const Type& other) const override {
+            if (dynamic_cast<const TryReassign*>(&other)) return true;
+
+            return false;
+        };
+        bool operator>=(const Type& other) const override {
+            if (dynamic_cast<const TryReassign*>(&other)) return true;
+
+            return false;
+        };
+
+        TypePtr clone() const override { return std::make_shared<TryReassign>(*this); }
     };
 
 

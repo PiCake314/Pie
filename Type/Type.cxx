@@ -104,23 +104,19 @@ namespace type {
         // return stringify(*cls, indent);
         std::string s;
 
-        if (cls->blueprint->members.empty())
+        if (cls->blueprint->fields.empty())
             s = "class { }";
         else {
             s = "class {\n";
 
             const std::string space(indent + 4, ' ');
-            for (const auto& [name, type, value] : cls->blueprint->members) {
-                s += space + name.stringify() + ": " + type->text(indent + 4) + " = ";
+            for (const auto& [name, type, field] : cls->blueprint->fields) {
+                s += space + name.stringify() + ": ";
 
-                const bool is_string = std::holds_alternative<std::string>(*value);
-                if (is_string) s += '\"';
+                if (shouldReassign(type)) s += "Any";
+                else                      s += type->text(indent + 4);
 
-                s += stringify(*value, indent + 4);
-
-                if (is_string) s += '\"';
-
-                s += ";\n";
+                s += " = " + field->stringify(indent + 4)+ ";\n";
             }
 
             s += std::string(indent, ' ') + '}';
@@ -134,13 +130,13 @@ namespace type {
         if (dynamic_cast<const TryReassign*>(&other)) return true;
 
         if (const auto other_cls = dynamic_cast<const LiteralType*>(&other)) {
-            for (const auto& [name, type, _] : cls->blueprint->members) {
-                const auto& iter = std::ranges::find_if(other_cls->cls->blueprint->members, [&name] (const auto& member) {
+            for (const auto& [name, type, _] : cls->blueprint->fields) {
+                const auto& iter = std::ranges::find_if(other_cls->cls->blueprint->fields, [&name] (const auto& member) {
                     const auto& [n, _, __] = member;
                     return n.name == name.name;
                 });
 
-                if (iter == other_cls->cls->blueprint->members.cend()) return false;
+                if (iter == other_cls->cls->blueprint->fields.cend()) return false;
 
                 const auto& [__, t, ___] = *iter;
                 if (not (*type > *t)) return false;
@@ -161,13 +157,13 @@ namespace type {
         if (const auto other_cls = dynamic_cast<const LiteralType*>(&other)) {
             if (text() == other.text()) return true;
 
-            for (const auto& [name, type, _] : cls->blueprint->members) {
-                const auto& iter = std::ranges::find_if(other_cls->cls->blueprint->members, [&name] (const auto& member) {
+            for (const auto& [name, type, _] : cls->blueprint->fields) {
+                const auto& iter = std::ranges::find_if(other_cls->cls->blueprint->fields, [&name] (const auto& member) {
                     const auto& [n, _, __] = member;
                     return n.name == name.name;
                 });
 
-                if (iter == other_cls->cls->blueprint->members.cend()) return false;
+                if (iter == other_cls->cls->blueprint->fields.cend()) return false;
 
                 const auto& [__, t, ___] = *iter;
                 if (not (*type >= *t)) return false;
