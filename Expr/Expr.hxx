@@ -68,11 +68,11 @@ struct Num : Expr {
 
 
 struct Bool : Expr {
-    bool boo;
+    bool boolean;
 
-    explicit Bool(const bool b) noexcept : boo{b} {}
+    explicit Bool(const bool b) noexcept : boolean{b} {}
 
-    std::string stringify(const size_t = 0) const override { return boo ? "true" : "false"; }
+    std::string stringify(const size_t = 0) const override { return boolean ? "true" : "false"; }
     bool involvesName(const std::string_view sv) const override { return sv == stringify(); }
 
     Node variant() const override { return this; }
@@ -322,9 +322,13 @@ struct Class : Expr {
         std::string s = "class {\n";
 
         const std::string space(indent + 4, ' ');
-        for (const auto& field : fields) {
-            s += space + get<0>(field).stringify() + ": " + get<1>(field)->text(indent + 4)
-            + " = " + get<2>(field)->stringify(indent + 4) + ";\n";
+        for (const auto& [name, type, expr] : fields) {
+            s += space + name.stringify() + ": ";
+
+            if (type::shouldReassign(type)) s += "Any";
+            else                            s += type->text(indent + 4);
+
+            + " = " + expr->stringify(indent + 4) + ";\n";
         }
 
 
@@ -361,7 +365,14 @@ struct Union : Expr {
         return s + std::string(indent, ' ') + "}";
     }
 
-    bool involvesName(const std::string_view) const override { return false; }
+    bool involvesName(const std::string_view name) const override {
+        const type::ExprType t{std::make_shared<expr::Name>(std::string{name})};
+
+        for (const auto& type : types)
+            if (type->involvesT(t)) return true;
+
+         return false;
+    }
 
     Node variant() const override { return this; }
 };
@@ -873,12 +884,14 @@ struct Closure : Expr {
     // I need to un-mutable those vars
     // mutable Environment args_env{};
     mutable Environment env{};
+    mutable Environment returned_env{};
+    mutable Environment passed_env{};
 
     mutable std::optional<Object> self{};
 
     Closure(std::vector<std::string> ps, ExprPtr b, type::FuncType t)
     : params{std::move(ps)}, body{std::move(b)}, type{std::move(t)} {
-        if(ps.size() != t.params.size()) error("ERROR!! This should never happen..,");
+        if(ps.size() != t.params.size()) error(); // should never happen anyway
     }
 
 
@@ -903,6 +916,16 @@ struct Closure : Expr {
             //     if (env.contains(key)) env[key] = value;
             // }
         }
+    }
+
+    void returnCapture(const Environment& e) const {
+        for (const auto& [key, value] : e)
+            returned_env[key] = value;
+    }
+
+    void passedCapture(const Environment& e) const {
+        for (const auto& [key, value] : e)
+            passed_env[key] = value;
     }
 
     // void captureArgs(const Environment& e) const {
