@@ -86,7 +86,7 @@ struct Visitor {
     Value operator()(const expr::Bool *b) {
         if (const auto& var = getVar(b->stringify()); var) return var->first;
 
-        return b->boo;
+        return b->boolean;
     }
 
     Value operator()(const expr::String *s) {
@@ -196,9 +196,9 @@ struct Visitor {
                 [cls] (const auto& member) {
                     const auto& [name, _, __] = member;
 
-                    return std::ranges::find_if(cls->cls->blueprint->members, [&name](const auto& field) {
+                    return std::ranges::find_if(cls->cls->blueprint->fields, [&name](const auto& field) {
                         return get<expr::Name>(field).name == name.name;
-                    }) == cls->cls->blueprint->members.cend();
+                    }) == cls->cls->blueprint->fields.cend();
                 }
             );
             obj.first = type;
@@ -829,44 +829,53 @@ struct Visitor {
         if (const auto& var = getVar(cls->stringify()); var) return var->first;
 
 
-        std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
-
-        ScopeGuard sg{this};
-        for (const auto& [name, typ, expr] : cls->fields) {
-
-            type::TypePtr type = typ;
-
-            Value v;
-            if (type->text() == "Syntax") {
-                // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
-                type = type::builtins::Syntax();
-                v = expr->variant();
-            }
-            else {
-                type = validateType(std::move(type));
-
-                v = std::visit(*this, expr->variant());
-
-                typeCheck(v, type,
-                    "In class member assignment '" +
-                    name.stringify() + ": " + typ->text() + " = " + expr->stringify() +
-                    "Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
-                );
-            }
-
-            // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
-            // addVar(name.stringify(), v, type);
-            members.push_back({name, type, std::make_shared<Value>(v)});
-        }
-
         return // getting lispy :sob: fuck this memory ass shit
             std::make_shared<type::LiteralType>(
-                std::make_shared<ClassValue>(
-                    std::make_shared<Members>(
-                        std::move(members)
+                std::make_shared<value::ClassValue>(
+                    std::make_shared<value::Fields>(
+                        cls->fields
                     )
                 )
             );
+
+        // std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
+
+        // ScopeGuard sg{this};
+        // for (const auto& [name, typ, expr] : cls->fields) {
+
+        //     type::TypePtr type = typ;
+
+        //     Value v;
+        //     if (type->text() == "Syntax") {
+        //         // members.push_back({{field.first.stringify(), type::builtins::Syntax()}, field.second->variant()});
+        //         type = type::builtins::Syntax();
+        //         v = expr->variant();
+        //     }
+        //     else {
+        //         type = validateType(std::move(type));
+
+        //         v = std::visit(*this, expr->variant());
+
+        //         typeCheck(v, type,
+        //             "In class member assignment '" +
+        //             name.stringify() + ": " + typ->text() + " = " + expr->stringify() +
+        //             "Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
+        //         );
+        //     }
+
+        //     // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
+        //     // addVar(name.stringify(), v, type);
+        //     members.push_back({name, type, std::make_shared<Value>(v)});
+        // }
+
+        // return // getting lispy :sob: fuck this memory ass shit
+        //     std::make_shared<type::LiteralType>(
+        //         std::make_shared<ClassValue>(
+        //             std::make_shared<Members>(
+        //                 std::move(members)
+        //             )
+        //         )
+        //     );
     }
 
 
@@ -1060,7 +1069,7 @@ struct Visitor {
 
         if (
             type::isClass(type) and
-            patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->members.size()
+            patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->fields.size()
         )
             error("Number of singles is greater than number of fields in class " + stringify(type));
 
@@ -1520,7 +1529,7 @@ struct Visitor {
             ret = std::visit(*this, func->body->variant());
 
             if (std::holds_alternative<expr::Closure>(ret))
-                captureEnvForClosure(get<expr::Closure>(ret));
+                captureEnvForReturnedClosure(get<expr::Closure>(ret));
         }
         else ret = std::visit(*this, func->body->variant()); // capturing logic will be done by the scope's visitor
 
@@ -1622,7 +1631,7 @@ struct Visitor {
         //     ret = std::visit(*this, func->body->variant());
 
         //     if (std::holds_alternative<expr::Closure>(ret)) {
-        //         captureEnvForClosure(get<expr::Closure>(ret));
+        //         captureEnvForReturnedClosure(get<expr::Closure>(ret));
         //     }
         // }
         // else ret = std::visit(*this, func->body->variant());
@@ -1640,7 +1649,7 @@ struct Visitor {
             ret = std::visit(*this, func->body->variant());
 
             if (std::holds_alternative<expr::Closure>(ret))
-                captureEnvForClosure(get<expr::Closure>(ret));
+                captureEnvForReturnedClosure(get<expr::Closure>(ret));
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1713,7 +1722,7 @@ struct Visitor {
             ret = std::visit(*this, func->body->variant());
 
             if (std::holds_alternative<expr::Closure>(ret))
-                captureEnvForClosure(get<expr::Closure>(ret));
+                captureEnvForReturnedClosure(get<expr::Closure>(ret));
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1788,7 +1797,7 @@ struct Visitor {
             ret = std::visit(*this, func->body->variant());
 
             if (std::holds_alternative<expr::Closure>(ret))
-                captureEnvForClosure(get<expr::Closure>(ret));
+                captureEnvForReturnedClosure(get<expr::Closure>(ret));
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1873,7 +1882,7 @@ struct Visitor {
             ret = std::visit(*this, func->body->variant());
 
             if (std::holds_alternative<expr::Closure>(ret))
-                captureEnvForClosure(get<expr::Closure>(ret));
+                captureEnvForReturnedClosure(get<expr::Closure>(ret));
         }
         else ret = std::visit(*this, func->body->variant());
 
@@ -1906,7 +1915,14 @@ struct Visitor {
 
 
         // for pack expansions at call site (there could be multiple of em)
-        // i.e: func(args1..., "Hi", "hello", args2..., args3...)
+        // i.e: func(args1..., "Hi", "hello", args2..., args3...).
+        // we MUST expand before doing anything else
+        // so that we can know if this is gonna be a
+        // full function call or a curried call
+        // if we can get the length of the pack before expanding it
+        // the problem will be solved, and we'll even be able to allow
+        // packs of syntax type: ...Syntax
+        // for now, this is a hard problem for me
         std::vector<std::pair<size_t, std::vector<Value>>> expand_at;
         for (size_t i{}; i < args.size(); ++i) {
             if (const auto expand = dynamic_cast<const expr::Expansion*>(args[i].get())) {
@@ -1931,9 +1947,8 @@ struct Visitor {
             return closureCall(call, var, std::move(args), std::move(expand_at));
         }
 
-        // else if (std::holds_alternative<ClassValue>(var)) return constructorCall(call, std::move(var));
-        if (std::holds_alternative<type::TypePtr>(var)) return constructorCall(call, std::move(var));
 
+        if (std::holds_alternative<type::TypePtr>(var)) return constructorCall(call, std::move(var));
 
 
         if (std::holds_alternative<value::Object>(var)) {
@@ -1949,18 +1964,272 @@ struct Visitor {
         if (args.size() == 1) {       // set
             const auto val = std::visit(*this, args[0]->variant());
 
-            addVar(stringify(var), val, typeOf(val));
-            // addVar(call->func->stringify(), val, typeOf(val));
+            #if 1
+                addVar(stringify(var), val, typeOf(val));
+            #else
+                addVar(call->func->stringify(), val, typeOf(val));
+            #endif
+
             return var;
         }
 
         error("Can't pass arguments to values!");
     }
 
+
+
+    struct ScopeGuard; // forward declaring so the below function knows about it
+
+    void variadicCall(
+        const expr::Closure& func,
+        std::vector<std::pair<std::string, type::TypePtr>>& pos_params,
+        const std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
+        const std::vector<pie::expr::ExprPtr>& args,
+        const size_t args_size,
+        ScopeGuard& sg,
+        Environment& args_env
+    ) {
+        const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
+        const size_t variadic_index = std::distance(pos_params.begin(), it);
+
+        const auto pre_variadic = std::ranges::subrange(pos_params.begin(), it);
+        const auto post_variadic  = std::ranges::subrange(it + 1, pos_params.end());
+
+        const size_t pre_variadic_size = std::ranges::size(pre_variadic);
+        const size_t post_variadic_size = std::ranges::size(post_variadic);
+        const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
+
+
+
+        const auto findType = [&func] (const size_t p, const type::TypePtr& type) {
+            // it doesn't matter if there are multiple arguments with this name
+            // `validateType` will choose the lastly-bounded one
+            // we just need to proof that A parameter exists in order to call `validateType`
+            for (size_t i{}; i <= p; ++i)
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
+                    return true;
+
+            // // look in the arguments env (from a partially evaluated function that yielded this function)
+            // for (const auto& [key, _] : func.args_env)
+            for (const auto& [key, _] : func.env)
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
+                    return true;
+
+            return false;
+        };
+
+
+        auto pack = makePack();
+        for (
+            size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
+            arg_index < args.size(); // can't be args_size since arg_index is only used to index into args
+        ) {
+            auto [name, type] = pos_params[param_index];
+            type = type->clone();
+
+            Value value;
+
+            if (param_index == variadic_index){
+                if (findType(param_index, type)) {
+                    // ScopeGuard sg{this, func.args_env, args_env};
+                    ScopeGuard sg{this, func.env, args_env};
+                    type = validateType(std::move(type));
+                }
+
+
+                for (size_t i{}; i < variadic_size; ++i) {
+                    if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
+                        value = std::move(expand_at[curr_expansion].second[pack_index++]);
+
+                        value = typeCheck(value, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                        );
+
+                        if (std::holds_alternative<expr::Closure>(value))
+                            captureEnvForPassedClosure(get<expr::Closure>(value));
+
+
+                        if (pack_index >= expand_at[curr_expansion].second.size()) {
+                            ++arg_index;
+                            ++curr_expansion;
+                            pack_index = 0;
+                        }
+                    }
+                    else {
+                        const auto& expr = args[arg_index];
+
+                        if (type->text() == "Syntax") error(); //* allow this the future
+
+
+                        else {
+                            value = std::visit(*this, expr->variant());
+
+                            value = typeCheck(value, type,
+                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                            );
+
+                            if (std::holds_alternative<expr::Closure>(value))
+                                captureEnvForPassedClosure(get<expr::Closure>(value));
+                        }
+
+                        ++arg_index;
+                    }
+
+                    pack->values.push_back(std::move(value));
+                }
+
+                ++param_index;
+
+                // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                args_env[name] = {std::make_shared<Value>(std::move(pack)), std::move(type)};
+            }
+            else {
+                if (findType(param_index, type)) {
+                    // ScopeGuard sg{this, func.args_env, args_env};
+                    ScopeGuard sg{this, func.env, args_env};
+                    type = validateType(std::move(type));
+                }
+
+
+                if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
+                    value = expand_at[curr_expansion].second[pack_index++];
+
+                    value = typeCheck(value, type,
+                        "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                    );
+
+                    if (std::holds_alternative<expr::Closure>(value))
+                        captureEnvForPassedClosure(get<expr::Closure>(value));
+
+
+                    if (pack_index >= expand_at[curr_expansion].second.size()) {
+                        ++arg_index;
+                        ++curr_expansion;
+                        pack_index = 0;
+                    }
+                }
+                else {
+                    const auto& expr = args[arg_index];
+
+                    if (type->text() == "Syntax") value = expr->variant();
+                    else {
+                        value = std::visit(*this, expr->variant());
+
+                        value = typeCheck(value, type,
+                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                        );
+
+                        if (std::holds_alternative<expr::Closure>(value))
+                            captureEnvForPassedClosure(get<expr::Closure>(value));
+                    }
+
+                    ++arg_index;
+                }
+
+                ++param_index;
+                // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+            }
+        }
+
+
+        if (variadic_size == 0) {
+            sg.addEnv({{
+                pos_params[variadic_index].first,
+                { std::make_shared<Value>(makePack()), pos_params[variadic_index].second }
+            }});
+            args_env[pos_params[variadic_index].first] = {std::make_shared<Value>(makePack()), std::move(pos_params)[variadic_index].second};
+        }
+    }
+
+
+    void regularCall(
+        const expr::Closure& func,
+        std::vector<std::pair<std::string, type::TypePtr>>& pos_params,
+        std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
+        const std::vector<pie::expr::ExprPtr>& args,
+        const size_t args_size,
+        // ScopeGuard& sg,
+        Environment& args_env
+    ) {
+        const auto findType = [&func] (const size_t p, const type::TypePtr& type) {
+            // it doesn't matter if there are multiple arguments with this name
+            // `validateType` will choose the lastly-bounded one
+            // we just need to proof that A parameter exists in order to call `validateType`
+            for (size_t i{}; i <= p; ++i)
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
+                    return true;
+
+            // // look in the arguments env (from a partially evaluated function that yielded this function)
+            // for (const auto& [key, _] : func.args_env)
+            for (const auto& [key, _] : func.env)
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
+                    return true;
+
+            return false;
+        };
+
+        for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
+
+            if (curr < expand_at.size() and i == expand_at[curr].first) {
+                for (auto& val : expand_at[curr++].second) {
+                    auto& [name, type] = pos_params[p];
+                    if (findType(p, type)) {
+                        // ScopeGuard sg{this, func.args_env, args_env};
+                        ScopeGuard sg{this, func.env, args_env};
+                        type = validateType(std::move(type));
+                    }
+
+                    ++p; // important!
+
+                    val = typeCheck(val, type,
+                        "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
+                    );
+
+                    if (std::holds_alternative<expr::Closure>(val))
+                        captureEnvForPassedClosure(get<expr::Closure>(val));
+
+
+                    // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
+                    args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
+                }
+                --p; // the parameter index will have gone one too far. bring it back
+            }
+            else {
+                auto& [name, type] = pos_params[p];
+                if (findType(p, type)) {
+                    // ScopeGuard sg{this, func.args_env, args_env};
+                    ScopeGuard sg{this, func.env, args_env};
+                    type = validateType(std::move(type));
+                }
+
+                const auto& expr = args[i];
+
+                Value value;
+                if (type->text() == "Syntax") value = expr->variant();
+                else {
+                    value = std::visit(*this, expr->variant());
+
+                    value = typeCheck(value, type,
+                        "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
+                    );
+
+
+                    if (std::holds_alternative<expr::Closure>(value))
+                        captureEnvForPassedClosure(get<expr::Closure>(value));
+                }
+
+                // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
+                args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+            }
+        }
+    }
+
+
     Value closureCall(
         const expr::Call *call,
         const Value& var,
-        std::vector<pie::expr::ExprPtr> args,
+        const std::vector<pie::expr::ExprPtr>& args,
         std::vector<std::pair<size_t, std::vector<Value>>> expand_at
     ) {
         auto func = std::get<expr::Closure>(var);
@@ -2018,14 +2287,12 @@ struct Visitor {
             else {
                 value = std::visit(*this, expr->variant());
 
-                // if the param type not a super type of arg type, error out
-                // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-
-
                 value = typeCheck(value, type,
                     "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                 );
+
+                // if (std::holds_alternative<expr::Closure>(value))
+                //     captureEnvForPassedClosure(get<expr::Closure>(value));
             }
 
             // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
@@ -2044,197 +2311,10 @@ struct Visitor {
 
 
         if (is_variadic) {
-            const auto it = std::ranges::find_if(pos_params, [] (const auto& e) { return type::isVariadic(e.second); });
-            const size_t variadic_index = std::distance(pos_params.begin(), it);
-
-            const auto pre_variadic = std::ranges::subrange(pos_params.begin(), it);
-            const auto post_variadic  = std::ranges::subrange(it + 1, pos_params.end());
-
-            const size_t pre_variadic_size = std::ranges::size(pre_variadic);
-            const size_t post_variadic_size = std::ranges::size(post_variadic);
-            const size_t variadic_size = args_size - pre_variadic_size - post_variadic_size;
-
-            auto pack = makePack();
-            for (
-                size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
-                arg_index < args.size(); // can't be args_size since arg_index is only used to index into args
-            ) {
-                auto& [name, type] = pos_params[param_index];
-
-                Value value;
-
-                if (param_index == variadic_index){
-                    for (size_t i{}; i < variadic_size; ++i) {
-
-                        if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
-                            value = std::move(expand_at[curr_expansion].second[pack_index++]);
-
-                            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name
-                            //         + "' expected type: "+ type->text()
-                            //         + ", got: " + type_of_value->text()
-                            //     );
-
-                            value = typeCheck(value, type,
-                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
-                            );
-
-
-                            if (pack_index >= expand_at[curr_expansion].second.size()) {
-                                ++arg_index;
-                                ++curr_expansion;
-                                pack_index = 0;
-                            }
-                        }
-                        else {
-                            const auto& expr = args[arg_index];
-
-                            if (type->text() == "Syntax") {
-                                error(); //* allow this the future
-                            }
-
-                            else {
-                                value = std::visit(*this, expr->variant());
-
-
-                                // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                                //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name
-                                //         + "' expected type: "+ type->text() 
-                                //         + ", got: " + type_of_value->text()
-                                //     );
-
-                                value = typeCheck(value, type,
-                                    "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
-                                );
-                            }
-
-                            ++arg_index;
-                        }
-
-                        pack->values.push_back(std::move(value));
-                    }
-
-                    ++param_index;
-
-                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                    args_env[name] = {std::make_shared<Value>(std::move(pack)), std::move(type)};
-                }
-                else {
-                    if (curr_expansion < expand_at.size() and arg_index == expand_at[curr_expansion].first) {
-                        value = expand_at[curr_expansion].second[pack_index++];
-
-                        // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-
-                        value = typeCheck(value, type,
-                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
-                        );
-
-
-                        if (pack_index >= expand_at[curr_expansion].second.size()) {
-                            ++arg_index;
-                            ++curr_expansion;
-                            pack_index = 0;
-                        }
-                    }
-                    else {
-                        const auto& expr = args[arg_index];
-
-                        if (type->text() == "Syntax") value = expr->variant();
-                        else {
-                            value = std::visit(*this, expr->variant());
-
-                            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
-
-                            value = typeCheck(value, type,
-                                "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
-                            );
-                        }
-
-                        ++arg_index;
-                    }
-
-                    ++param_index;
-                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                    args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
-                }
-            }
-
-
-            if (variadic_size == 0) {
-                sg.addEnv({{
-                    pos_params[variadic_index].first,
-                    { std::make_shared<Value>(makePack()), pos_params[variadic_index].second }
-                }});
-                args_env[pos_params[variadic_index].first] = {std::make_shared<Value>(makePack()), std::move(pos_params)[variadic_index].second};
-            }
+            variadicCall(func, pos_params, expand_at, args, args_size, sg, args_env);
         }
         else {
-            const auto findType = [&func] (const size_t p, const type::TypePtr& type) {
-                // it doesn't matter if there are multiple arguments with this name
-                // `validateType` will choose the lastly-bounded one
-                // we just need to proof that A parameter exists in order to call `validateType`
-                for (size_t i{}; i <= p; ++i)
-                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
-                        return true;
-
-                // // look in the arguments env (from a partially evaluated function that yielded this function)
-                // for (const auto& [key, _] : func.args_env)
-                for (const auto& [key, _] : func.env)
-                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
-                        return true;
-
-                return false;
-            };
-
-            for (size_t i{}, p{}, curr{}; p < args_size; ++p, ++i) {
-
-                if (curr < expand_at.size() and i == expand_at[curr].first) {
-                    for (auto& val : expand_at[curr++].second) {
-                        auto& [name, type] = pos_params[p];
-                        if (findType(p, type)) {
-                            // ScopeGuard sg{this, func.args_env, args_env};
-                            ScopeGuard sg{this, func.env, args_env};
-                            type = validateType(std::move(type));
-                        }
-
-                        ++p; // important!
-
-                        val = typeCheck(val, type,
-                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
-                        );
-
-
-                        // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                        args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
-                    }
-                    --p; // the parameter index will have gone one too far. bring it back
-                }
-                else {
-                    auto& [name, type] = pos_params[p];
-                    if (findType(p, type)) {
-                        // ScopeGuard sg{this, func.args_env, args_env};
-                        ScopeGuard sg{this, func.env, args_env};
-                        type = validateType(std::move(type));
-                    }
-
-                    const auto& expr = args[i];
-
-                    Value value;
-                    if (type->text() == "Syntax") value = expr->variant();
-                    else {
-                        value = std::visit(*this, expr->variant());
-
-                        value = typeCheck(value, type,
-                            "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
-                        );
-                    }
-
-                    // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                    args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
-                }
-            }
+            regularCall (func, pos_params, expand_at, args, args_size,    args_env);
         }
 
 
@@ -2257,15 +2337,18 @@ struct Visitor {
 
 
         // sg.addEnv(func.args_env);
-        sg.addEnv(func.env);
+        sg.addEnv(func.returned_env);
         sg.addEnv(args_env);
+        sg.addEnv(func.env);
+        sg.addEnv(func.passed_env);
 
         Value ret;
         if (not dynamic_cast<const expr::Block*>(func.body.get())) {
             ret = std::visit(*this, func.body->variant());
 
             if (std::holds_alternative<expr::Closure>(ret))
-                captureEnvForClosure(get<expr::Closure>(ret));
+                // captureEnvForPassedClosure(get<expr::Closure>(ret));
+                captureEnvForReturnedClosure(get<expr::Closure>(ret));
         }
         else ret = std::visit(*this, func.body->variant());
 
@@ -2280,21 +2363,29 @@ struct Visitor {
     }
 
 
-    void captureEnvForClosure(const expr::Closure& c) {
-        // for (size_t i = env.size() - 1; /* i >= 0 */; --i) {
-        //     // c.capture<expr::Closure::OverrideMode::NO_OVERRIDE>(env[i].first);
-        //     c.capture(env[i].first);
-        //     if (env[i].second == EnvTag::FUNC) break;
-
-        //     if (i == 0) return; // unsigned nums can never be less than zero
-        // }
-
+    void captureEnvForReturnedClosure(const expr::Closure& c) {
         size_t found{};
-        for (size_t i{}; i < env.size(); ++i) {
-            if (env[i].second == EnvTag::FUNC) found = i;
-        }
 
-        for (; found < env.size(); ++found) c.capture(env[found].first);
+        for (size_t i{}; i < env.size(); ++i)
+            if (env[i].second == EnvTag::FUNC) found = i;
+
+        for (; found < env.size(); ++found) c.returnCapture(env[found].first);
+    }
+
+
+    void captureEnvForPassedClosure(const expr::Closure& c) {
+        size_t found1{};
+        size_t found2{};
+
+        for (size_t i{}; i < env.size(); ++i)
+            if (env[i].second == EnvTag::FUNC) {
+                found1 = found2;
+                found2 = i;
+            }
+
+
+        for (; found1 < found2; ++found1)
+            c.passedCapture(env[found1].first);
     }
 
 
@@ -2326,16 +2417,12 @@ struct Visitor {
             else {
                 value = std::visit(*this, expr->variant());
 
-                // // if the param type not a super type of arg type, error out
-                // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match! Parameter '" + name + "' "
-                //         "expected type: " + type->text() + ", got: " + type_of_value->text()
-                //     );
-
                 value = typeCheck(value, type,
                     "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                 );
+
+                // if (std::holds_alternative<expr::Closure>(value))
+                //     captureEnvForPassedClosure(get<expr::Closure>(value));
             }
 
             // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
@@ -2409,6 +2496,9 @@ struct Visitor {
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                             );
 
+                            if (std::holds_alternative<expr::Closure>(val))
+                                captureEnvForPassedClosure(get<expr::Closure>(val));
+
                             // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
                             args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
                         }
@@ -2429,11 +2519,8 @@ struct Visitor {
                                 "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                             );
 
-                            // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                            //     error<except::TypeMismatch>(
-                            //         "Type mis-match! Parameter '" + name + "' "
-                            //         "expected type: " + type->text() + ", got: " + type_of_value->text()
-                            //     );
+                            // if (std::holds_alternative<expr::Closure>(value))
+                            //     captureEnvForPassedClosure(get<expr::Closure>(value));
                         }
                         // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
                         args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
@@ -2477,6 +2564,9 @@ struct Visitor {
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(val)->text()
                         );
 
+                        if (std::holds_alternative<expr::Closure>(val))
+                            captureEnvForPassedClosure(get<expr::Closure>(val));
+
                         // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
                         args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
                     }
@@ -2501,8 +2591,8 @@ struct Visitor {
                             "Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + typeOf(value)->text()
                         );
 
-                        // if (const auto& type_of_value = typeOf(value); not (*type >= *type_of_value))
-                        //     error<except::TypeMismatch>("Type mis-match! Parameter '" + name + "' expected type: " + type->text() + ", got: " + type_of_value->text());
+                        // if (std::holds_alternative<expr::Closure>(value))
+                        //     captureEnvForPassedClosure(get<expr::Closure>(value));
                     }
 
                     // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
@@ -2519,63 +2609,118 @@ struct Visitor {
         return closure;
     }
 
+    Value handleNonClasses(const expr::Call *call, const type::TypePtr type) {
+        if (not call->args.empty()) error("Can't pass arguments to non-class types: " + call->stringify());
+        if (type::isFunction(type)) error("Can't default-construct a function type: " + call->stringify());
+
+        if (type::isBuiltin(type)) {
+            auto type_name = type->text();
+
+            if (type_name == "Bool"  ) return bool  {};
+            if (type_name == "Int"   ) return int   {};
+            if (type_name == "Double") return double{};
+            if (type_name == "String") return std::string{};
+
+            error("Can't default construct type '" + type_name + "': " + call->stringify());
+        }
+
+        if (type::isVariadic(type)) return makePack();
+        if (type::isList    (type)) return makeList();
+        if (type::isMap     (type)) return makeMap ();
+
+
+        if (auto onion = type::isUnion(type)) {
+            if (onion->types.empty()) error("Cannot default construct type 'Never', or 'union { }': " + call->stringify());
+
+            return constructorCall(call, onion->types[0]); // construct the first type in the union
+        }
+
+        error();
+    }
+
+    // std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>>
+    void initializeRestOfMembers(
+        value::Object& obj,
+        const std::vector<std::tuple<pie::expr::Name, pie::type::TypePtr, pie::expr::ExprPtr>>& fields,
+        const size_t starting_index
+    ) {
+        // std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
+
+        ScopeGuard sg{this};
+        size_t index{};
+        for (; index < starting_index; ++index) {
+            const auto& [name, type, value] = obj.second->members[index];
+
+            addVar(name.stringify(), *value, type);
+        }
+
+        for (; index < fields.size(); ++index) {
+            const auto& [name, typ, expr] = fields[index];
+
+            type::TypePtr type = typ;
+
+            Value v;
+
+            if (type->text() == "Syntax") {
+                type = type::builtins::Syntax();
+                v = expr->variant();
+            }
+            else {
+                type = validateType(std::move(type));
+
+                v = std::visit(*this, expr->variant());
+
+                typeCheck(v, type,
+                    "In class member assignment '" +
+                    name.stringify() + ": " + typ->text() + " = " + expr->stringify() +
+                    "Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
+                );
+            }
+
+
+            // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
+            addVar(name.stringify(), v, type);
+            obj.second->members.push_back({name, type, std::make_shared<Value>(v)});
+        }
+
+        // return members;
+    }
+
 
     Value constructorCall(const expr::Call *call, Value var) {
-        const auto type = validateType(std::get<type::TypePtr>(var));
+        auto type = validateType(std::get<type::TypePtr>(var));
 
 
-        if (not type::isClass(type)) {
-            if (not call->args.empty()) error("Can't pass arguments to non-class types: " + call->stringify());
-            if (type::isFunction(type)) error("Can't default-construct a function type: " + call->stringify());
-
-            if (type::isBuiltin(type)) {
-                auto type_name = type->text();
-
-                if (type_name == "Bool"  ) return bool  {};
-                if (type_name == "Int"   ) return int   {};
-                if (type_name == "Double") return double{};
-                if (type_name == "String") return std::string{};
-
-                error("Can't default construct type '" + type_name + "': " + call->stringify());
-            }
-
-            if (type::isVariadic(type)) return makePack();
-            if (type::isList    (type)) return makeList();
-            if (type::isMap     (type)) return makeMap ();
-
-
-            if (auto onion = type::isUnion(type)) {
-                if (onion->types.empty()) error("Cannot default construct type 'Never', or 'union { }': " + call->stringify());
-
-                return constructorCall(call, onion->types[0]); // construct the first type in the union
-            }
-        }
+        if (not type::isClass(type)) return handleNonClasses(call, std::move(type));
 
         const auto *cls = dynamic_cast<const type::LiteralType*>(type.get())->cls.get();
 
-        if (call->args.size() > cls->blueprint->members.size())
-            error("Too many arguments passed to constructor of class: " + stringify(type));
+        if (call->args.size() > cls->blueprint->fields.size())
+            error("Too many arguments passed to constructor of class: " + stringify(type) + "\nin constructor call:\n" + call->stringify());
 
-        // copying defaults field values from class definition
-        auto members = cls->blueprint->members;
-        for (auto& [_, __, value_ptr] : members)
-            value_ptr = std::make_shared<Value>(*value_ptr);
 
-        Object obj{type, std::make_shared<Members>(std::move(members)) };
+        value::Object obj{type, std::make_shared<Members>(
+            std::vector<std::tuple<expr::Name, type::TypePtr, value::ValuePtr>>() // reserve fields.size() elements
+        )};
 
-        // I woulda used a range for-loop but I need `arg` to be a reference and `value` to be a const ref
+        // I woulda used a range for-loop but I need `arg` to be a reference and `value` cannot be a regular ref
         // const auto& [arg, value] : std::views::zip(call->args, obj->members)
         for (size_t i{}; i < call->args.size(); ++i) {
             const auto& v = std::visit(*this, call->args[i]->variant());
+            const auto& [name, type, _] = cls->blueprint->fields[i];
 
-            typeCheck(v, get<type::TypePtr>(obj.second->members[i]),
+            typeCheck(v, type,
                 "Type mis-match in constructor of:\n" + stringify(type) + "\nMember `" +
-                get<expr::Name>(obj.second->members[i]).stringify() + "` expected: " + get<type::TypePtr>(obj.second->members[i])->text() + "\n"
+                name.stringify() + "` expected: " + type->text() + "\n"
                 "but got: " + call->args[i]->stringify() + " which is " + typeOf(v)->text()
             );
 
-            *get<ValuePtr>(obj.second->members[i]) = v;
+
+
+            obj.second->members.push_back({name, type, std::make_shared<value::Value>(v)});
         }
+
+        initializeRestOfMembers(obj, cls->blueprint->fields, call->args.size());
 
         return obj;
     }
@@ -2637,7 +2782,7 @@ struct Visitor {
 
 
         if (not last_expr_is_block and std::holds_alternative<expr::Closure>(ret))
-            captureEnvForClosure(get<expr::Closure>(ret));
+            captureEnvForReturnedClosure(get<expr::Closure>(ret));
 
         return ret;
     }
