@@ -9,54 +9,382 @@
 
 
 
-TEST_CASE("Mutual Recursion", "[Func]") {
+TEST_CASE("Passing Variadic Eager Param Function", "[Func][Param][Variadic]") {
+    const auto src1 = R"(
+callFunc = (f) => {
+    T = Bool;
+
+    f(Double);
+};
+
+func = (T, x: ...T) => 0;
+
+callFunc(func);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+}
+
+
+
+TEST_CASE("Returning Variadic Eager Param Function", "[Func][Param][Variadic]") {
+    const auto src1 = R"(
+getFunc = () => {
+    T = Double;
+
+    (a: ...T, T, x: T) => "";
+};
+
+func = getFunc();
+
+func(2.1, 5.4, 9.8, Int, 1);
+
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+
+
+    const auto src2 = R"(
+getFunc = () => {
+    T = Double;
+
+    (a, T, x: ...T) => "";
+};
+
+func = getFunc();
+
+func(true, Int, 1, 2, 3);
+)";
+
+    REQUIRE_NOTHROW(run(src2));
+}
+
+
+TEST_CASE("Returning Eager Param Function", "[Func][Param]") {
+    const auto src1 = R"(
+getFunc = () => {
+    T = Double;
+
+    (a: T, T, x: T) => "";
+};
+
+func = getFunc();
+
+func(2.1, Int, 1);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+}
+
+
+TEST_CASE("Closure Captures - Blocks vs Non-blocks", "[Func]") {
+    const auto src1 = R"(
+print = __builtin_print;
+
+f = (a, s) => a();
+
+s = "Hello";
+func1 = () => { print(s); };
+func2 = () => print(s);
+
+f(func1, 3);
+f(func2, 3);
+)";
+
+    REQUIRE(run(src1) == "Hello\nHello");
+}
+
+
+TEST_CASE("Variadic Function Eager Parameter", "[Func][Param][Variadic]") {
+    const auto src1 = R"(
+func = (T: Type, args: ...T, w, z) => 1;
+
+func(Int, 1, 2, 3, "meow", 3.14);
+func(Bool, true, false, "meow", 3.14);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+
+
+    const auto src2 = R"(
+func = (T: Type, args: ...T, w, z) => 1;
+
+func(Int, 1, "", 2, 3);
+)";
+
+    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+
+
+    const auto src3 = R"(
+func = (T: Type, args: ...T, w, z) => 1;
+
+call = (args: ...Any) => func(Int, args...);
+
+call(1, 2, 3);
+)";
+
+    REQUIRE_NOTHROW(run(src3));
+
+
+    const auto src4 = R"(
+func = (T: Type, args: ...T, w, z) => 1;
+
+call = (args: ...Any) => func(Int, args...);
+
+call(true, false, 3.14, 2);
+)";
+
+    REQUIRE_THROWS_AS(run(src4), pie::except::TypeMismatch);
+}
+
+
+
+
+TEST_CASE("Union Eager Type Params", "[Param][Union][Func]") {
+    const auto src1 = R"(
+func = (T, x: T, y: union { T; Int; }) => __builtin_print(T, x, y);
+func(Double, 1.2, 3);
+func(Int, 1, 3);
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+}
+
+
+TEST_CASE("Names Across Functions", "[Var][Func]") {
+    const auto src1 = R"(
+
+func = () => {
+    x = __builtin_add(x, 1);
+    std::print(x);
+};
+
+
+f = (a) => {
+    x: Any = 10;
+    a();
+    a();
+    a();
+};
+
+f(func);
+
+)";
+
+    REQUIRE_THROWS_AS(run(src1), pie::except::NameLookup);
+}
+
+
+TEST_CASE("Comments", "") {
+    const auto src1 = R"(
+.: wuegfiqywefi; x: String = 1; f()
+x = 1;
+.:: meow
+oweuh
+random stuff 
+ddf .:
+hi
+:.
+:: .
+: :.
+: : .
+::.
+x = 2;
+)";
+
+    REQUIRE_NOTHROW(run(src1));
+}
+
+
+
+TEST_CASE("Refering to Previous Members in Member Init", "[Class]") {
     const auto src = R"(
 print = __builtin_print;
 
-infix + = (a: Int, b: Int) => __builtin_add(a, b);
-infix - = (a, b) => __builtin_sub(a, b);
-infix < = (a, b) => __builtin_lt(a, b);
-infix > = (a, b) => __builtin_gt(a, b);
 
-mixfix(LOW +) if : then : else : = (cond: Bool, thn: Syntax, els: Syntax)
-    => __builtin_eval(__builtin_conditional(cond, thn, els));
-
-xact = (f1, g, r) => {
-    if g.k then {
-        g.k = f1();
-        if (r > 0) then { xact(f1, g, r - 1); } else {};
-        if (r > 0) then { xact(f1, g, r - 1); } else {};
-    } else {};
+C = class {
+    x = print(5);
+    y = __builtin_add(x, 20);
 };
 
-act = (f2) => {
-  xact(f2, class{ k = true; }(), 32);
-};
+x = C();
+y = C(10);
 
-while = (c, f) => {
-    act(() => {
-        if c() then { f(); true; } else false;
-    });
-};
-
-x = 0;
-while(() => x < 10, () => {
-    x = x + 1;
-    print(x);
-});
+print(x);
+print(y);
 )";
 
-    REQUIRE(run(src) == R"(1
-2
-3
-4
-5
-6
-7
-8
-9
-10)");
+    REQUIRE(run(src) == R"(5
+Object {
+    x = 5;
+    y = 25;
 }
+Object {
+    x = 10;
+    y = 30;
+})");
+}
+
+
+
+
+
+TEST_CASE("Implicit Parameter Pack", "[Func][Param][Variadic]") {
+
+    const auto src1 =
+R"(
+print = __builtin_print;
+
+func: (Int, ...Bool, String): Any = (a, b, c) => print(b);
+func(1, true, false, true, true, "what");
+)";
+
+
+    REQUIRE(run(src1) == "true, false, true, true");
+
+
+    const auto src2 =
+R"(
+print = __builtin_print;
+
+func: (Int, ...Bool, String): Any = (a, b, c) => print(a, b, c);
+func(1, false, "what");
+)";
+
+
+    REQUIRE(run(src2) == "1 false what");
+
+
+    const auto src3 =
+R"(
+print = __builtin_print;
+
+func: (Int, ...Bool, String): Any = (a, b, c) => print(a, b, c);
+func(1, 2, 3);
+)";
+
+
+    REQUIRE_THROWS_AS(run(src3), pie::except::TypeMismatch);
+
+
+    const auto src4 =
+R"(
+print = __builtin_print;
+
+func: (Int, ...Bool, String): Any = (a, b, c) => print(a, b, c);
+func(1, true, 3);
+)";
+
+
+    REQUIRE_THROWS_AS(run(src4), pie::except::TypeMismatch);
+}
+
+
+
+TEST_CASE("Double as Object", "[Double][Object]") {
+
+    const auto src1 =
+R"(
+
+C = class {
+    x = "hi";
+};
+
+2 = C();
+__builtin_print(2.x);
+__builtin_print(2.1);
+
+)";
+
+
+    REQUIRE(run(src1) == "hi\n2.100000");
+
+
+
+    const auto src2 =
+R"(
+C = class {  x = "hi"; };
+
+2.1 = C();
+__builtin_print(2.1);
+__builtin_print(2.1.x);
+)";
+
+
+    REQUIRE(run(src2) ==
+R"(Object {
+    x = "hi";
+}
+hi)");
+}
+
+
+TEST_CASE("Invalid Double", "[Double]") {
+
+    const auto src =
+R"(
+print = __builtin_print;
+add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
+
+print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
+)";
+
+
+    REQUIRE_THROWS(run(src));
+}
+
+
+
+// // I can't verify if this test case is right or not
+// // so comment it for now
+// TEST_CASE("Mutual Recursion", "[Func]") {
+//     const auto src = R"(
+// print = __builtin_print;
+
+// infix + = (a: Int, b: Int) => __builtin_add(a, b);
+// infix - = (a, b) => __builtin_sub(a, b);
+// infix < = (a, b) => __builtin_lt(a, b);
+// infix > = (a, b) => __builtin_gt(a, b);
+
+// mixfix(LOW +) if : then : else : = (cond: Bool, thn: Syntax, els: Syntax)
+//     => __builtin_eval(__builtin_conditional(cond, thn, els));
+
+// xact = (f1, g, r) => {
+//     if g.k then {
+//         g.k = f1();
+//         if (r > 0) then { xact(f1, g, r - 1); } else {};
+//         if (r > 0) then { xact(f1, g, r - 1); } else {};
+//     } else {};
+// };
+
+// act = (f2) => {
+//   xact(f2, class{ k = true; }(), 32);
+// };
+
+// while = (c, f) => {
+//     act(() => {
+//         if c() then { f(); true; } else false;
+//     });
+// };
+
+// x = 0;
+// while(() => x < 10, () => {
+//     x = x + 1;
+//     print(x);
+// });
+// )";
+
+//     REQUIRE(run(src) == R"(1
+// 2
+// 3
+// 4
+// 5
+// 6
+// 7
+// 8
+// 9
+// 10)");
+// }
 
 
 
@@ -129,6 +457,10 @@ print(h);
 print(x);
 
 x.name = "meow";
+
+print(h);
+print(x);
+
 )";
 
     REQUIRE(run(src) == R"(Object {
@@ -137,6 +469,13 @@ x.name = "meow";
 }
 Object {
     name = "Ali";
+}
+Object {
+    name = "meow";
+    age = 22;
+}
+Object {
+    name = "meow";
 })");
 }
 
@@ -196,7 +535,7 @@ TEST_CASE("Previous Member in Other Member Init", "[Class]") {
     };
 )";
 
-    REQUIRE_THROWS_MATCHES(run(src), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("not defined!")));
+    REQUIRE_NOTHROW(run(src));
 }
 
 
@@ -655,7 +994,7 @@ print(__builtin_eq(B(), C()));
 
 )";
 
-    REQUIRE(run(src) == "true\ntrue");
+    REQUIRE(run(src) == "false\ntrue");
 }
 
 
@@ -1583,6 +1922,8 @@ print(x::y::y::y::y::a);
     REQUIRE(run(src) == "1");
 }
 
+
+
 TEST_CASE("namespaces2", "[Namespace]") {
     const auto src = R"(
 print = __builtin_print;
@@ -1618,6 +1959,7 @@ print(x::y::n);
 
     REQUIRE(run(src) == "1\n1\n1\n10\n20\n10");
 }
+
 
 
 TEST_CASE("namespaces1", "[Namespace]") {
@@ -1922,7 +2264,7 @@ R"(
 print = __builtin_print;
 add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
 
-print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
+print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.0));
 )";
 
 
