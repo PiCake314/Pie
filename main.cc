@@ -117,6 +117,14 @@ void runFile(
 }
 
 
+void help() {
+    std::cout << "print tokens:        -token" << '\n';
+    std::cout << "print parsed:        -ast"   << '\n';
+    std::cout << "print pre-processed: -pre"   << '\n';
+    std::cout << "don't run program:   -run"   << '\n';
+    std::cout << "print this message:  -help"   << '\n';
+}
+
 int main(int argc, char *argv[]) {
     // if (argc < 2) error("Please pass a file name!");
 
@@ -126,7 +134,8 @@ int main(int argc, char *argv[]) {
     bool print_preprocessed = false;
     bool print_tokens       = false;
     bool print_parsed       = false;
-    bool print_opt          = false;
+    // bool print_opt          = false;
+    bool print_help         = false;
     bool run                = true;
     bool repl               = false;
 
@@ -137,20 +146,26 @@ int main(int argc, char *argv[]) {
         if (argv[1] == "-token"sv) print_tokens       = true ;
         else if (argv[1] == "-ast"sv  ) print_parsed       = true ;
         else if (argv[1] == "-pre"sv  ) print_preprocessed = true ;
-        else if (argv[1] == "-opt"sv  ) print_opt          = true ;
+        // else if (argv[1] == "-opt"sv  ) print_opt          = true ;
+        else if (argv[1] == "-help"sv  ) print_help        = true ;
         else if (argv[1] == "-run"sv  ) run                = false;
         else if (argv[1] == "-repl"sv ) repl               = true ;
         else fname = argv[1];
     }
 
 
-    if (print_opt) {
-        std::cout << std::boolalpha;
-        std::cout << "print tokens:        " << print_tokens       << '\n';
-        std::cout << "print parsed:        " << print_parsed       << '\n';
-        std::cout << "print pre-processed: " << print_preprocessed << '\n';
-        std::cout << "run?                 " << run                << '\n';
-        std::cout << "repl?                " << repl               << std::endl;
+    // if (print_opt) {
+    //     std::cout << std::boolalpha;
+    //     std::cout << "print tokens:        " << print_tokens       << '\n';
+    //     std::cout << "print parsed:        " << print_parsed       << '\n';
+    //     std::cout << "print pre-processed: " << print_preprocessed << '\n';
+    //     std::cout << "run?                 " << run                << '\n';
+    //     std::cout << "repl?                " << repl               << std::endl;
+    // }
+
+    if (print_help) {
+        help();
+        return 0;
     }
 
 
