@@ -72,11 +72,14 @@ struct LexicalAnalysis {
 
 
     void operator()(const expr::Assignment *ass) {
-        addVar(ass->lhs->stringify());
+        const bool is_closure = dynamic_cast<expr::Closure*>(ass->rhs.get());
+        if (is_closure) addVar(ass->lhs->stringify()); // this allows for recursion
 
         std::visit(*this, std::make_shared<expr::Type>(ass->type)->variant());
 
         std::visit(*this, ass->rhs->variant());
+
+        if (not is_closure) addVar(ass->lhs->stringify()); // make sure to add the name if it wasn't added before
     }
 
     // void operator()(const expr::Type *type) {
@@ -87,6 +90,8 @@ struct LexicalAnalysis {
 
 
     void operator()(const expr::Block *b) {
+        if (findVar(b->stringify())) return;
+
         ScopeGuard sg{this};
 
         for (const auto& e : b->lines)
@@ -94,6 +99,8 @@ struct LexicalAnalysis {
     }
 
     void operator()(const expr::Closure *c) {
+        if (findVar(c->stringify())) return;
+
         ScopeGuard sg{this};
 
         for (const auto& param : c->params)
@@ -103,6 +110,8 @@ struct LexicalAnalysis {
     }
 
     void operator()(const expr::Call *call) {
+        if (findVar(call->stringify())) return;
+
         std::visit(*this, call->func->variant());
 
         for (const auto& [_, named_arg] : call->named_args)
@@ -114,34 +123,48 @@ struct LexicalAnalysis {
     }
 
     void operator()(const expr::List *list) {
+        if (findVar(list->stringify())) return;
+
         for (const auto& e : list->elements)
             std::visit(*this, e->variant());
     }
 
     void operator()(const expr::Map *map) {
+        if (findVar(map->stringify())) return;
+
         for (const auto& [key, value] : map->items)
             std::visit(*this, key->variant()), std::visit(*this, value->variant());
     }
 
     void operator()(const expr::Expansion *e) {
+        if (findVar(e->stringify())) return;
+
         std::visit(*this, e->pack->variant());
     }
 
     void operator()(const expr::UnaryFold *fold) {
+        if (findVar(fold->stringify())) return;
+
         std::visit(*this, fold->pack->variant());
     }
 
     void operator()(const expr::SeparatedUnaryFold *fold) {
+        if (findVar(fold->stringify())) return;
+
         std::visit(*this, fold->lhs->variant());
         std::visit(*this, fold->rhs->variant());
     }
 
     void operator()(const expr::BinaryFold *fold) {
+        if (findVar(fold->stringify())) return;
+
         std::visit(*this, fold->pack->variant());
         std::visit(*this, fold->init->variant());
     }
 
     void operator()(const expr::Class *cls) {
+        if (findVar(cls->stringify())) return;
+
         ScopeGuard sg{this};
         addVar("self");
 
@@ -155,6 +178,8 @@ struct LexicalAnalysis {
     }
 
     void operator()(const expr::Union *onion) {
+        if (findVar(onion->stringify())) return;
+
         ScopeGuard sg{this};
 
         for (const auto& type : onion->types) {
@@ -189,6 +214,8 @@ struct LexicalAnalysis {
 
 
     void operator()(const expr::Match *match) {
+        if (findVar(match->stringify())) return;
+
         ScopeGuard sg{this};
 
         std::visit(*this, match->expr->variant());
@@ -207,6 +234,8 @@ struct LexicalAnalysis {
 
 
     void operator()(const expr::Loop *loop) {
+        if (findVar(loop->stringify())) return;
+
         ScopeGuard sg{this};
 
         if (loop->kind) std::visit(*this, loop->kind->variant());
@@ -216,8 +245,17 @@ struct LexicalAnalysis {
     }
 
 
-    void operator()(const expr::Break    *br  ) { std::visit(*this, br  ->expr->variant()); }
-    void operator()(const expr::Continue *cont) { std::visit(*this, cont->expr->variant()); }
+    void operator()(const expr::Break    *br  ) {
+        if (findVar(br->stringify())) return;
+
+        std::visit(*this, br  ->expr->variant());
+    }
+
+    void operator()(const expr::Continue *cont) {
+        if (findVar(cont->stringify())) return;
+
+        std::visit(*this, cont->expr->variant());
+    }
 
 
     void operator()(const expr::Access *acc) {
@@ -230,40 +268,67 @@ struct LexicalAnalysis {
 
 
     void operator()(const expr::Namespace *ns) {
+        if (findVar(ns->stringify())) return;
+
         for (const auto& expr : ns->expressions) 
             std::visit(*this, expr->variant());
     }
 
 
-    void operator()(const expr::Use *use) { std::visit(*this, use->ns->variant()); }
+    void operator()(const expr::Use *use) {
+        if (findVar(use->stringify())) return;
 
-
-    void operator()(const expr::SpaceAccess *acc) {
-        checkName(acc->member);
-        if (acc->space) // in case of global ns access `::x`
-            std::visit(*this, acc->space->variant());
+        std::visit(*this, use->ns->variant());
     }
 
 
-    void operator()(const expr::Grouping *group) { std::visit(*this, group->expr->variant()); }
+    void operator()(const expr::SpaceAccess *acc) {
+        if (acc->space) // in case of global ns access `::x`
+            std::visit(*this, acc->space->variant());
+
+        checkName(acc->member);
+    }
 
 
-    void operator()(const expr::UnaryOp *up) { std::visit(*this, up->expr->variant()); }
+    void operator()(const expr::Grouping *group) {
+        if (findVar(group->stringify())) return;
+
+        std::visit(*this, group->expr->variant());
+    }
+
+
+    void operator()(const expr::UnaryOp *up) {
+        if (findVar(up->stringify())) return;
+
+        std::visit(*this, up->expr->variant());
+    }
 
 
     void operator()(const expr::BinOp *bp) {
+        if (findVar(bp->stringify())) return;
+
         std::visit(*this, bp->lhs->variant());
         std::visit(*this, bp->rhs->variant());
     }
 
 
-    void operator()(const expr::PostOp   *pp) { std::visit(*this, pp->expr->variant()); }
+    void operator()(const expr::PostOp   *pp) {
+        if (findVar(pp->stringify())) return;
+
+        std::visit(*this, pp->expr->variant());
+    }
 
 
-    void operator()(const expr::CircumOp *cp) { std::visit(*this, cp->expr->variant()); }
+    void operator()(const expr::CircumOp *cp) {
+        if (findVar(cp->stringify())) return;
+
+        std::visit(*this, cp->expr->variant());
+    }
 
 
     void operator()(const expr::OpCall *oc) {
+        if (findVar(oc->stringify())) return;
+
         for (const auto& expr : oc->exprs)
             std::visit(*this, expr->variant());
     }
