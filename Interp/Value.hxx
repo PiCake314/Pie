@@ -16,17 +16,19 @@
 inline namespace pie {
 inline namespace value {
 
+struct Fields;
+struct ClassValue { std::shared_ptr<Fields> blueprint; };
+
 struct Members;
-struct ClassValue { std::shared_ptr<Members> blueprint; };
 struct NameSpace  { std::shared_ptr<Members> members  ; };
 
 struct Elements;
 struct ListValue { std::shared_ptr<Elements> elts; };
+using PackList = std::shared_ptr<Elements>;
 
 struct Items;
 struct MapValue { std::shared_ptr<Items> items; };
 
-using PackList = std::shared_ptr<Elements>;
 
 
 using VariantType = std::variant<
@@ -65,9 +67,10 @@ struct std::hash<Value> { size_t operator()(const pie::value::Value& value) cons
 inline namespace pie {
 inline namespace value {
 
-struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members; };
-struct Elements { std::vector<Value> values;                                         };
-struct Items    { std::unordered_map<Value, Value> map;                              };
+struct Fields   { std::vector<std::tuple<expr::Name, type::TypePtr, expr::ExprPtr  >> fields;  };
+struct Members  { std::vector<std::tuple<expr::Name, type::TypePtr, value::ValuePtr>> members; };
+struct Elements { std::vector<Value> values;                                                   };
+struct Items    { std::unordered_map<Value, Value> map;                                        };
 
 
 template <typename ...Ts>

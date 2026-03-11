@@ -194,20 +194,20 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     if (std::holds_alternative<type::TypePtr>(lhs) and std::holds_alternative<type::TypePtr>(rhs)) {
 
         if (type::isClass(get<type::TypePtr>(lhs)) and type::isClass(get<type::TypePtr>(rhs))) {
-            const auto a = dynamic_cast<const type::LiteralType&>(*get<type::TypePtr>(lhs).get()).cls->blueprint->members,
-                       b = dynamic_cast<const type::LiteralType&>(*get<type::TypePtr>(rhs).get()).cls->blueprint->members;
+            const auto a = dynamic_cast<const type::LiteralType&>(*get<type::TypePtr>(lhs).get()).cls->blueprint->fields,
+                       b = dynamic_cast<const type::LiteralType&>(*get<type::TypePtr>(rhs).get()).cls->blueprint->fields;
 
             return a.size() == b.size() and
                 std::ranges::all_of(
                     std::views::zip(a, b),
                     [] (const auto& tuple) {
                         const auto& [member1, member2] = tuple;
-                        const auto& [name1, type1, value1] = member1;
-                        const auto& [name2, type2, value2] = member2;
+                        const auto& [name1, type1, expr1] = member1;
+                        const auto& [name2, type2, expr2] = member2;
 
                         return name1.stringify() == name2.stringify()
                                     and *type1 == *type2
-                                    and *value1 == *value2;
+                                    and expr1->stringify() == expr2->stringify();
                     }
                 );
         }
