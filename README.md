@@ -598,7 +598,7 @@ If something is left un-typed, it will be given the `Any` type.
 Read more about packs in the [packs sections](#packs)
 
 #### Custom Types
-See (Unions)[#unions] and (Classes)[#classes]
+See [Unions](#unions) and [Classes](#classes)
 
 #### Types as Values
 Types are values in Pie. A simple use case to demonstrate this is `Type Aliases`:
