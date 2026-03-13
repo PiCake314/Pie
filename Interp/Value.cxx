@@ -41,8 +41,8 @@ std::string stringify(const Value& value, const size_t indent) {
         s = v ? "true" : "false";
     }
 
-    else if (std::holds_alternative<ssize_t>(value)) {
-        const auto& v = std::get<ssize_t>(value);
+    else if (std::holds_alternative<BigInt>(value)) {
+        const auto& v = std::get<BigInt>(value);
 
         s = std::to_string(v);
     }
@@ -158,7 +158,7 @@ std::string stringify(const Value& value, const size_t indent) {
         s += '}';
     }
 
-    else error("Type not found!");
+    else util::error("Type not found!");
 
     return s;
 }
@@ -175,8 +175,8 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
 
 
 [[nodiscard]] bool operator==(const Value& lhs, const Value& rhs) noexcept {
-    if (std::holds_alternative<ssize_t>(lhs) and std::holds_alternative<ssize_t>(rhs))
-        return get<ssize_t>(lhs) == get<ssize_t>(rhs);
+    if (std::holds_alternative<BigInt>(lhs) and std::holds_alternative<BigInt>(rhs))
+        return get<BigInt>(lhs) == get<BigInt>(rhs);
 
     if (std::holds_alternative<double>(lhs) and std::holds_alternative<double>(rhs))
         return get<double>(lhs) == get<double>(rhs);
@@ -235,7 +235,7 @@ inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
     }
 
     if (std::holds_alternative<expr::Node>(lhs) and std::holds_alternative<expr::Node>(rhs))
-        error("Can't check equality of a Syntax!");
+        util::error("Can't check equality of a Syntax!");
 
     if (std::holds_alternative<PackList>(lhs) and std::holds_alternative<PackList>(rhs))
         return get<PackList>(lhs)->values == get<PackList>(rhs)->values;

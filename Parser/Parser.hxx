@@ -83,9 +83,9 @@ public:
 
                     // most operators are 1 or 2 chars long
                     if (t.text.length() > 2) msg += " Did you, perhaps, forget a ';' on the previous line?";
-                    error(msg + '\n' + expressions.back()->stringify());
+                    util::error(msg + '\n' + expressions.back()->stringify());
                 }
-                expected(TokenKind::SEMI, t);
+                util::expected(TokenKind::SEMI, t);
             }
         }
 
@@ -146,26 +146,19 @@ public:
             case USE:       return std::make_shared<expr::Use>(parseExpr());
 
 
-            // case IMPORT: {
-            //     std::filesystem::path path = root;
+            case IMPORT: {
+                std::filesystem::path path = root;
+                path.append(consume(NAME).text);
 
-            //     do {
-            //         std::string name = consume(NAME).text;
-            //         if (ops.contains(name)) break;
-
-            //         path.append(std::move(name));
-            //     }
-            //     while(match(COLON));
-
-            //     // path.replace_extension(".pie");
-            //     return std::make_shared<expr::Import>(std::move(path));
-            // }
+                // path.replace_extension(".pie");
+                return std::make_shared<expr::Import>(std::move(path));
+            }
 
             // global namespace
             case SCOPE_RESOLVE: {
                 auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+                if (not right_name_ptr) util::error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
                 return std::make_shared<expr::SpaceAccess>(nullptr, std::move(right_name_ptr)->name);
             }
@@ -260,7 +253,7 @@ public:
                     return std::make_shared<expr::List>(std::move(exprs));
                 }
 
-                error();
+                util::error();
             }
 
             // either a grouping or a closure - (or a closure type)
@@ -317,7 +310,7 @@ public:
 
             default:
                 // log(true);
-                error("Couldn't parse \"" + token.text + "\"!");
+                util::error("Couldn't parse \"" + token.text + "\"!");
         }
     }
 
@@ -334,7 +327,7 @@ public:
 
                 //* maybe this could change and i can allow object.1 + 2. :). Just a thought
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
-                if (not accessee_ptr) error("Can only follow a '.' with a name: " + accessee->stringify());
+                if (not accessee_ptr) util::error("Can only follow a '.' with a name: " + accessee->stringify());
 
                 return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr)->name);
             }
@@ -347,18 +340,18 @@ public:
                         dynamic_cast<expr::Namespace*>(left.get())
                     )
                 )
-                    error("Can only space-access names or namespaces: " + left->stringify());
+                    util::error("Can only space-access names or namespaces: " + left->stringify());
 
                 auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+                if (not right_name_ptr) util::error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
                 return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
             }
 
             case COLON: {
                 auto type = parseType();
-                if (not match(ASSIGN)) error();
+                if (not match(ASSIGN)) util::error();
 
                 return std::make_shared<expr::Assignment>(
                     std::move(left),
@@ -385,7 +378,7 @@ public:
                 if (CTX == Context::CALL) return left; // in expansion
                 [[fallthrough]];
 
-            default: error("Couldn't parse \"" + token.text + "\"!!");
+            default: util::error("Couldn't parse \"" + token.text + "\"!!");
         }
     }
 
@@ -395,7 +388,7 @@ public:
         using enum TokenKind;
 
         if (match(ELLIPSIS)) {
-            if constexpr (not ALLOW_VARIADIC) error("Can't have a variadic of a variadic type!");
+            if constexpr (not ALLOW_VARIADIC) util::error("Can't have a variadic of a variadic type!");
 
             return std::make_shared<type::VariadicType>(parseType<false>());
         }
@@ -435,7 +428,7 @@ public:
 
                     if (type::isVariadic(type.params.back())) {
                         if (seen_variadic)
-                            error("Variadic parameters can only appear once in parameter list!");
+                            util::error("Variadic parameters can only appear once in parameter list!");
                         else seen_variadic = true;
                     }
                 }
@@ -531,7 +524,7 @@ public:
             }
 
             if (not (has_name or has_type or has_valu))
-                error("Match expression case doesn't contain a pattern");
+                util::error("Match expression case doesn't contain a pattern");
 
             return std::make_unique<Pattern>(
                 Single {
@@ -608,7 +601,7 @@ public:
             consume(SEMI);
 
             auto ass = dynamic_cast<expr::Assignment*>(expr.get());
-            if (not ass) error("Can only have assignments in class definition!");
+            if (not ass) util::error("Can only have assignments in class definition!");
 
             // const auto& n = dynamic_cast<const expr::Name*>(ass->lhs.get());
             // if (not n) error("Can only assign to names in class definition!");
@@ -704,8 +697,8 @@ public:
 
 
         std::string op = consume().text;
-        if (not ops.contains(op))                error("Folding over unknown operator: " + op);
-        if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+        if (not ops.contains(op))                util::error("Folding over unknown operator: " + op);
+        if (ops[op]->type() != TokenKind::INFIX) util::error("Folding over non-infix operator: " + op);
 
 
         if (match(ELLIPSIS)) {
@@ -758,8 +751,8 @@ public:
         constexpr auto is_left_to_right = false;
 
         std::string op = consume().text;
-        if (not ops.contains(op))                error("Folding over unknown operator: " + op);
-        if (ops[op]->type() != TokenKind::INFIX) error("Folding over non-infix operator: " + op);
+        if (not ops.contains(op))                util::error("Folding over unknown operator: " + op);
+        if (ops[op]->type() != TokenKind::INFIX) util::error("Folding over non-infix operator: " + op);
 
         auto pack = parseExpr(prec::HIGH_VALUE);
 
@@ -829,7 +822,7 @@ public:
 
         for (bool found{}; auto&& type : params_types) {
             if (type::isVariadic(type)) {
-                if  (found) error("Variadic parameters can only appear once in parameter list!");
+                if  (found) util::error("Variadic parameters can only appear once in parameter list!");
                 else found = true;
             }
         }
@@ -859,13 +852,13 @@ public:
                 auto arg = parseExpr<PARSE_TYPE, Context::CALL>();
 
                 if (auto ass = dynamic_cast<expr::Assignment*>(arg.get())) {
-                    if (match(ELLIPSIS)) error("Cannot expand pack in named argument: " + ass->stringify());
+                    if (match(ELLIPSIS)) util::error("Cannot expand pack in named argument: " + ass->stringify());
 
-                    if (not type::shouldReassign(ass->type)) error("Can't have type annotation for named arguments: " + ass->stringify());
+                    if (not type::shouldReassign(ass->type)) util::error("Can't have type annotation for named arguments: " + ass->stringify());
 
                     const auto name = ass->lhs->stringify();
                     if (std::ranges::find_if(named_args, [&name] (auto&& a) { return a.first == name; }) != named_args.end())
-                        error("Named parameter '" + name + "' passed more than once: " + ass->stringify());
+                        util::error("Named parameter '" + name + "' passed more than once: " + ass->stringify());
 
                     named_args[std::move(name)] = std::move(ass)->rhs;
                 }
@@ -926,7 +919,7 @@ public:
                 //* I can fix this. Check if the name is the first or not and error accordingly!
                 case TokenKind::EXFIX: {
                     const auto& op = dynamic_cast<const expr::Exfix*>(ops[token.text].get());
-                    if (token.text != op->name2) error("Open exfix operator found where closing one was expected!");
+                    if (token.text != op->name2) util::error("Open exfix operator found where closing one was expected!");
 
                     return left;
                 }
@@ -939,7 +932,7 @@ public:
                     // error("Beginning operator '" + token.text  + "' found where it shouldn't be!");
                     // in the middle of parsing a OpCall. Do nothing.
                     if (token.text != op->name)  return left;
-                    if (op->op_pos[0]) error("Operator '" + op->name + "' has to come before an expression!");
+                    if (op->op_pos[0]) util::error("Operator '" + op->name + "' has to come before an expression!");
 
 
                     // if (op->begin_expr) error("Operator '" + op->name + " ...' has to come after a name!");
@@ -954,7 +947,7 @@ public:
                         // match will consume the op
                         if (is_op) {
                             if (not match(op->rest[i++]))
-                                error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
+                                util::error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
                         }
                         else exprs.push_back(parseExpr(prec));
                     }
@@ -963,7 +956,7 @@ public:
                     return std::make_shared<expr::OpCall>(op->name, op->rest, std::move(exprs), op->op_pos);
                 }
 
-                default: error("prefix operator used as [inf/suf]fix");
+                default: util::error("prefix operator used as [inf/suf]fix");
             }
         }
 
@@ -982,14 +975,14 @@ public:
 
                 auto ret = std::make_shared<expr::CircumOp>(op->name, op->name2, parseExpr());
 
-                if (not match(op->name2)) error("Exfix operator not closed!");
+                if (not match(op->name2)) util::error("Exfix operator not closed!");
 
                 return ret;
             }
 
             case TokenKind::MIXFIX: {
                 const auto& op = dynamic_cast<const expr::Operator*>(ops[token.text].get());
-                if (not op->op_pos[0]) error("Operator '" + token.text + "' has to come after an expression!");
+                if (not op->op_pos[0]) util::error("Operator '" + token.text + "' has to come after an expression!");
 
                 const int prec = prec::calculate(op->high, op->low, ops);
 
@@ -998,7 +991,7 @@ public:
                     // match will consume the op
                     if (is_op) {
                         if (not match(op->rest[i++]))
-                            error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
+                            util::error("Expected '" + op->rest[i-1] + "', got '" + lookAhead().text + "'!");
                     }
                     else exprs.push_back(parseExpr(prec));
                 }
@@ -1010,7 +1003,7 @@ public:
 
             default:
                 // log();
-                error("[in/suf]fix operator '" + token.text + "' used as [pre/ex]fix");
+                util::error("[in/suf]fix operator '" + token.text + "' used as [pre/ex]fix");
         }
     }
 
@@ -1063,14 +1056,14 @@ public:
 
         // technically I can report this error 2 lines earlier, but printing out the operator name could be very handy!
         if (high == low and (prec::precedenceOf(high, ops) == prec::HIGH_VALUE or prec::precedenceOf(low, ops) == prec::LOW_VALUE))
-            error("Can't have set operator precedence to only LOW/HIGH: " + name);
+            util::error("Can't have set operator precedence to only LOW/HIGH: " + name);
 
 
         consume(ASSIGN);
 
         expr::ExprPtr func = parseExpr();
         expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
-        if (not c) error("[pre/in/suf] fix operator has to be equal to a function!");
+        if (not c) util::error("[pre/in/suf] fix operator has to be equal to a function!");
 
 
         // gotta dry out this part
@@ -1082,25 +1075,25 @@ public:
 
             if (op->type() != token.kind) {
                 std::println(std::cerr, "Overload set for operator '{}' must have the same operator type:", name);
-                expected(op->type(), token.kind);
+                util::expected(op->type(), token.kind);
             }
 
             if (op->high != high or op->low != low)
-                error("Overloaded set of operator '" + name + "' must all have the same precedence!");
+                util::error("Overloaded set of operator '" + name + "' must all have the same precedence!");
         }
 
 
         std::shared_ptr<expr::Fix> p;
         if (token.kind == PREFIX) {
-            if (c->params.size() != 1) error("Prefix operator must be assigned to a unary closure!");
+            if (c->params.size() != 1) util::error("Prefix operator must be assigned to a unary closure!");
             p = std::make_shared<expr::Prefix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{/*std::move(func)*/});
         }
         else if (token.kind == INFIX) {
-            if (c->params.size() != 2) error("Infix operator must be assigned to a binary closure!");
+            if (c->params.size() != 2) util::error("Infix operator must be assigned to a binary closure!");
             p = std::make_shared<expr::Infix> (name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{/*std::move(func)*/});
         }
         else /* if (token.kind == SUFFIX) */ {
-            if (c->params.size() != 1) error("Suffix operator must be assigned to a unary closure!");
+            if (c->params.size() != 1) util::error("Suffix operator must be assigned to a unary closure!");
             p = std::make_shared<expr::Suffix>(name, std::move(high), std::move(low), shift, std::vector<expr::ExprPtr>{/*std::move(func)*/});
         }
 
@@ -1124,8 +1117,8 @@ public:
 
         expr::ExprPtr func = parseExpr();
         expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
-        if (not c) error("Exfix operator has to be equal to a function!");
-        if (c->params.size() != 1) error("Exfix operator must be assigned to a unary closure!");
+        if (not c) util::error("Exfix operator has to be equal to a function!");
+        if (c->params.size() != 1) util::error("Exfix operator must be assigned to a unary closure!");
 
 
         std::shared_ptr<expr::Fix> p = std::make_shared<expr::Exfix>(
@@ -1139,13 +1132,13 @@ public:
 
             if (op->type() != TokenKind::EXFIX) {
                 std::println(std::cerr, "Overload set for operator '{}:{}' must have the same operator type:", name1, name2);
-                expected(op->type(), TokenKind::EXFIX);
+                util::expected(op->type(), TokenKind::EXFIX);
             }
 
             auto ex = dynamic_cast<const expr::Exfix*>(op.get());
 
             if (ex->name != name1 or ex->name2 != name2) {
-                error("Overload set of exfix operator must all have the same operator name '" + ex->name + ':' + ex->name2 + '\'');
+                util::error("Overload set of exfix operator must all have the same operator name '" + ex->name + ':' + ex->name2 + '\'');
             }
 
 
@@ -1185,7 +1178,7 @@ public:
         std::vector<bool> op_pos;
         std::string first;
 
-        if (match(SCOPE_RESOLVE)) error();
+        if (match(SCOPE_RESOLVE)) util::error();
 
         if (match(COLON)) {
             op_pos.push_back(false);
@@ -1211,7 +1204,7 @@ public:
 
         expr::ExprPtr func = parseExpr();
         expr::Closure *c = dynamic_cast<expr::Closure*>(func.get());
-        if (not c) error("Operators have to be equal to a function!");
+        if (not c) util::error("Operators have to be equal to a function!");
 
 
                                     // false == expression parameter
@@ -1229,7 +1222,7 @@ public:
             }
 
             const std::string& n = std::to_string(param_count);
-            error("Operator '" + op_name + "' must be assigned to a closure with " + n + " parameters!");
+            util::error("Operator '" + op_name + "' must be assigned to a closure with " + n + " parameters!");
         }
 
         std::shared_ptr<expr::Fix> p =
@@ -1249,7 +1242,7 @@ public:
             const auto& op = ops[first];
             // op->funcs.push_back(std::move(func));
 
-            if (op->type() != TokenKind::MIXFIX) error(); // ! ADD ERR MSG
+            if (op->type() != TokenKind::MIXFIX) util::error(); // ! ADD ERR MSG
 
             auto arb = dynamic_cast<const expr::Operator*>(op.get());
 
@@ -1260,7 +1253,7 @@ public:
                     break;
                 }
 
-            if (not same) error(); // ! ADD ERR MSG
+            if (not same) util::error(); // ! ADD ERR MSG
 
             return std::make_shared<expr::Operator>(*arb);
         }
@@ -1281,16 +1274,16 @@ public:
 
             if (shift_token.length() == 1){
                 if (shift_token[0] != '+' and shift_token[0] != '-')
-                    error("Can only have '+' or '-' after precedene!");
+                    util::error("Can only have '+' or '-' after precedene!");
                 // if (shift_token.text.find_first_not_of(shift_token.text.front()) != std::string::npos) error("can't have a mix of + and - or any other symbol after precedene!");
 
                 return shift_token[0] == '+' ? 1 : -1;
             }
             else if (shift_token.length() > 1) {
                 if (shift_token[0] == '+' or shift_token[0] == '-')
-                    error("Can only have one +/- after a precedence level");
+                    util::error("Can only have one +/- after a precedence level");
                 else
-                    error("Can only have '+' or '-' after precedene!");
+                    util::error("Can only have '+' or '-' after precedene!");
             }
         }
 
@@ -1312,7 +1305,7 @@ public:
 
 		if (const Token token = lookAhead(); token.kind != exp) [[unlikely]] {
             log();
-            expected(exp, token, loc);
+            util::expected(exp, token, loc);
         }
 
 		return consume();
@@ -1323,7 +1316,7 @@ public:
 
 		if (const Token token = lookAhead(); token.text != exp) [[unlikely]] {
             // log();
-            expected(exp, token, loc);
+            util::expected(exp, token, loc);
         }
 
 		return consume();
@@ -1349,7 +1342,7 @@ public:
 
     Token lookAhead(const size_t distance = 0) {
         while (distance >= red.size()) {
-            if (atEnd()) error("out of token!");
+            if (atEnd()) util::error("out of token!");
             red.push_back(*token_iterator++);
         }
 

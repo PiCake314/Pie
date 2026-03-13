@@ -5,6 +5,7 @@
 #include <variant>
 
 
+inline namespace pie {
 
 namespace type {
 
@@ -318,3 +319,4 @@ namespace type {
     }
 
 } // namespace type
+} // namespace pie

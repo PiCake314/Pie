@@ -13,6 +13,9 @@
 #include "../Interp/Interpreter.hxx"
 
 
+inline namespace pie {
+namespace test {
+
 struct Capture {
     int oldfd{-1}; FILE* tmp{nullptr}; std::string s; bool stopped{false};
 
@@ -92,4 +95,9 @@ std::string run(const char* src) {
 
     return c.stop();
 }
+
+
+
+} // namespace test
+} // namespace pie
 

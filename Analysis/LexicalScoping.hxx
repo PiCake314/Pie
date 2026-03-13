@@ -285,8 +285,7 @@ struct LexicalAnalysis {
     void operator()(const expr::SpaceAccess *acc) {
         if (acc->space) // in case of global ns access `::x`
             std::visit(*this, acc->space->variant());
-
-        checkName(acc->member);
+        else checkName(acc->member);
     }
 
 

@@ -1,6 +1,9 @@
 #pragma once
 
 #include <iostream>
+#include <fstream>
+#include <string>
+#include <sstream>
 #include <source_location>
 #include <unordered_map>
 #include <variant>
@@ -15,7 +18,7 @@
 
 
 inline namespace pie {
-inline namespace util {
+namespace util {
 
 
 template <typename Except = std::runtime_error, bool print_loc = true>
@@ -63,6 +66,20 @@ struct Deferred {
 
 template <typename F>
 Deferred(F) -> Deferred<F>;
+
+
+
+
+[[nodiscard]] inline std::string readFile(const std::string& fname) {
+    const std::ifstream fin{fname};
+
+    if (not fin.is_open()) error("File \"" + fname + " \" not found!");
+
+    std::stringstream ss;
+    ss << fin.rdbuf();
+
+    return ss.str();
+}
 
 
 } // namespace util

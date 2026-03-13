@@ -5,6 +5,7 @@
 
 #include <numeric>
 
+inline namespace pie {
 
 namespace prec {
   inline constexpr auto BASE = 1 << 10; // 1024
@@ -109,7 +110,7 @@ namespace prec {
     if (p == "HIGH")
       return HIGH_VALUE;
 
-    if (not ops.contains(p)) error('\'' + p + "' does not name any operator name or precedende level!");
+    if (not ops.contains(p)) pie::util::error('\'' + p + "' does not name any operator name or precedende level!");
 
     const auto& op = ops.at(p);
     return std::midpoint(precedenceOf(op->high, ops), precedenceOf(op->low, ops));
@@ -139,17 +140,17 @@ namespace prec {
     if (p == "[]" or p == "?")                          return "()";
     if (p == "()")                                      return "::";
     if (p == "::")                                      return "HIGH";
-    if (p == "HIGH") error("Can't go higher than HIGH!");
+    if (p == "HIGH") pie::util::error("Can't go higher than HIGH!");
 
     // should I assume it already contains?
-    if (not ops.contains(p)) error('\'' + p + "' not name any precedende level or operator!");
+    if (not ops.contains(p)) pie::util::error('\'' + p + "' not name any precedende level or operator!");
 
     const auto& op = ops.at(p);
     return op->high == op->low ? higher(op->low /*or op->high*/, ops) : op->high;
   }
 
   inline std::string lower(const std::string& p, const Operators& ops) {
-    if (p == "LOW") error("Can't go lower than LOW!");
+    if (p == "LOW") pie::util::error("Can't go lower than LOW!");
     if (p == "=")                                       return "LOW";
     if (p == "..")                                      return "=";
     if (p == "||")                                      return "..";
@@ -171,8 +172,10 @@ namespace prec {
 
 
     //? should I assume it already contains?
-    if (not ops.contains(p)) error('\'' + p + "' not name any precedende level or operator!");
+    if (not ops.contains(p)) pie::util::error('\'' + p + "' not name any precedende level or operator!");
     const auto& op = ops.at(p);
     return op->high == op->low ? lower(op->high /*or op->high*/, ops) : op->low;
   }
-}
+
+} // namespace prec
+} // namespace pue

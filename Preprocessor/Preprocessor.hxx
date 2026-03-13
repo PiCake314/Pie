@@ -10,6 +10,7 @@
 #include <ranges>
 #include <stdexcept>
 
+inline namespace pie {
 
 [[nodiscard]] inline std::string readFile2(const std::string& fname) {
     const std::ifstream fin{fname};
@@ -126,3 +127,6 @@ template <bool REPL>
 std::string preprocess(std::string src, const std::filesystem::path& root) {
     return process<REPL>(removeComments(std::move(src)), root);
 }
+
+
+} // namespace pie

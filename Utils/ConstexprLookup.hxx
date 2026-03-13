@@ -115,7 +115,7 @@ Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto
         std::clog << c;
     puts("\nArgs:");
     that->print(args[0]);
-    error("Wrong type passed to function!");
+    pie::util::error("Wrong type passed to function!");
 }
 
 template <size_t SIZE, size_t N = 0, ConstexprString NAME, typename... Ts>
@@ -153,7 +153,7 @@ Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto
         std::string msg = "Wrong type passed to function: ";
         for (const auto c : NAME)
             msg += c;
-        error(msg);
+        pie::util::error(msg);
     }
 }
 
@@ -200,5 +200,5 @@ Value execute(Func<NAME, Ts...> func, const std::vector<Value>& args, const auto
 
     }
 
-    else error("Wrong type passed to function!");
+    else pie::util::error("Wrong type passed to function!");
 }

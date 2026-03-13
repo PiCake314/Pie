@@ -642,23 +642,24 @@ struct Use : Expr {
     Node variant() const override { return this; }
 };
 
-// struct Import : Expr {
-//     std::filesystem::path path;
+struct Import : Expr {
+    std::filesystem::path path;
 
-//     explicit Import(std::filesystem::path p) noexcept
-//     : path{std::move(p)} {}
+    explicit Import(std::filesystem::path p) noexcept
+    : path{std::move(p)} {}
 
-//     std::string stringify(const size_t = 0) const override {
-//         std::string s;
-//         for (const char c : path.string())
-//             s.push_back(c == '/' ? '.' : c);
+    std::string stringify(const size_t = 0) const override {
+        std::string s;
+        for (const char c : path.string())
+            s.push_back(c == '/' ? '.' : c);
 
-//         return "import " + s;
-//     }
+        return "import " + s;
+    }
 
+    bool involvesName(const std::string_view) const override { return false; }
 
-//     Node variant() const override { return this; }
-// };
+    Node variant() const override { return this; }
+};
 
 
 struct SpaceAccess : Expr {
@@ -891,7 +892,7 @@ struct Closure : Expr {
 
     Closure(std::vector<std::string> ps, ExprPtr b, type::FuncType t)
     : params{std::move(ps)}, body{std::move(b)}, type{std::move(t)} {
-        if(ps.size() != t.params.size()) error(); // should never happen anyway
+        if(ps.size() != t.params.size()) util::error(); // should never happen anyway
     }
 
 
@@ -1140,7 +1141,7 @@ struct Operator : Fix {
     // begin_expr{begin}, end_expr{end}
     {
         if (size_t(std::ranges::count(op_pos, true)) != rest.size() + 1)// + 1 for first
-            error("ERROR!! This should never happen..,");
+            util::error("ERROR!! This should never happen..,");
     }
 
 

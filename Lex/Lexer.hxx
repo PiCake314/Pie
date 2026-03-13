@@ -36,9 +36,9 @@ inline TokenKind keyword(const std::string_view word) noexcept {
     else if (word == "continue") return CONTINUE;
 
     // pre-processor handles imports
-    // else if (word == "import"   ) return IMPORT;
+    else if (word == "import") return IMPORT;
     // else if (word == "namespace") return NAMESPACE;
-    else if (word == "space") return NAMESPACE;
+    else if (word == "space" ) return NAMESPACE;
 
     // which one is nicer..?
     else if (word == "use") return USE;
@@ -103,7 +103,7 @@ inline bool validNameChar(const char c) noexcept {
     for (size_t index{}; index < src.length(); ++index) {
         // if (isspace(src[index])) continue;
 
-        try{
+        try {
         switch (src[index]) {
             using enum TokenKind;
 
@@ -222,7 +222,7 @@ inline bool validNameChar(const char c) noexcept {
                     lines.back().push_back({ELLIPSIS, {src[index], src[++index], src[++index]}});
                 else if (src[index + 1] == '.')
                     // lines.back().push_back({CASCADE , {src[index], src[++index],             }});
-                    error();
+                    util::error();
                 else
                     lines.back().push_back({DOT, {src[index]}});
 
@@ -273,12 +273,13 @@ inline bool validNameChar(const char c) noexcept {
             //     for (auto&& tok : line)
             //         std::cout << tok << '\n';
 
-            error("Lexing Error!");
+            util::error("Lexing Error!");
         }
 
     }
 
-    if (not lines.empty() and not lines.back().empty() and lines.back().back().kind != TokenKind::SEMI) error("Last line doesn't end with a ';'!");
+    if (not lines.empty() and not lines.back().empty() and lines.back().back().kind != TokenKind::SEMI)
+        util::error("Last line doesn't end with a ';'!");
 
 
     if (lines.size() > 1) {

@@ -41,7 +41,7 @@ enum class TokenKind {
     LOOP,
     BREAK,
     CONTINUE,
-    // IMPORT,
+    IMPORT,
     NAMESPACE,
     USE,
 
@@ -94,7 +94,7 @@ constexpr const char* stringify(const TokenKind token) noexcept {
         case BREAK   :      return "BREAK";
         case CONTINUE:      return "CONTINUE";
 
-        // case IMPORT:        return "IMPORT";
+        case IMPORT:        return "IMPORT";
         case NAMESPACE:     return "NAMESPACE";
         case USE:           return "USE";
     }

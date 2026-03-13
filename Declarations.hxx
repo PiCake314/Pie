@@ -3,6 +3,12 @@
 #include <memory>
 #include <string_view>
 
+#ifdef WEB_PIE
+using BigInt = long long;
+#else
+using BigInt = ssize_t;
+#endif
+
 inline namespace pie {
 
 namespace expr {
@@ -34,7 +40,7 @@ using Node = std::variant<
     // const struct Cascade           *,
     const struct Namespace         *,
     const struct Use               *,
-    // const struct Import               *,
+    const struct Import               *,
     const struct SpaceAccess       *,
     const struct Grouping          *,
     const struct UnaryOp           *,

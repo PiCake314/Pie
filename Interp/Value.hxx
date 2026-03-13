@@ -32,7 +32,8 @@ struct MapValue { std::shared_ptr<Items> items; };
 
 
 using VariantType = std::variant<
-    ssize_t,
+    // ssize_t,
+    BigInt,
     double,
     bool,
     std::string,

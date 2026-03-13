@@ -27,6 +27,7 @@ namespace except {
 
     DefineError(TypeMismatch);
     DefineError(NameLookup  );
+    DefineError(InvalidArgument  );
 }
 
 

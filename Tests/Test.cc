@@ -22,7 +22,7 @@ x = 1 L3 2 p 3;
 __builtin_print(x);
 )";
 
-    REQUIRE(run(src1) == "0");
+    REQUIRE(pie::test::run(src1) == "0");
 }
 
 
@@ -40,7 +40,7 @@ func = (T, x: ...T) => 0;
 callFunc(func);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 }
 
 
@@ -59,7 +59,7 @@ func(2.1, 5.4, 9.8, Int, 1);
 
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 
 
     const auto src2 = R"(
@@ -74,7 +74,7 @@ func = getFunc();
 func(true, Int, 1, 2, 3);
 )";
 
-    REQUIRE_NOTHROW(run(src2));
+    REQUIRE_NOTHROW(pie::test::run(src2));
 }
 
 
@@ -91,7 +91,7 @@ func = getFunc();
 func(2.1, Int, 1);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 }
 
 
@@ -109,7 +109,7 @@ f(func1, 3);
 f(func2, 3);
 )";
 
-    REQUIRE(run(src1) == "Hello\nHello");
+    REQUIRE(pie::test::run(src1) == "Hello\nHello");
 }
 
 
@@ -121,7 +121,7 @@ func(Int, 1, 2, 3, "meow", 3.14);
 func(Bool, true, false, "meow", 3.14);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 
 
     const auto src2 = R"(
@@ -130,7 +130,7 @@ func = (T: Type, args: ...T, w, z) => 1;
 func(Int, 1, "", 2, 3);
 )";
 
-    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src2), pie::except::TypeMismatch);
 
 
     const auto src3 = R"(
@@ -141,7 +141,7 @@ call = (args: ...Any) => func(Int, args...);
 call(1, 2, 3);
 )";
 
-    REQUIRE_NOTHROW(run(src3));
+    REQUIRE_NOTHROW(pie::test::run(src3));
 
 
     const auto src4 = R"(
@@ -152,7 +152,7 @@ call = (args: ...Any) => func(Int, args...);
 call(true, false, 3.14, 2);
 )";
 
-    REQUIRE_THROWS_AS(run(src4), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src4), pie::except::TypeMismatch);
 }
 
 
@@ -165,7 +165,7 @@ func(Double, 1.2, 3);
 func(Int, 1, 3);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 }
 
 
@@ -189,7 +189,7 @@ f(func);
 
 )";
 
-    REQUIRE_THROWS_AS(run(src1), pie::except::NameLookup);
+    REQUIRE_THROWS_AS(pie::test::run(src1), pie::except::NameLookup);
 }
 
 
@@ -210,7 +210,7 @@ hi
 x = 2;
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 }
 
 
@@ -232,7 +232,7 @@ print(x);
 print(y);
 )";
 
-    REQUIRE(run(src) == R"(5
+    REQUIRE(pie::test::run(src) == R"(5
 Object {
     x = 5;
     y = 25;
@@ -258,7 +258,7 @@ func(1, true, false, true, true, "what");
 )";
 
 
-    REQUIRE(run(src1) == "true, false, true, true");
+    REQUIRE(pie::test::run(src1) == "true, false, true, true");
 
 
     const auto src2 =
@@ -270,7 +270,7 @@ func(1, false, "what");
 )";
 
 
-    REQUIRE(run(src2) == "1 false what");
+    REQUIRE(pie::test::run(src2) == "1 false what");
 
 
     const auto src3 =
@@ -282,7 +282,7 @@ func(1, 2, 3);
 )";
 
 
-    REQUIRE_THROWS_AS(run(src3), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src3), pie::except::TypeMismatch);
 
 
     const auto src4 =
@@ -294,7 +294,7 @@ func(1, true, 3);
 )";
 
 
-    REQUIRE_THROWS_AS(run(src4), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src4), pie::except::TypeMismatch);
 }
 
 
@@ -315,7 +315,7 @@ __builtin_print(2.1);
 )";
 
 
-    REQUIRE(run(src1) == "hi\n2.100000");
+    REQUIRE(pie::test::run(src1) == "hi\n2.100000");
 
 
 
@@ -329,7 +329,7 @@ __builtin_print(2.1.x);
 )";
 
 
-    REQUIRE(run(src2) ==
+    REQUIRE(pie::test::run(src2) ==
 R"(Object {
     x = "hi";
 }
@@ -348,7 +348,7 @@ print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
 )";
 
 
-    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS(pie::test::run(src));
 }
 
 
@@ -392,7 +392,7 @@ print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.));
 // });
 // )";
 
-//     REQUIRE(run(src) == R"(1
+//     REQUIRE(pie::test::run(src) == R"(1
 // 2
 // 3
 // 4
@@ -425,7 +425,7 @@ changeName(h);
 print(h);
 )";
 
-    REQUIRE(run(src) == R"(Object {
+    REQUIRE(pie::test::run(src) == R"(Object {
     name = "hi";
     age = 0;
 }
@@ -448,7 +448,7 @@ a = A();
 print(__builtin_eq(f(a), a));
 )";
 
-    REQUIRE(run(src) == "true");
+    REQUIRE(pie::test::run(src) == "true");
 }
 
 
@@ -481,7 +481,7 @@ print(x);
 
 )";
 
-    REQUIRE(run(src) == R"(Object {
+    REQUIRE(pie::test::run(src) == R"(Object {
     name = "Ali";
     age = 22;
 }
@@ -511,7 +511,7 @@ C = class {
 C(10).func();
 )";
 
-    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+    REQUIRE_THROWS_AS(pie::test::run(src), pie::except::NameLookup);
 }
 
 
@@ -526,7 +526,7 @@ func2();
 
 )";
 
-    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+    REQUIRE_THROWS_AS(pie::test::run(src), pie::except::NameLookup);
 }
 
 
@@ -539,7 +539,7 @@ TEST_CASE("Mutual Rec still Valid in Class Definition", "[Class]") {
     };
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -553,7 +553,7 @@ TEST_CASE("Previous Member in Other Member Init", "[Class]") {
     };
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -576,7 +576,7 @@ match c {
 };
 )";
 
-    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+    REQUIRE_THROWS_AS(pie::test::run(src), pie::except::NameLookup);
 }
 
 
@@ -598,7 +598,7 @@ match c {
 };
 )";
 
-    REQUIRE_THROWS_AS(run(src), pie::except::NameLookup);
+    REQUIRE_THROWS_AS(pie::test::run(src), pie::except::NameLookup);
 }
 
 
@@ -612,7 +612,7 @@ U = union {
 __builtin_print(U);
 )";
 
-    REQUIRE(run(src) == R"(union { Int; Int; })");
+    REQUIRE(pie::test::run(src) == R"(union { Int; Int; })");
 }
 
 
@@ -629,7 +629,7 @@ f = (x, y: type(x), z: type(y)) => 2;
 f(1, 2, 3);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 
     const auto src2 = R"(
 type = __builtin_type_of;
@@ -638,7 +638,7 @@ f = (x, y: type(x), z: type(y)) => 3;
 f("1", "2", 3);
 )";
 
-    REQUIRE_THROWS(run(src2));
+    REQUIRE_THROWS(pie::test::run(src2));
 }
 
 
@@ -648,14 +648,14 @@ TEST_CASE("Self 2", "[Class][Var]") {
     __builtin_print(self);
 )";
 
-    REQUIRE(run(src1) == R"(5)");
+    REQUIRE(pie::test::run(src1) == R"(5)");
 
 
     const auto src2 = R"(
     __builtin_print(self);
 )";
 
-    REQUIRE_THROWS(run(src2));
+    REQUIRE_THROWS(pie::test::run(src2));
 }
 
 
@@ -672,7 +672,7 @@ Human = class {
 Human("x", 2).printSelf();
 )";
 
-    REQUIRE(run(src) == R"(Object {
+    REQUIRE(pie::test::run(src) == R"(Object {
     name = "x";
     age = 2;
     printSelf = (): Any => __builtin_print(self);
@@ -688,7 +688,7 @@ f = (x: Int): Int => x;
 f(5);
 )";
 
-    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS(pie::test::run(src));
 }
 
 TEST_CASE("Types as Values", "[Func][Type]") {
@@ -698,7 +698,7 @@ f: (Int, Double): String = (a, b) => 1;
 f(4, false);
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 TEST_CASE("Lazy Function Return Type", "[Func][Param][Type]") {
@@ -707,7 +707,7 @@ f = (T): T => 1;
 f(Int);
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -725,7 +725,7 @@ X = Bool;
 func(House2(), 1, 1);
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -735,7 +735,7 @@ TEST_CASE("Function Type Checking", "[Func][Type]") {
 func: (Int): Bool = (x: Int, s: String): Bool => true;
 )";
 
-    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS(pie::test::run(src));
 }
 
 
@@ -749,7 +749,7 @@ func(String, "hi");
 func(String, 4);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 
     const auto src2 = R"(
 infix + = (a, b) => __builtin_add(a, b);
@@ -759,7 +759,7 @@ func = (1 + 2, x: (1 + 2) | 4) => x;
 func(String, 1 + 2);
 )";
 
-    REQUIRE_THROWS(run(src2));
+    REQUIRE_THROWS(pie::test::run(src2));
 }
 
 
@@ -770,7 +770,7 @@ TEST_CASE("Leaky Argument 2", "[Func][Param][Type]") {
     func2(T);
 )";
 
-    REQUIRE_THROWS(run(src1));
+    REQUIRE_THROWS(pie::test::run(src1));
 }
 
 
@@ -780,7 +780,7 @@ func = (T, x: T) => __builtin_print(x);
 func(Int, 1);
 )";
 
-    REQUIRE(run(src1) == "1");
+    REQUIRE(pie::test::run(src1) == "1");
 
 
     const auto src2 = R"(
@@ -788,7 +788,7 @@ func = (T, x: T) => __builtin_print(x);
 func(Int, T);
 )";
 
-    REQUIRE_THROWS_WITH(run(src2), Catch::Matchers::ContainsSubstring("not found"));
+    REQUIRE_THROWS_WITH(pie::test::run(src2), Catch::Matchers::ContainsSubstring("not found"));
 }
 
 
@@ -800,7 +800,7 @@ func = (x: MoreThan10): LessThan20 => __builtin_add(x, 5);
 func("meow");
 )";
 
-    REQUIRE_THROWS_AS(run(src), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src), pie::except::TypeMismatch);
 }
 
 
@@ -813,14 +813,14 @@ func = (x: MoreThan10): LessThan20 => __builtin_add(x, 5);
 func(13);
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 
     const auto src2 = R"(
 MoreThan10 = (x: Int) => __builtin_gt(x, 10);
 a: MoreThan10 = 5;
 )";
 
-    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src2), pie::except::TypeMismatch);
 
     const auto src3 = R"(
 MoreThan10 = (x: Int) => __builtin_gt(x, 10);
@@ -829,7 +829,7 @@ func = (x: MoreThan10): LessThan20 => __builtin_add(x, 5);
 func(17);
 )";
 
-    REQUIRE_THROWS_AS(run(src3), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src3), pie::except::TypeMismatch);
 }
 
 
@@ -841,13 +841,13 @@ v: {Type} = {Bool};
 x: v = {Bool};
 )";
 
-    REQUIRE_NOTHROW(run(src1));
+    REQUIRE_NOTHROW(pie::test::run(src1));
 
     const auto src2 = R"(
 x: {Bool} = {Bool};
 )";
 
-    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src2), pie::except::TypeMismatch);
 }
 
 
@@ -862,7 +862,7 @@ new_closure(1000);
 )";
 
 
-    REQUIRE(run(src) == "10 1 2 1000");
+    REQUIRE(pie::test::run(src) == "10 1 2 1000");
 }
 
 
@@ -889,7 +889,7 @@ y = false;
 print(y);
 )";
 
-    REQUIRE(run(src1) == R"({5, 6}
+    REQUIRE(pie::test::run(src1) == R"({5, 6}
 {1, 2, 3}
 1
 hi
@@ -902,13 +902,13 @@ l2 = {5, 6};
 x: union { l1; l2; } = {1, 2, 3, 5, 6};
 )";
 
-    REQUIRE_THROWS_AS(run(src2), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src2), pie::except::TypeMismatch);
 
     const auto src3 = R"(
 y: union { 1; "hi"; Bool; } = "bye";
 )";
 
-    REQUIRE_THROWS_AS(run(src3), pie::except::TypeMismatch);
+    REQUIRE_THROWS_AS(pie::test::run(src3), pie::except::TypeMismatch);
 }
 
 
@@ -924,7 +924,7 @@ f(Any());
 )";
 
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -953,7 +953,7 @@ ns::printY2();
 )";
 
 
-    REQUIRE(run(src) == R"(1
+    REQUIRE(pie::test::run(src) == R"(1
 2
 2
 2)");
@@ -973,7 +973,7 @@ ns::printY2();
 // )";
 
 // // maybe the first shouldn't be true
-//     REQUIRE(run(src) == R"(true
+//     REQUIRE(pie::test::run(src) == R"(true
 // true
 // Object {
 //     a = 2;
@@ -996,7 +996,7 @@ print(__builtin_eq(A(), A()));
 print(__builtin_eq(x, x));
 )";
 
-    REQUIRE(run(src) == "false\nfalse");
+    REQUIRE(pie::test::run(src) == "false\nfalse");
 }
 
 
@@ -1012,7 +1012,7 @@ print(__builtin_eq(B(), C()));
 
 )";
 
-    REQUIRE(run(src) == "false\ntrue");
+    REQUIRE(pie::test::run(src) == "false\ntrue");
 }
 
 
@@ -1035,7 +1035,7 @@ func("hmm");
 print(o.s);
 )";
 
-    REQUIRE(run(src) == "hmm");
+    REQUIRE(pie::test::run(src) == "hmm");
 }
 
 
@@ -1055,7 +1055,7 @@ func = makeFunc(100);
 func();
 )";
 
-    REQUIRE(run(src) == "2");
+    REQUIRE(pie::test::run(src) == "2");
 }
 
 
@@ -1073,7 +1073,7 @@ func = makeFunc();
 func(Int, 10);
 )";
 
-    REQUIRE(run(src) == R"(Int)");
+    REQUIRE(pie::test::run(src) == R"(Int)");
 }
 
 
@@ -1094,7 +1094,7 @@ func = makeFunc(100);
 func();
 )";
 
-    REQUIRE(run(src) == R"(100
+    REQUIRE(pie::test::run(src) == R"(100
 999
 what!
 what!)");
@@ -1118,7 +1118,7 @@ func();
 
 )";
 
-    REQUIRE(run(src) == R"(z = Fuck
+    REQUIRE(pie::test::run(src) == R"(z = Fuck
 z = 100
 z = 100)");
 }
@@ -1141,7 +1141,7 @@ func();
 
 )";
 
-    REQUIRE(run(src) == R"(z = Fuck
+    REQUIRE(pie::test::run(src) == R"(z = Fuck
 z = Fuck
 z = Fuck)");
 }
@@ -1157,7 +1157,7 @@ func = makeFunc(100);
 func();
 )";
 
-    REQUIRE(run(src) == "100");
+    REQUIRE(pie::test::run(src) == "100");
 }
 
 
@@ -1173,7 +1173,7 @@ func = makeFunc(100);
 func();
 )";
 
-    REQUIRE(run(src) == "100");
+    REQUIRE(pie::test::run(src) == "100");
 }
 
 
@@ -1190,7 +1190,7 @@ func = makeFunc(100);
 func();
 )";
 
-    REQUIRE(run(src) == "999");
+    REQUIRE(pie::test::run(src) == "999");
 }
 
 
@@ -1208,7 +1208,7 @@ func = makeFunc(100);
 func();
 )";
 
-    REQUIRE(run(src) == "what!");
+    REQUIRE(pie::test::run(src) == "what!");
 }
 
 
@@ -1219,7 +1219,7 @@ call = (args: ...Any) => func(args...);
 f = call(Int, 1, "hi");
 )";
 
-    REQUIRE(run(src) == "called with T = Int and a = 1 and x = hi");
+    REQUIRE(pie::test::run(src) == "called with T = Int and a = 1 and x = hi");
 }
 
 
@@ -1231,7 +1231,7 @@ f = func(Type, Int);
 f(1, String);
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -1242,7 +1242,7 @@ func = (T, a: T) => T;
 func(Int, 1);
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -1253,7 +1253,7 @@ func = (T, T: T) => T;
 func(T=Type, T=Int);
 )";
 
-    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS(pie::test::run(src));
 }
 
 
@@ -1264,7 +1264,7 @@ func = (T, T: T) => T;
 func(Type, T=Int);
 )";
 
-    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS(pie::test::run(src));
 }
 
 TEST_CASE("Eager Type Parameters", "[Type]") {
@@ -1274,7 +1274,7 @@ func = (T, T: T) => T;
 func(Type, Int);
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -1287,7 +1287,7 @@ Func = :(Int, Int, Double): Any;
 f: Func = (a: Int, c: Any, b: String): String => "hi";
 )";
 
-    REQUIRE_THROWS(run(src));
+    REQUIRE_THROWS(pie::test::run(src));
 }
 
 
@@ -1302,7 +1302,7 @@ f: Func = (a: Int, c: Any, b: String): String => "hi";
 print(Func);
 )";
 
-    REQUIRE(run(src) == R"((Int, Int, String): Any)");
+    REQUIRE(pie::test::run(src) == R"((Int, Int, String): Any)");
 }
 
 
@@ -1321,7 +1321,7 @@ d = Int;
 func(1.2);
 )";
 
-    REQUIRE(run(src) == R"(1.200000)");
+    REQUIRE(pie::test::run(src) == R"(1.200000)");
 }
 
 
@@ -1334,7 +1334,7 @@ i = d;
 y: i = 1.2;
 )";
 
-    REQUIRE_NOTHROW(run(src));
+    REQUIRE_NOTHROW(pie::test::run(src));
 }
 
 
@@ -1344,8 +1344,8 @@ d = Int;
 x: d = 1.2;
 )";
 
-    REQUIRE_THROWS(run(src));
-    REQUIRE_THROWS_MATCHES(run(src), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+    REQUIRE_THROWS(pie::test::run(src));
+    REQUIRE_THROWS_MATCHES(pie::test::run(src), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
 }
 
 
@@ -1399,7 +1399,7 @@ res = { class { func = (): Int => 1; }: 1 };
 print(res);
 )";
 
-    REQUIRE(run(src) == R"({one: 2}
+    REQUIRE(pie::test::run(src) == R"({one: 2}
 {class { }: 3}
 {4: five}
 {0: (): Any => 1}
@@ -1439,7 +1439,7 @@ print(map2);
 print(list);
 )";
 
-    REQUIRE(run(src) == R"(3
+    REQUIRE(pie::test::run(src) == R"(3
 {1: 3}
 {1: 3}
 {1, 3})");
@@ -1459,7 +1459,7 @@ print(list2);
 print(list3);
 )";
 
-    REQUIRE(run(src) == R"({1}
+    REQUIRE(pie::test::run(src) == R"({1}
 {2}
 {3})");
 }
@@ -1477,7 +1477,7 @@ print(list2);
 print(list3);
 )";
 
-    REQUIRE(run(src) == R"({}
+    REQUIRE(pie::test::run(src) == R"({}
 {}
 {})");
 }
@@ -1492,7 +1492,7 @@ list = {1, "Hi", 3.14, true, class {}};
 loop list => e print(e);
 )";
 
-    REQUIRE(run(src) == R"(1
+    REQUIRE(pie::test::run(src) == R"(1
 Hi
 3.140000
 true
@@ -1551,7 +1551,7 @@ print(13); .: Hi
 print(6 + 7); .: Bye
 )";
 
-    REQUIRE(run(src) == R"(1
+    REQUIRE(pie::test::run(src) == R"(1
 Hello 1
 Hello x
 13
@@ -1568,7 +1568,7 @@ func = (pack: ...Any) => loop pack => __builtin_print(0);
 func(1, "Hi", 3.14);
 )";
 
-    REQUIRE(run(src) == R"(0
+    REQUIRE(pie::test::run(src) == R"(0
 0
 0)");
 }
@@ -1581,7 +1581,7 @@ func = (pack: ...Any) => loop pack => e __builtin_print(e);
 func(1, "Hi", 3.14);
 )";
 
-    REQUIRE(run(src) == R"(1
+    REQUIRE(pie::test::run(src) == R"(1
 Hi
 3.140000)");
 }
@@ -1592,7 +1592,7 @@ TEST_CASE("Looping Over Range Without Loop Var", "[Loop]") {
 loop 5 => __builtin_print("fuck");
 )";
 
-    REQUIRE(run(src) == R"(fuck
+    REQUIRE(pie::test::run(src) == R"(fuck
 fuck
 fuck
 fuck
@@ -1605,7 +1605,7 @@ TEST_CASE("Looping Over Range", "[Loop]") {
 loop 5 => i __builtin_print(i);
 )";
 
-    REQUIRE(run(src) == R"(0
+    REQUIRE(pie::test::run(src) == R"(0
 1
 2
 3
@@ -1631,7 +1631,7 @@ Iota: Type = class {
 loop Iota(10) => num __builtin_print(num);
 )";
 
-    REQUIRE(run(src) == R"(0
+    REQUIRE(pie::test::run(src) == R"(0
 1
 2
 3
@@ -1661,7 +1661,7 @@ printPack = (first, rest: ...Any) => __builtin_conditional(
 printPack("Ali", "Ben", "Con", "Byte");
 )";
 
-    REQUIRE(run(src) == R"(Ali
+    REQUIRE(pie::test::run(src) == R"(Ali
 Ben
 Con
 Byte)");
@@ -1695,7 +1695,7 @@ printList(Node());
 printList(list);
 )";
 
-    REQUIRE(run(src) == R"(Empty List!
+    REQUIRE(pie::test::run(src) == R"(Empty List!
 1
 2
 3)");
@@ -1711,7 +1711,7 @@ func = (args: ...Any) => (args - ... - 10); .: (1 - 10 - 2 - 10 - 3 - 10 - 4)
 print(func(1, 2, 3, 4));
 )";
 
-    REQUIRE(run(src) == R"(-38)");
+    REQUIRE(pie::test::run(src) == R"(-38)");
 }
 
 
@@ -1724,7 +1724,7 @@ func = (args: ...Any) => (10 - ... - args); .: (1 - (10 - (2 - (10 - (3 - (4 - 1
 print(func(1, 2, 3, 4));
 )";
 
-    REQUIRE(run(src) == R"(-8)");
+    REQUIRE(pie::test::run(src) == R"(-8)");
 }
 
 
@@ -1739,7 +1739,7 @@ greet = (greetings: String, names: ...String, delim: String) => greetings + ("Te
 print(greet("Hello ", "Ali", "Ben", "Byt", ", "));
 )";
 
-    REQUIRE(run(src) == R"(Hello Teach, Ali, Ben, Byt!)");
+    REQUIRE(pie::test::run(src) == R"(Hello Teach, Ali, Ben, Byt!)");
 }
 
 
@@ -1753,7 +1753,7 @@ func = (args: ...Any) => (10 - args - ...); .: ((((10 - 1) - 2) - 3) - 4)
 print(func(1, 2, 3, 4));
 )";
 
-    REQUIRE(run(src) == R"(0)");
+    REQUIRE(pie::test::run(src) == R"(0)");
 }
 
 
@@ -1768,7 +1768,7 @@ func = (args: ...Any) => (... - args); .: (1 - (2 - (3 - 4)))
 print(func(1, 2, 3, 4));
 )";
 
-    REQUIRE(run(src) == R"(-2)");
+    REQUIRE(pie::test::run(src) == R"(-2)");
 }
 
 
@@ -1783,7 +1783,7 @@ func = (args: ...Any) => (... - args - 10); .: (1 - (2 - (3 - (4 - 10))))
 print(func(1, 2, 3, 4));
 )";
 
-    REQUIRE(run(src) == R"(8)");
+    REQUIRE(pie::test::run(src) == R"(8)");
 }
 
 
@@ -1797,7 +1797,7 @@ func = (args: ...Any) => (args - ...); .: (((1 - 2) - 3) - 4)
 print(func(1, 2, 3, 4));
 )";
 
-    REQUIRE(run(src) == R"(-8)");
+    REQUIRE(pie::test::run(src) == R"(-8)");
 }
 
 
@@ -1811,7 +1811,7 @@ print(1);
 print(true);
 )";
 
-    REQUIRE(run(src) == R"(hi
+    REQUIRE(pie::test::run(src) == R"(hi
 5)");
 }
 
@@ -1833,7 +1833,7 @@ func = (x: String, x + 2, "hi") => {
 func("meow", "hehe", "bye");
 )";
 
-    REQUIRE(run(src) == R"(meow
+    REQUIRE(pie::test::run(src) == R"(meow
 hehe
 bye)");
 }
@@ -1854,7 +1854,7 @@ print(if ("") { 1; } else { 2; });
 
 )";
 
-    REQUIRE(run(src) == R"(1
+    REQUIRE(pie::test::run(src) == R"(1
 2
 3)");
 
@@ -1887,7 +1887,7 @@ print(u);
 print(Union);
 )";
 
-    REQUIRE(run(src) == R"(1
+    REQUIRE(pie::test::run(src) == R"(1
 1.400000
 Object {
     x = 10;
@@ -1918,7 +1918,7 @@ print(a + b);
 print(1 + 1);
 )";
 
-    REQUIRE(run(src) == "1\n1\n2");
+    REQUIRE(pie::test::run(src) == "1\n1\n2");
 }
 
 
@@ -1937,7 +1937,7 @@ print(x::y::y::y::y::a);
 
 )";
 
-    REQUIRE(run(src) == "1");
+    REQUIRE(pie::test::run(src) == "1");
 }
 
 
@@ -1975,7 +1975,7 @@ print(x::y::n);
 
 )";
 
-    REQUIRE(run(src) == "1\n1\n1\n10\n20\n10");
+    REQUIRE(pie::test::run(src) == "1\n1\n1\n10\n20\n10");
 }
 
 
@@ -2015,7 +2015,7 @@ print(x::v);
 
 )";
 
-    REQUIRE(run(src) == "hi\nhi\nhi\nhello\nbye\nhello");
+    REQUIRE(pie::test::run(src) == "hi\nhi\nhi\nhello\nbye\nhello");
 }
 
 
@@ -2065,7 +2065,7 @@ print(result);
 )";
 
 
-    REQUIRE(run(src) == "1\n1\n4\n5\n5");
+    REQUIRE(pie::test::run(src) == "1\n1\n4\n5\n5");
 
 }
 
@@ -2078,7 +2078,7 @@ w = wow();
 a: w.inner = w.inner();
 )";
 
-    run(src);
+    pie::test::run(src);
 
     SUCCEED();
 }
@@ -2102,7 +2102,7 @@ print(f(4, 2, 0, "Hi", "there", 1, 0, 1));
 )";
 
 
-    REQUIRE(run(src) == "4\n2\n0\nHi, there\n1\n0\n1\n1");
+    REQUIRE(pie::test::run(src) == "4\n2\n0\nHi, there\n1\n0\n1\n1");
 }
 
 
@@ -2119,7 +2119,7 @@ print(x);
 print(y);
 )";
 
-    REQUIRE(run(src) == "10\n-2");
+    REQUIRE(pie::test::run(src) == "10\n-2");
 }
 
 
@@ -2136,7 +2136,7 @@ print(x);
 print(x...);
 )";
 
-    REQUIRE(run(src) == ""); // not sure why it's not "\n\n" :)! I think Catch2 strips it
+    REQUIRE(pie::test::run(src) == ""); // not sure why it's not "\n\n" :)! I think Catch2 strips it
 }
 
 
@@ -2166,7 +2166,7 @@ f();
 
 )";
 
-    run(src);
+    pie::test::run(src);
 
     SUCCEED();
 }
@@ -2198,7 +2198,7 @@ out(10, 20);
 
 
     REQUIRE(
-        run(src)
+        pie::test::run(src)
         == R"(x =  10
 y =  20
 z =  5
@@ -2270,8 +2270,8 @@ add(z = 1);
 )";
 
 
-    REQUIRE_THROWS_MATCHES(run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument")));
-    REQUIRE_THROWS_MATCHES(run(src2), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
+    REQUIRE_THROWS_MATCHES(pie::test::run(src1), std::runtime_error, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Named argument")));
+    REQUIRE_THROWS_MATCHES(pie::test::run(src2), pie::except::TypeMismatch, Catch::Matchers::MessageMatches(Catch::Matchers::ContainsSubstring("Type mis-match!")));
 }
 
 
@@ -2286,6 +2286,6 @@ print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.0));
 )";
 
 
-    REQUIRE(run(src) == "0");
+    REQUIRE(pie::test::run(src) == "0");
 }
 

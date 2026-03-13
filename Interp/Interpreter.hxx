@@ -29,6 +29,7 @@
 
 #include "Value.hxx"
 
+
 inline namespace pie {
 
 namespace interp {
@@ -49,7 +50,7 @@ struct Visitor {
 
 
     // loop context
-    ssize_t loop_counter{};
+    BigInt loop_counter{};
     bool broken{}, continued{};
 
 
@@ -107,7 +108,7 @@ struct Visitor {
     }
 
     void changeThis(const std::string& name, Value val) {
-        if (selves.empty()) error();
+        if (selves.empty()) util::error();
 
         for (auto& [member, _, value] : selves.back().second->members) {
             if (member.name == name) {
@@ -116,7 +117,7 @@ struct Visitor {
             }
         }
 
-        error("Name '" + name + "' not found in object: " + stringify(selves.back()));
+        util::error("Name '" + name + "' not found in object: " + stringify(selves.back()));
     }
 
     Value operator()(const expr::Name *n) {
@@ -143,12 +144,12 @@ struct Visitor {
         if (n->name == "Syntax" ) return type::builtins::Syntax();
 
 
-        error("Name \"" + n->name + "\" is not defined!");
+        util::error("Name \"" + n->name + "\" is not defined!");
     }
 
 
     // Value operator()(const expr::Pack*) { error(); }
-    Value operator()(const expr::Expansion*) { error("Can only expand in function calls or fold expressions!"); }
+    Value operator()(const expr::Expansion*) { util::error("Can only expand in function calls or fold expressions!"); }
 
 
     Value operator()(const expr::List* list) {
@@ -185,7 +186,7 @@ struct Visitor {
         const auto value_type = typeOf(value);
         if (err_msg.empty()) err_msg = "Expected type '" + type->text() + "', got type '" + value_type->text() + '\'';
 
-        if (not type->typeCheck(this, value, value_type)) error<except::TypeMismatch>(err_msg, location);
+        if (not type->typeCheck(this, value, value_type)) util::error<except::TypeMismatch>(err_msg, location);
 
         if (const auto cls = type::isClass(type)) {
             auto obj = get<value::Object>(value);
@@ -216,11 +217,11 @@ struct Visitor {
 
         Value pack = std::visit(*this, fold->pack->variant());
 
-        if (not std::holds_alternative<PackList>(pack)) error("Folding over a non-pack: " + stringify(pack));
+        if (not std::holds_alternative<PackList>(pack)) util::error("Folding over a non-pack: " + stringify(pack));
 
         auto& packlist = get<PackList>(pack);
 
-        if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
+        if (packlist->values.empty()) util::error("Folding over an empty pack: " + fold->stringify());
         if (packlist->values.size() == 1) return packlist->values[0];
 
 
@@ -342,7 +343,7 @@ struct Visitor {
 
         if (l_pack == r_pack) {
             std::string err = l_pack ? "Folding over 2 packs: '" : "Folding over non-packs: '";
-            error(err + fold->lhs->stringify() + "' and '" + fold->rhs->stringify() + '\'');
+            util::error(err + fold->lhs->stringify() + "' and '" + fold->rhs->stringify() + '\'');
         }
 
         Value pack = l_pack? std::move(lhs) : std::move(rhs);
@@ -350,7 +351,7 @@ struct Visitor {
 
         auto& packlist = get<PackList>(pack);
 
-        if (packlist->values.empty()) error("Folding over an empty pack: " + fold->stringify());
+        if (packlist->values.empty()) util::error("Folding over an empty pack: " + fold->stringify());
         if (packlist->values.size() == 1) return packlist->values[0];
 
 
@@ -623,10 +624,10 @@ struct Visitor {
     Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
         if (auto name = dynamic_cast<const expr::Name*>(acc->var.get()); name and name->name == "self") {
             if (selves.empty())
-                error("Can't use 'self' outside of class scope: " + ass->stringify());
+                util::error("Can't use 'self' outside of class scope: " + ass->stringify());
 
             if (not checkThis(acc->name))
-                error("Name '" + acc->name + "' not found in object '" + acc->var->stringify() + "' in assignment: " + ass->stringify());
+                util::error("Name '" + acc->name + "' not found in object '" + acc->var->stringify() + "' in assignment: " + ass->stringify());
 
             const auto value = std::visit(*this, ass->rhs->variant());
             changeThis(acc->name, value);
@@ -635,14 +636,14 @@ struct Visitor {
 
         const auto& left = std::visit(*this, acc->var->variant());
 
-        if (not std::holds_alternative<Object>(left)) error("Can't access a non-class type!");
+        if (not std::holds_alternative<Object>(left)) util::error("Can't access a non-class type!");
 
         const auto& obj = get<Object>(left);
 
         const auto& found = std::ranges::find_if(obj.second->members,
             [name = acc->name] (const auto& member) { return get<expr::Name>(member).stringify() == name; }
         );
-        if (found == obj.second->members.end()) error("In assignment '" + ass->stringify() + "', Name '" + acc->name + "' doesn't exist in object: " + stringify(obj));
+        if (found == obj.second->members.end()) util::error("In assignment '" + ass->stringify() + "', Name '" + acc->name + "' doesn't exist in object: " + stringify(obj));
 
         const Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
@@ -651,12 +652,6 @@ struct Visitor {
             "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
         );
 
-        // if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
-        //     error<except::TypeMismatch>(
-        //         "In assignment: " + ass->stringify() +
-        //         "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text()
-        //     );
-        // }
 
         // get<Value>(*found) = value;
         *get<ValuePtr>(*found) = value;
@@ -673,7 +668,7 @@ struct Visitor {
 
         Value space = std::visit(*this, sa->space->variant());
 
-        if (not std::holds_alternative<NameSpace>(space)) error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+        if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
 
 
         const auto& ns = std::get<NameSpace>(space);
@@ -681,7 +676,7 @@ struct Visitor {
         const auto& found = std::ranges::find_if(ns.members->members,
             [&name = sa->member] (const auto& member) { return get<0>(member).stringify() == name;}
         );
-        if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
+        if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
         // Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
@@ -697,13 +692,6 @@ struct Visitor {
             "In assignment: " + ass->stringify() +
             "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
         );
-
-        // if (const auto& type_of_value = typeOf(value); not (*get<type::TypePtr>(*found) >= *type_of_value)) { // if not a super type..
-        //     error<except::TypeMismatch>(
-        //         "In assignment: " + ass->stringify() +
-        //         "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + type_of_value->text()
-        //     );
-        // }
 
         // get<Value>(*found) = value;
         *get<ValuePtr>(*found) = value;
@@ -789,13 +777,13 @@ struct Visitor {
                 if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
                     closure.type = *t;
                 else if (const auto* t = dynamic_cast<type::BuiltinType*>(type.get()); t and t->text() != "Any")
-                     error("Incompatible types. This should never happen. File a bug report!");
+                     util::error("Incompatible types. This should never happen. File a bug report!");
                 // else error("Again, Incompatible types. This should never happen. File a bug report!");
             }
 
 
             if (change) {
-                if (not changeVar(name->name, value)) error();
+                if (not changeVar(name->name, value)) util::error();
             }
             else addVar(name->stringify(), value, type);
 
@@ -818,7 +806,7 @@ struct Visitor {
         // makes 1::2::3 impossible, which is consistent with the fact that 1 + 2::3 + 4; is ambiguous
         // ... unless! (1 + 2)::3 is different than 1 + 2::3
         if (dynamic_cast<expr::Namespace*>(ass->rhs.get()) and not dynamic_cast<expr::Name*>(ass->lhs.get()))
-            error("Cannot assign namespaces to non-names: " + ass->stringify());
+            util::error("Cannot assign namespaces to non-names: " + ass->stringify());
 
         // assign to the serialization (stringification) of the AST node
         return addVar(ass->lhs->stringify(), std::visit(*this, ass->rhs->variant()));
@@ -891,7 +879,7 @@ struct Visitor {
 
     Value objectAccess(const Object& obj, const std::string& name) {
         const auto& found = std::ranges::find_if(obj.second->members, [&name] (const auto& member) { return get<0>(member).stringify() == name; });
-        if (found == obj.second->members.end()) error("Name '" + name + "' doesn't exist in object '" + /*acc->var->*/ stringify(obj) + '\'');
+        if (found == obj.second->members.end()) util::error("Name '" + name + "' doesn't exist in object '" + /*acc->var->*/ stringify(obj) + '\'');
 
         if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
             const auto& closure = get<expr::Closure>(*get<ValuePtr>(*found));
@@ -914,11 +902,11 @@ struct Visitor {
     Value operator()(const expr::Access *acc) {
         if (auto var = dynamic_cast<const expr::Name*>(acc->var.get()); var and var->name == "self") {
             if (selves.empty())
-                error("Can't use 'self' outside of class scope: " + acc->stringify());
+                util::error("Can't use 'self' outside of class scope: " + acc->stringify());
 
             const auto value = checkThis(acc->name);
             if (not value)
-                error("Name '" + acc->name + "' not found in object '" + acc->var->stringify());
+                util::error("Name '" + acc->name + "' not found in object '" + acc->var->stringify());
 
             return *value;
         }
@@ -927,7 +915,7 @@ struct Visitor {
         if (std::holds_alternative<Object>(left)) return objectAccess(std::get<Object>(left), acc->name);
 
 
-        error("Can't access a non-class type!");
+        util::error("Can't access a non-class type!");
     }
 
 
@@ -962,7 +950,7 @@ struct Visitor {
 
         const auto ns = std::visit(*this, use->ns->variant());
 
-        if (not std::holds_alternative<NameSpace>(ns)) error("Can't apply keyword 'use' on a non-namespace: " + use->ns->stringify());
+        if (not std::holds_alternative<NameSpace>(ns)) util::error("Can't apply keyword 'use' on a non-namespace: " + use->ns->stringify());
 
         const auto& space = get<NameSpace>(ns);
 
@@ -973,21 +961,21 @@ struct Visitor {
         return ret;
     }
 
-    // Value operator()(const expr::Import *import) {
-    //     const auto src = readFile(auto{import->path}.replace_extension(".pie"));
-    //     const Tokens v = lex(src);
-    //     if (v.empty()) error("Can't import an empty file!");
+    Value operator()(const expr::Import *import) const {
+        const auto src = util::readFile(auto{import->path}.replace_extension(".pie").string());
+        const Tokens v = lex::lex(src);
+        if (v.empty()) util::error("Can't import an empty file!");
 
-    //     Parser p{v, import->path};
+        Parser p{v, import->path};
 
-    //     auto [exprs, ops] = p.parse();
+        auto [exprs, ops] = p.parse();
 
-    //     Value value;
-    //     for (const auto& expr : exprs)
-    //         value = std::visit(*this, std::move(expr)->variant());
+        Value value;
+        for (Visitor v{std::move(ops)}; const auto& expr : exprs)
+            value = std::visit(v, std::move(expr)->variant());
 
-    //     return value;
-    // }
+        return value;
+    }
 
 
     Value operator()(const expr::SpaceAccess* sa) {
@@ -995,7 +983,7 @@ struct Visitor {
 
         if (not sa->space) { // global namespace `::x`
             if (const auto& var = globalLookup(sa->member); var) return var->first; 
-            else error("Name '" + sa->member + "' not found in global namespace!");
+            else util::error("Name '" + sa->member + "' not found in global namespace!");
         }
 
         // const auto& var = getVar(sa->spacename);
@@ -1003,14 +991,14 @@ struct Visitor {
 
         Value space = std::visit(*this, sa->space->variant());
 
-        if (not std::holds_alternative<NameSpace>(space)) error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+        if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
 
 
         const auto& ns = std::get<NameSpace>(space);
 
         const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return get<expr::Name>(member).stringify() == name; });
 
-        if (found == ns.members->members.end()) error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
+        if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
 
         if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
@@ -1053,12 +1041,12 @@ struct Visitor {
 
         const auto var = getVar(type_name);
         if (not var)
-            error("Name `" + type_name + "` in match expression does not name a constructor");
+            util::error("Name `" + type_name + "` in match expression does not name a constructor");
 
         const Value type_value = var->first;
         // if (not std::holds_alternative<ClassValue>(type_value))
         if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
-            error("Name `" + type_name + "` in match expression does not name a constructor");
+            util::error("Name `" + type_name + "` in match expression does not name a constructor");
 
 
         // const auto& cls = get<ClassValue>(type_value);
@@ -1071,11 +1059,11 @@ struct Visitor {
             type::isClass(type) and
             patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->fields.size()
         )
-            error("Number of singles is greater than number of fields in class " + stringify(type));
+            util::error("Number of singles is greater than number of fields in class " + stringify(type));
 
 
         const auto& obj = get<Object>(value);
-        if (obj.second->members.size() != obj.second->members.size()) error("idek what error message this should be..!");
+        if (obj.second->members.size() != obj.second->members.size()) util::error("idek what error message this should be..!");
 
         for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
             if (not match(*get<ValuePtr>(member), *pat)) return false;
@@ -1099,7 +1087,7 @@ struct Visitor {
 
                     if (not std::holds_alternative<bool>(cond)) {
                         std::println(std::cerr, "In guard: {}", kase.guard->stringify());
-                        error("Case guard must evaluate to a boolean. Got '" + typeOf(cond)->text() + "' instead!");
+                        util::error("Case guard must evaluate to a boolean. Got '" + typeOf(cond)->text() + "' instead!");
                     }
 
                     guard = get<bool>(cond);
@@ -1110,7 +1098,7 @@ struct Visitor {
         }
 
 
-        error("Match expression didn't match any pattern:\n" + m->stringify());
+        util::error("Match expression didn't match any pattern:\n" + m->stringify());
     }
 
 
@@ -1127,7 +1115,7 @@ struct Visitor {
 
         enum class Type { NONE = 0, INT, BOOL, LIST, PACK, OBJECT };
         const auto classify = [](const Value& v) {
-            if (std::holds_alternative<ssize_t  >(v)) return Type::INT ;
+            if (std::holds_alternative<BigInt  >(v)) return Type::INT ;
             if (std::holds_alternative<bool     >(v)) return Type::BOOL;
             if (std::holds_alternative<ListValue>(v)) return Type::LIST;
             if (std::holds_alternative<PackList >(v)) return Type::PACK;
@@ -1148,9 +1136,9 @@ struct Visitor {
             switch (classify(kind)) {
                 // for loop
                 case Type::INT: {
-                    const auto limit = get<ssize_t>(kind);
+                    const auto limit = get<BigInt>(kind);
                     if (limit <= 0) {
-                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        if (not loop->els) util::error("Loop which didn't run doesn't have else branch: " + loop->stringify());
                         return std::visit(*this, loop->els->variant());
                     }
 
@@ -1182,7 +1170,7 @@ struct Visitor {
                 // while loop
                 case Type::BOOL: {
                     if (not get<bool>(kind)) {
-                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        if (not loop->els) util::error("Loop which didn't run doesn't have else branch: " + loop->stringify());
                         return std::visit(*this, loop->els->variant());
                     }
 
@@ -1217,7 +1205,7 @@ struct Visitor {
                 case Type::LIST: {
                     const auto& list = get<ListValue>(kind);
                     if (list.elts->values.empty()) {
-                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        if (not loop->els) util::error("Loop which didn't run doesn't have else branch: " + loop->stringify());
                         return std::visit(*this, loop->els->variant());
                     }
 
@@ -1248,7 +1236,7 @@ struct Visitor {
                 case Type::PACK: {
                     const auto& pack = get<PackList>(kind);
                     if (pack->values.empty()) {
-                        if (not loop->els) error("Loop which didn't run doesn't have else branch: " + loop->stringify());
+                        if (not loop->els) util::error("Loop which didn't run doesn't have else branch: " + loop->stringify());
                         return std::visit(*this, loop->els->variant());
                     }
 
@@ -1291,7 +1279,7 @@ struct Visitor {
                     const auto    next = objectAccess(obj, "next");
 
                     if (not std::holds_alternative<expr::Closure>(hasNext) or not std::holds_alternative<expr::Closure>(next))
-                        error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
+                        util::error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
 
                     const auto& hasNext_func = get<expr::Closure>(hasNext);
                     const auto&    next_func = get<expr::Closure>(next   );
@@ -1300,7 +1288,7 @@ struct Visitor {
                         not hasNext_func.type.params.empty() or hasNext_func.type.ret->text() != "Bool"
                         or not next_func.type.params.empty()
                     )
-                    error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
+                    util::error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
 
 
                     expr::Call hasNext_call{std::make_shared<expr::Closure>(hasNext_func)};
@@ -1332,7 +1320,7 @@ struct Visitor {
                 } break;
 
                 case Type::NONE:
-                    error("Loop type no supported: " + loop->stringify());
+                    util::error("Loop type no supported: " + loop->stringify());
             }
         }
         // loop till break
@@ -1394,7 +1382,7 @@ struct Visitor {
         for (const auto& func : funcs) {
             const auto& closure = dynamic_cast<const expr::Closure*>(func.get());
             for (const auto& param_type : closure->type.params) {
-                if (param_type->text() == "Syntax") error("Cannot have paramater of 'Syntax' in an overload set!");
+                if (param_type->text() == "Syntax") util::error("Cannot have paramater of 'Syntax' in an overload set!");
             }
         }
 
@@ -1445,7 +1433,7 @@ struct Visitor {
         }
 
 
-        if (set.size() != 1) error("Could not resolve overload set for operator: " + name);
+        if (set.size() != 1) util::error("Could not resolve overload set for operator: " + name);
 
         return set[0];
     }
@@ -1929,7 +1917,7 @@ struct Visitor {
                 const auto pack = std::visit(*this, expand->pack->variant());
 
                 if (not std::holds_alternative<PackList>(pack))
-                    error("Expansion applied on a non-pack variable: " + args[i]->stringify());
+                    util::error("Expansion applied on a non-pack variable: " + args[i]->stringify());
 
                 expand_at.push_back({i, get<PackList>(pack)->values});
             }
@@ -1973,7 +1961,7 @@ struct Visitor {
             return var;
         }
 
-        error("Can't pass arguments to values!");
+        util::error("Can't pass arguments to values!");
     }
 
 
@@ -2058,7 +2046,7 @@ struct Visitor {
                     else {
                         const auto& expr = args[arg_index];
 
-                        if (type->text() == "Syntax") error(); //* allow this the future
+                        if (type->text() == "Syntax") util::error(); //* allow this the future
 
 
                         else {
@@ -2240,13 +2228,13 @@ struct Visitor {
         // // func.type.ret = validateType(std::move(func).type.ret); // is this better?
 
         if (func.self) selves.push_back(*func.self);
-        Deferred d{[this, cond = static_cast<bool>(func.self)] { if (cond) selves.pop_back(); }};
+        util::Deferred d{[this, cond = static_cast<bool>(func.self)] { if (cond) selves.pop_back(); }};
 
 
         // check for invalid named arguments
         for (const auto& [name, _] : call->named_args) {
             if (std::ranges::find(func.params, name) == func.params.end())
-                error("Named argument '" + name + "' does not name a parameter name!");
+                util::error("Named argument '" + name + "' does not name a parameter name!");
         }
 
 
@@ -2256,7 +2244,7 @@ struct Visitor {
         std::ranges::fold_left(expand_at, size_t{}, [] (const auto& acc, const auto& elt) { return acc + elt.second.size(); }) // plus the expansions
         - expand_at.size(); // minus redundant packs (already expanded)
 
-        if (not is_variadic and args_size + call->named_args.size() > func.params.size()) error("Too many arguments passed to function: " + call->stringify());
+        if (not is_variadic and args_size + call->named_args.size() > func.params.size()) util::error("Too many arguments passed to function: " + call->stringify());
 
         // curry! 
         if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
@@ -2280,7 +2268,7 @@ struct Visitor {
                 }
             }
 
-            if (not type) error(); // should never happen anyway
+            if (not type) util::error(); // should never happen anyway
 
             Value value;
             if (type->text() == "Syntax") value = expr->variant();
@@ -2610,8 +2598,8 @@ struct Visitor {
     }
 
     Value handleNonClasses(const expr::Call *call, const type::TypePtr type) {
-        if (not call->args.empty()) error("Can't pass arguments to non-class types: " + call->stringify());
-        if (type::isFunction(type)) error("Can't default-construct a function type: " + call->stringify());
+        if (not call->args.empty()) util::error("Can't pass arguments to non-class types: " + call->stringify());
+        if (type::isFunction(type)) util::error("Can't default-construct a function type: " + call->stringify());
 
         if (type::isBuiltin(type)) {
             auto type_name = type->text();
@@ -2621,7 +2609,7 @@ struct Visitor {
             if (type_name == "Double") return double{};
             if (type_name == "String") return std::string{};
 
-            error("Can't default construct type '" + type_name + "': " + call->stringify());
+            util::error("Can't default construct type '" + type_name + "': " + call->stringify());
         }
 
         if (type::isVariadic(type)) return makePack();
@@ -2630,12 +2618,12 @@ struct Visitor {
 
 
         if (auto onion = type::isUnion(type)) {
-            if (onion->types.empty()) error("Cannot default construct type 'Never', or 'union { }': " + call->stringify());
+            if (onion->types.empty()) util::error("Cannot default construct type 'Never', or 'union { }': " + call->stringify());
 
             return constructorCall(call, onion->types[0]); // construct the first type in the union
         }
 
-        error();
+        util::error();
     }
 
     // std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>>
@@ -2696,7 +2684,7 @@ struct Visitor {
         const auto *cls = dynamic_cast<const type::LiteralType*>(type.get())->cls.get();
 
         if (call->args.size() > cls->blueprint->fields.size())
-            error("Too many arguments passed to constructor of class: " + stringify(type) + "\nin constructor call:\n" + call->stringify());
+            util::error("Too many arguments passed to constructor of class: " + stringify(type) + "\nin constructor call:\n" + call->stringify());
 
 
         value::Object obj{type, std::make_shared<Members>(
@@ -2880,7 +2868,7 @@ struct Visitor {
                     decltype([](const auto&) {
                         std::string out;
                         std::getline(std::cin, out);
-                        if (not std::ranges::all_of(out, isdigit)) error("'__builtin_input_int' recieved a non-int \"" + out + "\"!");
+                        if (not std::ranges::all_of(out, isdigit)) util::error("'__builtin_input_int' recieved a non-int \"" + out + "\"!");
 
                         return std::stoll(out);
                     }),
@@ -2895,16 +2883,16 @@ struct Visitor {
                 Func<"len",
                     decltype([](const auto& x, const auto&) {
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
-                             return static_cast<ssize_t>(x.length());
+                             return static_cast<BigInt>(x.length());
 
                         else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::PackList>)
-                            return static_cast<ssize_t>(x->values.size());
+                            return static_cast<BigInt>(x->values.size());
 
                         else if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, value::ListValue>)
-                            return static_cast<ssize_t>(x.elts->values.size());
+                            return static_cast<BigInt>(x.elts->values.size());
 
                         else // map value
-                            return static_cast<ssize_t>(x.items->map.size());
+                            return static_cast<BigInt>(x.items->map.size());
                     }),
                     TypeList<std::string>,
                     TypeList<value::PackList>,
@@ -2927,7 +2915,7 @@ struct Visitor {
                 S<"neg">,
                 Func<"neg",
                     decltype([](const auto& x, const auto&) { return -x; }),
-                    TypeList<ssize_t>,
+                    TypeList<BigInt>,
                     TypeList<double>
                 >
             >{},
@@ -2943,18 +2931,18 @@ struct Visitor {
             MapEntry<
                 S<"to_int">,
                 Func<"to_int",
-                    decltype([](const auto& x, const auto&) -> ssize_t {
+                    decltype([](const auto& x, const auto&) -> BigInt {
                         if constexpr (std::is_same_v<std::remove_cvref_t<decltype(x)>, std::string>)
                             return std::stoll(x);
 
                         // if constexpr (
-                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, BigInt> or
                         //     std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
                         //     std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
                         // )
                         else return x;
                     }),
-                    TypeList<ssize_t>,
+                    TypeList<BigInt>,
                     TypeList<double>,
                     TypeList<bool>,
                     TypeList<std::string>
@@ -2969,13 +2957,13 @@ struct Visitor {
                             return std::stod(x);
 
                         // if constexpr (
-                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, ssize_t> or
+                        //     std::is_same_v<std::remove_cvref_t<decltype(x)>, BigInt> or
                         //     std::is_same_v<std::remove_cvref_t<decltype(x)>, double> or
                         //     std::is_same_v<std::remove_cvref_t<decltype(x)>, bool>
                         // )
                         else return x;
                     }),
-                    TypeList<ssize_t>,
+                    TypeList<BigInt>,
                     TypeList<double>,
                     TypeList<bool>,
                     TypeList<std::string>
@@ -3022,7 +3010,7 @@ struct Visitor {
 
                         if constexpr (std::is_same_v<T, ListValue>) {
                             if (ind < 0 or size_t(ind) >= a.elts->values.size())
-                                error("Accessing list '" + stringify(a) + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
+                                util::error("Accessing list '" + stringify(a) + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
 
                             return a.elts->values[ind]; 
                         }
@@ -3030,20 +3018,20 @@ struct Visitor {
                         else if constexpr (std::is_same_v<T, MapValue>) {
                             auto key = stringify(ind);
                             if (not a.items->map.contains(key))
-                                error("Accessing Map '" + stringify(a) + "' at key '" + key + "' which doesn't exist!");
+                                util::error("Accessing Map '" + stringify(a) + "' at key '" + key + "' which doesn't exist!");
 
                             return a.items->map.at(key);
                         }
 
                         else { // if constexpr (std::is_same_v<std::remove_cvref_t<decltype(a)>, std::string>) {
                             if (ind < 0 or size_t(ind) >= a.length())
-                                error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
+                                util::error("Accessing string '" + a + "' at index '" + std::to_string(ind) + "' which is out of bounds!");
                             return std::string{a[ind]};
                         }
                     }),
-                    TypeList<ListValue, ssize_t>,
+                    TypeList<ListValue, BigInt>,
                     TypeList<MapValue, Any>,
-                    TypeList<std::string, ssize_t>
+                    TypeList<std::string, BigInt>
                 >
             >{},
 
@@ -3055,7 +3043,7 @@ struct Visitor {
 
                         if constexpr (std::is_same_v<T, ListValue>) {
                             if (at < 0 or size_t(at) >= cont.elts->values.size())
-                                error("Accessing list '" + stringify(cont) + "' at index '" + std::to_string(at) + "' which is out of bounds!");
+                                util::error("Accessing list '" + stringify(cont) + "' at index '" + std::to_string(at) + "' which is out of bounds!");
 
                             return cont.elts->values[at] = elt;
                         }
@@ -3065,9 +3053,9 @@ struct Visitor {
                             return cont.items->map[key] = elt;
                         }
                     }),
-                    TypeList<ListValue, ssize_t, Any>,
+                    TypeList<ListValue, BigInt, Any>,
                     TypeList<MapValue, Any, Any>
-                    // TypeList<std::string, ssize_t>
+                    // TypeList<std::string, BigInt>
                 >
             >{},
 
@@ -3086,9 +3074,9 @@ struct Visitor {
                 S<"add">,
                 Func<"add",
                     decltype([](const auto& a, const auto& b, const auto&) { return a + b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3097,9 +3085,9 @@ struct Visitor {
                 S<"sub">,
                 Func<"sub",
                     decltype([](const auto& a, const auto& b, const auto&) { return a - b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3108,9 +3096,9 @@ struct Visitor {
                 S<"mul">,
                 Func<"mul",
                     decltype([](const auto& a, const auto& b, const auto&) { return a * b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3119,9 +3107,9 @@ struct Visitor {
                 S<"div">,
                 Func<"div",
                     decltype([](const auto& a, const auto& b, const auto&) { return a / b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3130,7 +3118,7 @@ struct Visitor {
                 S<"mod">,
                 Func<"mod",
                     decltype([](const auto& a, const auto& b, const auto&) { return a % b; }),
-                    TypeList<ssize_t, ssize_t>
+                    TypeList<BigInt, BigInt>
                 >
             >{},
 
@@ -3140,9 +3128,9 @@ struct Visitor {
                     decltype(
                         [](const auto& a, const auto& b, const auto&) -> std::common_type_t<decltype(a), decltype(b)> { return std::pow(a, b); }
                     ),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3151,9 +3139,9 @@ struct Visitor {
                 S<"gt">,
                 Func<"gt",
                     decltype([](const auto& a, const auto& b, const auto&) { return a > b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3162,9 +3150,9 @@ struct Visitor {
                 S<"geq">,
                 Func<"geq",
                     decltype([](const auto& a, const auto& b, const auto&) { return a >= b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3181,9 +3169,9 @@ struct Visitor {
                 S<"leq">,
                 Func<"leq",
                     decltype([](const auto& a, const auto& b, const auto&) { return a <= b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{},
@@ -3192,9 +3180,9 @@ struct Visitor {
                 S<"lt">,
                 Func<"lt",
                     decltype([](const auto& a, const auto& b, const auto&) { return a < b; }),
-                    TypeList<ssize_t, ssize_t>,
-                    TypeList<ssize_t, double>,
-                    TypeList<double, ssize_t>,
+                    TypeList<BigInt, BigInt>,
+                    TypeList<BigInt, double>,
+                    TypeList<double, BigInt>,
                     TypeList<double, double>
                 >
             >{}
@@ -3205,7 +3193,7 @@ struct Visitor {
         name = name.substr(10); // cutout the "__builtin_"
 
         const auto arity_check = [&name, &args] (const size_t arity) {
-            if (args.size() != arity) error("Wrong arity with call to \"__builtin_" + name + "\"");
+            if (args.size() != arity) util::error("Wrong arity with call to \"__builtin_" + name + "\"");
         };
 
 
@@ -3213,7 +3201,7 @@ struct Visitor {
             for (const auto& arg : args) {
                 std::clog << stringify(std::visit(*this, arg->variant())) << ' ';
             }
-            error<std::runtime_error, false>("", {});
+            util::error<std::runtime_error, false>("", {});
         }
 
 
@@ -3259,12 +3247,12 @@ struct Visitor {
         }
 
         if (name == "concat") {
-            if (args.size() < 2) error("'concat' requires at least 2 argument passed!");
+            if (args.size() < 2) util::error("'concat' requires at least 2 argument passed!");
 
             std::string s;
             for(const auto& arg : args) {
                 const Value& v = std::visit(*this, arg->variant());
-                if (not std::holds_alternative<std::string>(v)) error("'concat' only accepts strings as arguments: " + stringify(v));
+                if (not std::holds_alternative<std::string>(v)) util::error("'concat' only accepts strings as arguments: " + stringify(v));
 
                 s += get<std::string>(v);
             }
@@ -3285,7 +3273,7 @@ struct Visitor {
         // it gets its special treatment here..
         if (name == "reset") {
             const std::string& s = args[0]->stringify();
-            if (const auto& v = getVar(s); not v) error("Reseting an unset value: " + s);
+            if (const auto& v = getVar(s); not v) util::error("Reseting an unset value: " + s);
             else removeVar(s);
 
             // return to_bigint(num->num);
@@ -3329,7 +3317,7 @@ struct Visitor {
             if (name == "leq") return execute<2>(stdx::get<S<"leq">>(functions).value, {value1, value2}, this);
             if (name == "lt" ) return execute<2>(stdx::get<S<"lt" >>(functions).value, {value1, value2}, this);
 
-            error("This shouldn't happen. File a bug report!");
+            util::error("This shouldn't happen. File a bug report!");
 
         }
 
@@ -3383,22 +3371,22 @@ struct Visitor {
 
             if (
                 not std::holds_alternative<std::string>(value1  ) or
-                not std::holds_alternative<ssize_t    >( start_v) or
-                not std::holds_alternative<ssize_t    >(   end_v) or
-                not std::holds_alternative<ssize_t    >(stride_v)
+                not std::holds_alternative<BigInt    >( start_v) or
+                not std::holds_alternative<BigInt    >(   end_v) or
+                not std::holds_alternative<BigInt    >(stride_v)
             )
-            error(
-                "Invalid argument: __builtin_str_slice("
+            util::error<pie::except::InvalidArgument>(
+                "__builtin_str_slice("
                 + args[0]->stringify() + ", "
                 + args[1]->stringify() + ", "
                 + args[2]->stringify() + ", "
-                + args[3]->stringify() + ", "
+                + args[3]->stringify() + ")"
             );
 
             const auto& str   = get<std::string>(value1);
-                  auto start  = std::max<ssize_t>  (get<ssize_t>(start_v), 0);
-            const auto end    = std::clamp<ssize_t>(get<ssize_t>(  end_v), 0, ssize_t(str.length()));
-            const auto stride = get<ssize_t>(stride_v);
+                  auto start  = std::max<BigInt>  (get<BigInt>(start_v), 0);
+            const auto end    = std::clamp<BigInt>(get<BigInt>(  end_v), 0, (BigInt)(str.length()));
+            const auto stride = get<BigInt>(stride_v);
 
             std::string ret;
             for (; start < end; start += stride)
@@ -3412,7 +3400,7 @@ struct Visitor {
         // if (name == "conditional") return execute<3>(stdx::get<S<"conditional">>(functions).value, {value1, value2, value3}, this);
 
 
-        error("Calling a builtin fuction that doesn't exist!");
+        util::error("Calling a builtin fuction that doesn't exist!");
     }
 
 
@@ -3421,14 +3409,14 @@ struct Visitor {
         const std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
         const std::unordered_map<std::string, expr::ExprPtr>& named_args
     ) {
-        if (args.empty()) error("'print' requires at least 1 positional argument passed!");
+        if (args.empty()) util::error("'print' requires at least 1 positional argument passed!");
 
         using std::operator""sv;
         const auto allowed_params = {"sep"sv, "end"sv};
 
         for (const auto& [name, _] : named_args)
             if (std::ranges::find(allowed_params, name) == allowed_params.end())
-                error("Can only have the named argument 'end'/'sep' in call to '__builtin_print': found '" + name + "'!");
+                util::error("Can only have the named argument 'end'/'sep' in call to '__builtin_print': found '" + name + "'!");
 
 
         const Value sep = named_args.contains("sep") ? std::visit(*this, named_args.at("sep")->variant()) : " ";
@@ -3476,8 +3464,6 @@ struct Visitor {
         if (auto var = getVar(type->text()); var) {
 
             if (auto t = typeOf(var->first); not type::isType(t)) {
-                // error("'" + stringify(var->first) + "' does not name a type!");
-
                 if (type::isFunction(t))
                     return std::make_shared<type::ConceptType>(std::make_shared<value::Value>(std::move(var)->first));
 
@@ -3520,7 +3506,7 @@ struct Visitor {
             const auto variadic_type = dynamic_cast<type::VariadicType*>(type.get());
 
             // todo: allow this in the future
-            if (variadic_type->type->text() == "Syntax") error("Variadics of 'Syntax' is not allowed!");
+            if (variadic_type->type->text() == "Syntax") util::error("Variadics of 'Syntax' is not allowed!");
 
             variadic_type->type = validateType(std::move(variadic_type)->type);
 
@@ -3530,10 +3516,10 @@ struct Visitor {
             const auto list_type = dynamic_cast<type::ListType*>(type.get());
 
             // todo: allow this in the future
-            if (list_type->type->text() == "Syntax") error("List of 'Syntax' is not allowed!");
+            if (list_type->type->text() == "Syntax") util::error("List of 'Syntax' is not allowed!");
 
 
-            if (type::isVariadic(list_type->type)) error("Lists of variadics types are not allowed!");
+            if (type::isVariadic(list_type->type)) util::error("Lists of variadics types are not allowed!");
 
 
             list_type->type = validateType(std::move(list_type)->type);
@@ -3544,12 +3530,12 @@ struct Visitor {
             const auto map_type = dynamic_cast<type::MapType*>(type.get());
 
             // todo: allow this in the future
-            if (map_type->key_type->text() == "Syntax") error("Map of 'Syntax' is not allowed!");
-            if (map_type->val_type->text() == "Syntax") error("Map of 'Syntax' is not allowed!");
+            if (map_type->key_type->text() == "Syntax") util::error("Map of 'Syntax' is not allowed!");
+            if (map_type->val_type->text() == "Syntax") util::error("Map of 'Syntax' is not allowed!");
 
 
-            if (type::isVariadic(map_type->key_type)) error("Map of variadics types are not allowed!");
-            if (type::isVariadic(map_type->val_type)) error("Map of variadics types are not allowed!");
+            if (type::isVariadic(map_type->key_type)) util::error("Map of variadics types are not allowed!");
+            if (type::isVariadic(map_type->val_type)) util::error("Map of variadics types are not allowed!");
 
 
             map_type->key_type = validateType(std::move(map_type)->key_type);
@@ -3560,13 +3546,13 @@ struct Visitor {
 
 
 
-        error("'" + type->text() + "' does not name a type!");
+        util::error("'" + type->text() + "' does not name a type!");
     }
 
 
     type::TypePtr typeOf(const Value& value) const {
         if (std::holds_alternative<expr::Node > (value)) return type::builtins::Syntax();
-        if (std::holds_alternative<ssize_t    > (value)) return type::builtins::Int();
+        if (std::holds_alternative<BigInt    > (value)) return type::builtins::Int();
         if (std::holds_alternative<double     > (value)) return type::builtins::Double();
         if (std::holds_alternative<bool       > (value)) return type::builtins::Bool();
         if (std::holds_alternative<std::string> (value)) return type::builtins::String();
@@ -3679,7 +3665,7 @@ struct Visitor {
         if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();
 
 
-        error("Unknown Type for value: " + stringify(value));
+        util::error("Unknown Type for value: " + stringify(value));
     }
 
 
