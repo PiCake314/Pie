@@ -9,6 +9,24 @@
 
 
 
+TEST_CASE("Operator Precedence", "[Operator][Prec]") {
+    const auto src1 = R"(
+infix(*  -) L1 = (a, b) => 1;
+infix(L1 -) L2 = (a, b) => 2;
+infix(L2 -) L3 = (a, b) => 3;
+
+infix(+) p = (a, b) => 0;
+
+x = 1 L3 2 p 3;
+
+__builtin_print(x);
+)";
+
+    REQUIRE(run(src1) == "0");
+}
+
+
+
 TEST_CASE("Passing Variadic Eager Param Function", "[Func][Param][Variadic]") {
     const auto src1 = R"(
 callFunc = (f) => {
