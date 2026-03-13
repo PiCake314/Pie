@@ -1,7 +1,7 @@
 # The Pie Programming Language Official Specification
 
 
-Index:
+### Index:
 - [Chapter 1: Philosophy](#chapter-1-philosophy)
 - [Chapter 2: Lexical Grammer](#chapter-2-lexical-grammer)
     - [2.1 Reserved Keywords](#21-reserved-keywords)

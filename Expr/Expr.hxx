@@ -328,7 +328,7 @@ struct Class : Expr {
             if (type::shouldReassign(type)) s += "Any";
             else                            s += type->text(indent + 4);
 
-            + " = " + expr->stringify(indent + 4) + ";\n";
+            s += " = " + expr->stringify(indent + 4) + ";\n";
         }
 
 
