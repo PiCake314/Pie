@@ -54,7 +54,7 @@ namespace prec {
 
 
 //todo: continue refactoring!!!!!!!
-  inline int precedenceOf(const std::string& p, const Operators& ops) noexcept {
+  inline int precedenceOf(const std::string& p, const Operators& ops) {
     if (p == LOW)
       return LOW_VALUE;
 
@@ -115,12 +115,12 @@ namespace prec {
     return std::midpoint(precedenceOf(op->high, ops), precedenceOf(op->low, ops));
   }
 
-  inline auto calculate(const std::string& high, const std::string& low, const Operators& ops) noexcept {
+  inline auto calculate(const std::string& high, const std::string& low, const Operators& ops) {
     return std::midpoint(precedenceOf(high, ops), precedenceOf(low, ops));
   }
 
 
-  inline std::string higher(const std::string& p, const Operators& ops) noexcept {
+  inline std::string higher(const std::string& p, const Operators& ops) {
     if (p == "LOW")                                     return "=";
     if (p == "=")                                       return "..";
     if (p == "..")                                      return "||";
@@ -148,7 +148,7 @@ namespace prec {
     return op->high == op->low ? higher(op->low /*or op->high*/, ops) : op->high;
   }
 
-  inline std::string lower(const std::string& p, const Operators& ops) noexcept {
+  inline std::string lower(const std::string& p, const Operators& ops) {
     if (p == "LOW") error("Can't go lower than LOW!");
     if (p == "=")                                       return "LOW";
     if (p == "..")                                      return "=";
