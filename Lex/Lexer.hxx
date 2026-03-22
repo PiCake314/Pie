@@ -221,8 +221,7 @@ inline bool validNameChar(const char c) noexcept {
                 else if (src[index + 1] == '.' and src.at(index + 2) == '.')
                     lines.back().push_back({ELLIPSIS, {src[index], src[++index], src[++index]}});
                 else if (src[index + 1] == '.')
-                    // lines.back().push_back({CASCADE , {src[index], src[++index],             }});
-                    util::error();
+                    lines.back().push_back({CASCADE , {src[index], src[++index],             }});
                 else
                     lines.back().push_back({DOT, {src[index]}});
 

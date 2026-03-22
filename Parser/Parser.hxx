@@ -35,16 +35,18 @@ class Parser {
     Tokens tokens;
     typename Tokens::iterator token_iterator;
 
+    // statically known things:
     Operators ops;
+    std::vector<std::string> namespaces;
 
     // deque instead of vector for pop_front
-    std::deque<Token> red; // past tense of rea d lol
+    std::deque<Token> red; // past tense of read lol
 
     std::filesystem::path root;
 
 
     enum class Context {
-        NONE,   // i don't care about the values
+        NONE,
         MATCH,
         MAP,
         CALL,
@@ -143,7 +145,7 @@ public:
                 // else             return std::make_shared<expr::Continue>(parseExpr());
 
             case NAMESPACE: return nameSpace();
-            case USE:       return std::make_shared<expr::Use>(parseExpr());
+            case USE:       return std::make_shared<expr::Use>(parseExpr()->stringify());
 
 
             case IMPORT: {
@@ -160,7 +162,7 @@ public:
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) util::error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
-                return std::make_shared<expr::SpaceAccess>(nullptr, std::move(right_name_ptr)->name);
+                return std::make_shared<expr::SpaceAccess>(std::vector<std::string>{}, std::move(right_name_ptr)->name);
             }
 
             case COLON: return std::make_shared<expr::Type>(parseType());
@@ -267,6 +269,7 @@ public:
                     return std::make_shared<expr::Closure>(std::vector<std::string>{}, std::move(body), type::FuncType{{}, std::move(return_type)});
                 }
 
+                // todo: fix this algorithm
                 const bool fold_expr = [this] {
                     for (size_t i{}; /* not atEnd(i) */; ++i) {
                         if (check(R_PAREN , i)) return false;
@@ -325,7 +328,7 @@ public:
             case DOT: {
                 auto accessee = parseExpr(prec::HIGH_VALUE);
 
-                //* maybe this could change and i can allow object.1 + 2. :). Just a thought
+                // maybe this could change and i can allow object.1 + 2. :). Just a thought
                 auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
                 if (not accessee_ptr) util::error("Can only follow a '.' with a name: " + accessee->stringify());
 
@@ -333,20 +336,45 @@ public:
             }
 
 
+            case CASCADE: {
+
+                util::error();
+
+                std::vector<expr::ExprPtr> cascaders;
+
+                do
+                    cascaders.push_back(parseExpr(prec::CASCADE_VALUE));
+                while (match(CASCADE));
+
+                // // auto accessee_ptr = dynamic_cast<expr::Name*>(accessee.get());
+                // // if (not accessee_ptr) util::error("Can only follow a '.' with a name: " + accessee->stringify());
+
+                // return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr)->name);
+            }
+
+
             case SCOPE_RESOLVE: {
                 if (not (
-                        dynamic_cast<expr::Name*>(left.get()) or
-                        dynamic_cast<expr::SpaceAccess*>(left.get()) or
-                        dynamic_cast<expr::Namespace*>(left.get())
+                        dynamic_cast<expr::Name*>(left.get())
+                        or dynamic_cast<expr::SpaceAccess*>(left.get())
+                        // or dynamic_cast<expr::Namespace*>(left.get())
                     )
                 )
                     util::error("Can only space-access names or namespaces: " + left->stringify());
+
 
                 auto right = parseExpr(prec::HIGH_VALUE);
                 auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
                 if (not right_name_ptr) util::error("Can only follow a '::' with a name/namespace access: " + right->stringify());
 
-                return std::make_shared<expr::SpaceAccess>(std::move(left), std::move(right_name_ptr)->name);
+
+                const auto n = dynamic_cast<expr::Name*>(left.get());
+                if (n) return std::make_shared<expr::SpaceAccess>(std::vector{std::move(n)->name}, std::move(right_name_ptr)->name);
+
+
+                const auto sa = dynamic_cast<expr::SpaceAccess*>(left.get());
+                sa->space.push_back(sa->member);
+                return std::make_shared<expr::SpaceAccess>(std::move(sa)->space, std::move(right_name_ptr)->name);
             }
 
             case COLON: {
@@ -646,16 +674,18 @@ public:
     expr::ExprPtr nameSpace() {
         using enum TokenKind;
 
+        std::string name = parseExpr()->stringify();
+
         consume(L_BRACE);
 
-        std::vector<expr::ExprPtr> members;
+        std::vector<expr::ExprPtr> space;
 
         while (not match(R_BRACE)) {
-            members.push_back(parseExpr());
+            space.push_back(parseExpr());
             consume(SEMI);
         }
 
-        return std::make_shared<expr::Namespace>(std::move(members));
+        return std::make_shared<expr::Namespace>(std::move(name), std::move(space));
     }
 
 

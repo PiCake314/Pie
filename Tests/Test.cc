@@ -9,6 +9,17 @@
 
 
 
+// .: C = class {
+// .:     pack: ...Int = 0;
+// .: };
+
+// .: makeC = (x: ...Int) => C(x);
+
+// .: std::print((makeC(1, 2, 3).pack + ...));
+
+
+
+
 TEST_CASE("Operator Precedence", "[Operator][Prec]") {
     const auto src1 = R"(
 infix(*  -) L1 = (a, b) => 1;

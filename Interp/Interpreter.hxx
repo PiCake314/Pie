@@ -44,6 +44,7 @@ struct Visitor {
 
     std::vector<std::pair<Environment, EnvTag>> env;
     Operators ops;
+    std::unordered_map<std::string, value::NameSpace> namespaces;
 
     // _this_ (or self) context
     std::vector<Object> selves{};
@@ -84,11 +85,13 @@ struct Visitor {
         else return std::stoll(n->num);
     }
 
+
     Value operator()(const expr::Bool *b) {
         if (const auto& var = getVar(b->stringify()); var) return var->first;
 
         return b->boolean;
     }
+
 
     Value operator()(const expr::String *s) {
         if (const auto& var = getVar(s->stringify()); var) return var->first;
@@ -97,7 +100,7 @@ struct Visitor {
     }
 
 
-    std::optional<Value> checkThis(const std::string& name) {
+    std::optional<Value> checkMemberInThisObject(const std::string& name) {
         if (selves.empty()) return {};
 
         for (const auto& [member, _, value] : selves.back().second->members) {
@@ -106,6 +109,7 @@ struct Visitor {
 
         return {};
     }
+
 
     void changeThis(const std::string& name, Value val) {
         if (selves.empty()) util::error();
@@ -120,6 +124,7 @@ struct Visitor {
         util::error("Name '" + name + "' not found in object: " + stringify(selves.back()));
     }
 
+
     Value operator()(const expr::Name *n) {
         // what should builtins evaluate to?
         // If I return the string back, then expressions like `"__builtin_neg"(1)` are valid now :))))
@@ -127,7 +132,7 @@ struct Visitor {
         // how about a special value?
 
         if (const auto& var = getVar(n->name); var) return var->first;
-        if (const auto var = checkThis(n->name); var) return *var;
+        if (const auto var = checkMemberInThisObject(n->name); var) return *var;
         if (n->name == "self" and not selves.empty()) return selves.back();
 
         // for now, buitlin functions just return their names as strings...
@@ -163,6 +168,7 @@ struct Visitor {
 
         return makeList(std::move(values));
     }
+
 
     Value operator()(const expr::Map* map) {
         MapValue map_value{std::make_shared<Items>()};
@@ -253,32 +259,12 @@ struct Visitor {
 
             for (const auto& value : values) {
 
-                // these two lines could be dried out...
-                // along with at least 7 more instances of the same line scattered througout the codebase
-
-                // if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                //         "', parameter '" + func->params[0] +
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                //     );
-
-
                 typeCheck(ret, func->type.params[first_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                     "', parameter '" + func->params[0] +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
-
-                // if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                //         "', parameter '" + func->params[1] +
-                //         "' expected: " + func->type.params[1]->text() +
-                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                //     );
 
 
                 typeCheck(value, func->type.params[second_idx], 
@@ -412,31 +398,12 @@ struct Visitor {
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
 
-                // // these two lines could be dried out...
-                // // along with at least 7 more instances of the same line scattered througout the codebase
-                // if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                //         "', parameter '" + func->params[0] +
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                //     );
-
-
                 typeCheck(ret, func->type.params[second_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
                     "', parameter '" + func->params[1] +
                     "' expected: " + func->type.params[1]->text() +
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
-
-                // if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                //         "', parameter '" + func->params[1] +
-                //         "' expected: " + func->type.params[1]->text() +
-                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                //     );
 
 
                 Environment args_env;
@@ -555,17 +522,6 @@ struct Visitor {
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
 
-                // // these two lines could be dried out...
-                // // along with at least 7 more instances of the same line scattered througout the codebase
-                // if (const auto& type_of_arg = typeOf(ret); not (*func->type.params[first_idx] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                //         "', parameter '" + func->params[0] +
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                //     );
-
-
 
                 typeCheck(ret, func->type.params[second_idx],
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
@@ -573,15 +529,6 @@ struct Visitor {
                         "' expected: " + func->type.params[1]->text() +
                         ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
-
-                // if (const auto& type_of_arg = typeOf(value); not (*func->type.params[second_idx] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                //         "', parameter '" + func->params[1] +
-                //         "' expected: " + func->type.params[1]->text() +
-                //         ", got: " + stringify(ret) + " which is " + type_of_arg->text()
-                //     );
-
 
 
                 args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
@@ -626,7 +573,7 @@ struct Visitor {
             if (selves.empty())
                 util::error("Can't use 'self' outside of class scope: " + ass->stringify());
 
-            if (not checkThis(acc->name))
+            if (not checkMemberInThisObject(acc->name))
                 util::error("Name '" + acc->name + "' not found in object '" + acc->var->stringify() + "' in assignment: " + ass->stringify());
 
             const auto value = std::visit(*this, ass->rhs->variant());
@@ -662,41 +609,39 @@ struct Visitor {
 
 
     Value spaceAccessAssign(const expr::Assignment *ass, expr::SpaceAccess *sa) {
-        // const auto& var = getVar(sa->spacename);
+        util::error();
 
-        // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
+        // Value space = std::visit(*this, sa->space->variant());
 
-        Value space = std::visit(*this, sa->space->variant());
-
-        if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+        // if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
 
 
-        const auto& ns = std::get<NameSpace>(space);
+        // const auto& ns = std::get<NameSpace>(space);
 
-        const auto& found = std::ranges::find_if(ns.members->members,
-            [&name = sa->member] (const auto& member) { return get<0>(member).stringify() == name;}
-        );
-        if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
+        // const auto& found = std::ranges::find_if(ns.members->members,
+        //     [&name = sa->member] (const auto& member) { return get<0>(member).stringify() == name;}
+        // );
+        // if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
-        // Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
+        // // Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
 
-        Value value;
-        if (get<type::TypePtr>(*found)->text() == "Syntax")
-            value = ass->rhs->variant();
-        else
-            value = std::visit(*this, ass->rhs->variant());
+        // Value value;
+        // if (get<type::TypePtr>(*found)->text() == "Syntax")
+        //     value = ass->rhs->variant();
+        // else
+        //     value = std::visit(*this, ass->rhs->variant());
 
 
 
-        typeCheck(value, get<type::TypePtr>(*found),
-            "In assignment: " + ass->stringify() +
-            "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
-        );
+        // typeCheck(value, get<type::TypePtr>(*found),
+        //     "In assignment: " + ass->stringify() +
+        //     "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
+        // );
 
-        // get<Value>(*found) = value;
-        *get<ValuePtr>(*found) = value;
+        // // get<Value>(*found) = value;
+        // *get<ValuePtr>(*found) = value;
 
-        return value;
+        // return value;
     }
 
 
@@ -731,7 +676,7 @@ struct Visitor {
                 type = var->second;
                 change = true;
             }
-            else if (checkThis(name->name)) {
+            else if (checkMemberInThisObject(name->name)) {
                 const auto val = std::visit(*this, ass->rhs->variant());
                 changeThis(name->name, val);
                 return val;
@@ -900,11 +845,13 @@ struct Visitor {
 
 
     Value operator()(const expr::Access *acc) {
+
+        // in case user does self.xyz
         if (auto var = dynamic_cast<const expr::Name*>(acc->var.get()); var and var->name == "self") {
             if (selves.empty())
                 util::error("Can't use 'self' outside of class scope: " + acc->stringify());
 
-            const auto value = checkThis(acc->name);
+            const auto value = checkMemberInThisObject(acc->name);
             if (not value)
                 util::error("Name '" + acc->name + "' not found in object '" + acc->var->stringify());
 
@@ -919,19 +866,32 @@ struct Visitor {
     }
 
 
+    Value operator()(const expr::Cascade *) {
+
+        util::error();
+        // const auto obj = std::visit(*this, cas->var);
+
+        // if (not std::holds_alternative<value::Object>(obj)) util::error("Cannot access a non-object");
+
+
+        // o.((x * 1) + 2);
+    }
+
+
+
     Value operator()(const expr::Namespace *ns) {
         if (const auto& var = getVar(ns->stringify()); var) return var->first;
 
-        // Value value;
 
         ScopeGuard sg{this};
+        Value value;
         // execute all the expressions in the namespace
-        for (const auto& expr : ns->expressions)
-            // value =
-            std::visit(*this, expr->variant());
+        for (const auto& expr : ns->space)
+            value = std::visit(*this, expr->variant());
+
+
 
         // then add the variables that resulted from that execution
-
         std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
         for (auto& [name, val] : env.back().first) {
             auto& [value, type] = val;
@@ -939,20 +899,23 @@ struct Visitor {
             members.push_back({expr::Name{name}, std::move(type), std::move(value)});
         }
 
-
         std::ranges::reverse(members);
-        return NameSpace{std::make_shared<Members>(std::move(members))};
+        namespaces.insert({ns->name, {std::make_shared<Members>(std::move(members))}});
+
+
+        return value;
     }
 
 
     Value operator()(const expr::Use *use) {
         if (const auto& var = getVar(use->stringify()); var) return var->first;
 
-        const auto ns = std::visit(*this, use->ns->variant());
 
-        if (not std::holds_alternative<NameSpace>(ns)) util::error("Can't apply keyword 'use' on a non-namespace: " + use->ns->stringify());
+        if (not namespaces.contains(use->ns))
+            util::error("Can't apply keyword 'use' on a non-namespace: " + use->ns);
 
-        const auto& space = get<NameSpace>(ns);
+
+        const auto& space = namespaces[use->ns];
 
         Value ret;
         for (const auto& [name, type, value] : space.members->members)
@@ -981,39 +944,41 @@ struct Visitor {
     Value operator()(const expr::SpaceAccess* sa) {
         if (const auto& var = getVar(sa->stringify()); var) return var->first;
 
-        if (not sa->space) { // global namespace `::x`
-            if (const auto& var = globalLookup(sa->member); var) return var->first; 
-            else util::error("Name '" + sa->member + "' not found in global namespace!");
-        }
+        util::error();
 
-        // const auto& var = getVar(sa->spacename);
-        // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
+        // if (not sa->space) { // global namespace `::x`
+        //     if (const auto& var = globalLookup(sa->member); var) return var->first; 
+        //     else util::error("Name '" + sa->member + "' not found in global namespace!");
+        // }
 
-        Value space = std::visit(*this, sa->space->variant());
+        // // const auto& var = getVar(sa->spacename);
+        // // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
 
-        if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+        // Value space = std::visit(*this, sa->space->variant());
 
-
-        const auto& ns = std::get<NameSpace>(space);
-
-        const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return get<expr::Name>(member).stringify() == name; });
-
-        if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
+        // if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
 
 
-        if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
-            const auto& closure = get<expr::Closure>(*get<ValuePtr>(*found));
+        // const auto& ns = std::get<NameSpace>(space);
 
-            Environment capture_list;
-            for (const auto& [name, type, value] : ns.members->members)
-                capture_list[name.stringify()] = {std::make_shared<Value>(*value), typeOf(*value)};
+        // const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return get<expr::Name>(member).stringify() == name; });
 
-            closure.capture(capture_list);
+        // if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
 
-            return closure;
-        }
 
-        return *get<ValuePtr>(*found);
+        // if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
+        //     const auto& closure = get<expr::Closure>(*get<ValuePtr>(*found));
+
+        //     Environment capture_list;
+        //     for (const auto& [name, type, value] : ns.members->members)
+        //         capture_list[name.stringify()] = {std::make_shared<Value>(*value), typeOf(*value)};
+
+        //     closure.capture(capture_list);
+
+        //     return closure;
+        // }
+
+        // return *get<ValuePtr>(*found);
     }
 
 

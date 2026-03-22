@@ -37,10 +37,10 @@ using Node = std::variant<
     const struct Break             *,
     const struct Continue          *,
     const struct Access            *,
-    // const struct Cascade           *,
+    const struct Cascade           *,
     const struct Namespace         *,
     const struct Use               *,
-    const struct Import               *,
+    const struct Import            *,
     const struct SpaceAccess       *,
     const struct Grouping          *,
     const struct UnaryOp           *,
@@ -59,15 +59,17 @@ using Node = std::variant<
 >;
 
 
+struct Expr;
+using ExprPtr = std::shared_ptr<Expr>;
+
 struct Expr {
     virtual ~Expr() = default;
     virtual std::string stringify(const size_t indent = 0) const = 0;
     virtual bool involvesName(const std::string_view sv) const = 0;
-
+    virtual ExprPtr left() const = 0;
     virtual Node variant() const = 0;
 };
 
-using ExprPtr = std::shared_ptr<Expr>;
 
 
 } // namespace expr

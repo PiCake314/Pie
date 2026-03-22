@@ -13,7 +13,8 @@ namespace prec {
   inline constexpr auto              LOW_VALUE = 0;
   inline constexpr auto            COMMA_VALUE = BASE;
   inline constexpr auto       ASSIGNMENT_VALUE = 2 *            COMMA_VALUE;
-  inline constexpr auto               OR_VALUE = 2 *          ASSIGNMENT_VALUE;
+  inline constexpr auto          CASCADE_VALUE = 2 *       ASSIGNMENT_VALUE;
+  inline constexpr auto               OR_VALUE = 2 *          CASCADE_VALUE;
   inline constexpr auto              AND_VALUE = 2 *               OR_VALUE;
   inline constexpr auto            BITOR_VALUE = 2 *              AND_VALUE;
   inline constexpr auto           BITXOR_VALUE = 2 *            BITOR_VALUE;
@@ -28,7 +29,6 @@ namespace prec {
   inline constexpr auto           SUFFIX_VALUE = 2 *           PREFIX_VALUE;
   inline constexpr auto             CALL_VALUE = 2 *           SUFFIX_VALUE;
   inline constexpr auto    MEMBER_ACCESS_VALUE =                 CALL_VALUE; // same as a call operator
-  inline constexpr auto          CASCADE_VALUE =                 CALL_VALUE;
   inline constexpr auto SCOPE_RESOLUTION_VALUE = 2 *             CALL_VALUE;
   inline constexpr auto             HIGH_VALUE = 2 * SCOPE_RESOLUTION_VALUE;
 

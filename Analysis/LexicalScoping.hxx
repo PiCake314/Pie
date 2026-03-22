@@ -3,9 +3,10 @@
 
 #include <string>
 #include <vector>
-// #include <algorithm>
+#include <memory>
 #include <ranges>
 #include <variant>
+#include <optional>
 
 #include "../Utils/utils.hxx"
 #include "../Utils/Exceptions.hxx"
@@ -16,11 +17,28 @@
 inline namespace pie {
 namespace analysis {
 
+struct NameSpace {
+    std::string name;
+
+    NameSpace *parent = nullptr;
+    std::vector<std::unique_ptr<NameSpace>> children;
+};
+
+
 struct LexicalAnalysis {
-    std::vector<std::vector<std::string>> vars;
+    // scopes
+    std::vector<std::vector<std::string>> env;
+
+
+    std::unordered_map<std::string, std::vector<std::string>> namespaces;
+
+
+    std::string space_dir;
+    std::vector<std::unique_ptr<NameSpace>> global_spaces;
+
 
     LexicalAnalysis() {
-        vars.push_back({
+        env.push_back({
             "Any",
             "Int",
             "Double",
@@ -86,7 +104,9 @@ struct LexicalAnalysis {
     //     if (auto t = type::isExpr(type->type)) return std::visit(*this, t->t->variant());
     // }
 
-    void operator()(const expr::Name *name) { checkName(name->name); }
+    void operator()(const expr::Name *name) {
+        checkName(name->name);
+    }
 
 
     void operator()(const expr::Block *b) {
@@ -267,25 +287,48 @@ struct LexicalAnalysis {
     }
 
 
+    void operator()(const expr::Import *import) {
+        if (findVar(import->stringify())) return;
+
+        const auto src = util::readFile(auto{import->path}.replace_extension(".pie").string());
+        const Tokens v = lex::lex(src);
+        if (v.empty()) util::error("Can't import an empty file!");
+
+        Parser p{v, import->path};
+
+        auto [exprs, _] = p.parse();
+
+        for (const auto& expr : exprs)
+            std::visit(*this, std::move(expr)->variant());
+    }
+
+
     void operator()(const expr::Namespace *ns) {
         if (findVar(ns->stringify())) return;
 
-        for (const auto& expr : ns->expressions) 
+        addSpace(ns->name);
+
+        for (const auto& expr : ns->space) 
             std::visit(*this, expr->variant());
+
+        popSpace();
     }
 
 
     void operator()(const expr::Use *use) {
         if (findVar(use->stringify())) return;
 
-        std::visit(*this, use->ns->variant());
+        const auto space = findSpace(use->ns); // must recieve by reference
+
+
+        for (const auto& var : namespaces[space->name]) addVar(var);
+
+        // util::error();
     }
 
 
     void operator()(const expr::SpaceAccess *acc) {
-        if (acc->space) // in case of global ns access `::x`
-            std::visit(*this, acc->space->variant());
-        else checkName(acc->member);
+        util::error();
     }
 
 
@@ -337,14 +380,102 @@ struct LexicalAnalysis {
     void operator()(const auto *) { } // default case. No error!
 
 
-    void checkName(const std::string& name) {
-        if (not findVar(name)) util::error<except::NameLookup>("Name `" + name + "` not found!");
+    void checkName(
+        const std::string& name,
+        const std::source_location& location = std::source_location::current()
+    ) {
+        if (not findVar(name)) util::error<except::NameLookup>("Name `" + name + "` not found!", location);
     }
 
-    void addVar(std::string name) { vars.back().push_back(std::move(name)); }
+
+    void checkName(
+        const std::string& name,
+        const std::string& space,
+        const std::source_location& location = std::source_location::current()
+    ) {
+        if (not namespaces.contains(space)) util::error<except::NameLookup>("Name `" + name + "` not found!", location);
+
+        for (const auto& n : namespaces[space])
+            if (n == name) return;
+
+
+        util::error<except::NameLookup>("Name `" + name + "` not found!", location);
+    }
+
+
+
+    static NameSpace* getNamespaceAt(
+        const std::string& dir,
+        const std::vector<std::unique_ptr<NameSpace>>& spaces
+    ) {
+        if (dir.empty()) return nullptr;
+
+        const size_t ind = dir[0] - 0X30;
+
+        return dir.size() == 1 ?
+            spaces[ind].get()  :
+            getNamespaceAt(dir.substr(0, dir.size() - 1), spaces[ind]->children);
+    }
+
+
+    void addSpace(std::string name) {
+        const auto parent = getNamespaceAt(space_dir, global_spaces);
+
+        if (not parent) {
+            global_spaces.push_back({std::make_unique<NameSpace>(std::move(name))});
+            space_dir += std::to_string(global_spaces.size() - 1);
+        }
+        else {
+            // if it already exists, then direct to it
+            for (size_t i{}; const auto& ns : parent->children) {
+                if (ns->name == name) {
+                    space_dir += std::to_string(i);
+                    return;
+                }
+                ++i;
+            }
+
+            // not found, add it
+            parent->children.push_back({std::make_unique<NameSpace>(std::move(name))});
+            parent->children.back()->parent = parent;
+
+            space_dir += std::to_string(parent->children.size() - 1);
+        }
+    }
+
+
+    void popSpace() { space_dir.pop_back(); }
+
+
+    NameSpace* findSpace(const std::string& name) {
+        const auto *space = getNamespaceAt(space_dir, global_spaces);
+
+        while (space) {
+            for (const auto& ns : space->children) {
+                if (ns->name == name) return ns.get();
+            }
+
+            space = space->parent;
+        }
+
+
+        for (const auto& ns : global_spaces)
+            if (ns->name == name) return ns.get();
+
+        util::error();
+    }
+
+    void addVar(std::string name) {
+        if (space_dir.empty()) env.back().push_back(std::move(name));
+        else {
+            const auto space = getNamespaceAt(space_dir, global_spaces);
+            namespaces[space->name].push_back(std::move(name));
+        }
+    }
+
 
     bool findVar(const std::string& name) const {
-        for (const auto& e : vars)
+        for (const auto& e : env)
             if (std::ranges::find_if(e, [&name](const auto& n) { return n == name; }) != e.cend())
                 return true;
 
@@ -355,8 +486,8 @@ struct LexicalAnalysis {
 
     struct ScopeGuard {
         LexicalAnalysis* that;
-         ScopeGuard(LexicalAnalysis* t) : that{t} { that->vars.emplace_back(); }
-        ~ScopeGuard() { that->vars.pop_back(); }
+         ScopeGuard(LexicalAnalysis* t) : that{t} { that->env.emplace_back(); }
+        ~ScopeGuard() { that->env.pop_back(); }
     };
 
 };

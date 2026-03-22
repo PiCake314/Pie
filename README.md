@@ -847,6 +847,10 @@ make
 - [ShawSumma](https://github.com/ShawSumma)
 
 
+##### Website forked from:
+- [TheDevConnor](https://github.com/TheDevConnor)
+
+
 ## Quotes About Pie Lang:
 - "The whole language is a bug"
 - "can't have your ~~cake~~ Pie and eat it too!"
