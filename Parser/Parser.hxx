@@ -145,7 +145,14 @@ public:
                 // else             return std::make_shared<expr::Continue>(parseExpr());
 
             case NAMESPACE: return nameSpace();
-            case USE:       return std::make_shared<expr::Use>(parseExpr()->stringify());
+            case USE: {
+                const bool global_access = match(SCOPE_RESOLVE);
+
+                std::vector<std::string> spaces = {consume(NAME).text};
+                while (match(SCOPE_RESOLVE)) spaces.push_back(consume(NAME).text);
+
+                return std::make_shared<expr::Use>(global_access, std::move(spaces));
+            }
 
 
             case IMPORT: {
@@ -158,11 +165,11 @@ public:
 
             // global namespace
             case SCOPE_RESOLVE: {
-                auto right = parseExpr(prec::HIGH_VALUE);
-                auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) util::error("Can only follow a '::' with a name/namespace access: " + right->stringify());
+                std::vector<std::string> spaces = {consume(NAME).text};
+                while (match(SCOPE_RESOLVE)) spaces.push_back(consume(NAME).text);
 
-                return std::make_shared<expr::SpaceAccess>(std::vector<std::string>{}, std::move(right_name_ptr)->name);
+                constexpr bool is_global_access = true;
+                return std::make_shared<expr::SpaceAccess>(is_global_access, std::move(spaces));
             }
 
             case COLON: return std::make_shared<expr::Type>(parseType());
@@ -312,7 +319,7 @@ public:
 
 
             default:
-                // log(true);
+                log(true);
                 util::error("Couldn't parse \"" + token.text + "\"!");
         }
     }
@@ -354,27 +361,11 @@ public:
 
 
             case SCOPE_RESOLVE: {
-                if (not (
-                        dynamic_cast<expr::Name*>(left.get())
-                        or dynamic_cast<expr::SpaceAccess*>(left.get())
-                        // or dynamic_cast<expr::Namespace*>(left.get())
-                    )
-                )
-                    util::error("Can only space-access names or namespaces: " + left->stringify());
+                std::vector<std::string> spaces = {consume(NAME).text};
+                while (match(SCOPE_RESOLVE)) spaces.push_back(consume(NAME).text);
 
-
-                auto right = parseExpr(prec::HIGH_VALUE);
-                auto right_name_ptr = dynamic_cast<const expr::Name*>(right.get());
-                if (not right_name_ptr) util::error("Can only follow a '::' with a name/namespace access: " + right->stringify());
-
-
-                const auto n = dynamic_cast<expr::Name*>(left.get());
-                if (n) return std::make_shared<expr::SpaceAccess>(std::vector{std::move(n)->name}, std::move(right_name_ptr)->name);
-
-
-                const auto sa = dynamic_cast<expr::SpaceAccess*>(left.get());
-                sa->space.push_back(sa->member);
-                return std::make_shared<expr::SpaceAccess>(std::move(sa)->space, std::move(right_name_ptr)->name);
+                constexpr bool is_global_access = false;
+                return std::make_shared<expr::SpaceAccess>(is_global_access, std::move(spaces));
             }
 
             case COLON: {

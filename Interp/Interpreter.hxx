@@ -878,6 +878,15 @@ struct Visitor {
     }
 
 
+    static std::string stringify(const std::vector<std::string>& spaces) {
+        if (spaces.size() == 1) return spaces[0];
+
+        std::string s = spaces[0];
+        for (const auto& space : spaces | std::views::drop(1))
+            s += "::" + space;
+
+        return s;
+    }
 
     Value operator()(const expr::Namespace *ns) {
         if (const auto& var = getVar(ns->stringify()); var) return var->first;
@@ -911,17 +920,19 @@ struct Visitor {
         if (const auto& var = getVar(use->stringify()); var) return var->first;
 
 
-        if (not namespaces.contains(use->ns))
-            util::error("Can't apply keyword 'use' on a non-namespace: " + use->ns);
+        // if (not namespaces.contains(use->spaces))
+        //     util::error("Can't apply keyword 'use' on a non-namespace: " + use->ns);
 
 
-        const auto& space = namespaces[use->ns];
+        // const auto& space = namespaces[use->ns];
 
-        Value ret;
-        for (const auto& [name, type, value] : space.members->members)
-            ret = addVar(name.stringify(), *value, type);
+        // Value ret;
+        // for (const auto& [name, type, value] : space.members->members)
+        //     ret = addVar(name.stringify(), *value, type);
 
-        return ret;
+        // return ret;
+
+        return 0;
     }
 
     Value operator()(const expr::Import *import) const {

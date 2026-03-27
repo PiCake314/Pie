@@ -17,6 +17,16 @@
 inline namespace pie {
 namespace analysis {
 
+std::string stringify(const std::vector<std::string>& spaces) {
+    if (spaces.size() == 1) return spaces[0];
+
+    std::string s = spaces[0];
+    for (const auto& space : spaces | std::views::drop(1))
+        s += "::" + space;
+
+    return s;
+}
+
 struct NameSpace {
     std::string name;
 
@@ -318,10 +328,13 @@ struct LexicalAnalysis {
     void operator()(const expr::Use *use) {
         if (findVar(use->stringify())) return;
 
-        const auto space = findSpace(use->ns); // must recieve by reference
 
+        const auto space = findSpace(use->spaces, use->global);
+        if (not space) util::error();
 
-        for (const auto& var : namespaces[space->name]) addVar(var);
+        for (const auto& var : namespaces[stringify(use->spaces)]) {
+            addVar(var);
+        }
 
         // util::error();
     }
@@ -388,19 +401,19 @@ struct LexicalAnalysis {
     }
 
 
-    void checkName(
-        const std::string& name,
-        const std::string& space,
-        const std::source_location& location = std::source_location::current()
-    ) {
-        if (not namespaces.contains(space)) util::error<except::NameLookup>("Name `" + name + "` not found!", location);
+    // void checkName(
+    //     const std::string& name,
+    //     const std::string& space,
+    //     const std::source_location& location = std::source_location::current()
+    // ) {
+    //     if (not namespaces.contains(space)) util::error<except::NameLookup>("Name `" + name + "` not found!", location);
 
-        for (const auto& n : namespaces[space])
-            if (n == name) return;
+    //     for (const auto& n : namespaces[space])
+    //         if (n == name) return;
 
 
-        util::error<except::NameLookup>("Name `" + name + "` not found!", location);
-    }
+    //     util::error<except::NameLookup>("Name `" + name + "` not found!", location);
+    // }
 
 
 
@@ -417,6 +430,22 @@ struct LexicalAnalysis {
             getNamespaceAt(dir.substr(0, dir.size() - 1), spaces[ind]->children);
     }
 
+    std::string fullName(const NameSpace* ns) {
+        std::vector<std::string> spaces;
+
+        for (auto ptr = ns; ptr; ptr = ptr->parent)
+            spaces.push_back(ptr->name);
+
+        std::ranges::reverse(spaces);
+
+        std::string name = spaces[0];
+
+        for (const auto& s : spaces | std::views::drop(1))
+            name += "::" + s;
+
+        return name;
+    }
+
 
     void addSpace(std::string name) {
         const auto parent = getNamespaceAt(space_dir, global_spaces);
@@ -424,43 +453,94 @@ struct LexicalAnalysis {
         if (not parent) {
             global_spaces.push_back({std::make_unique<NameSpace>(std::move(name))});
             space_dir += std::to_string(global_spaces.size() - 1);
+            return;
         }
-        else {
-            // if it already exists, then direct to it
-            for (size_t i{}; const auto& ns : parent->children) {
-                if (ns->name == name) {
-                    space_dir += std::to_string(i);
-                    return;
-                }
-                ++i;
+
+
+        // if it already exists, then direct to it
+        for (size_t i{}; const auto& ns : parent->children) {
+            if (ns->name == name) {
+                space_dir += std::to_string(i);
+                return;
             }
-
-            // not found, add it
-            parent->children.push_back({std::make_unique<NameSpace>(std::move(name))});
-            parent->children.back()->parent = parent;
-
-            space_dir += std::to_string(parent->children.size() - 1);
+            ++i;
         }
+
+        // not found, add it
+
+        parent->children.push_back({std::make_unique<NameSpace>(name)});
+        parent->children.back()->parent = parent;
+
+
+        space_dir += std::to_string(parent->children.size() - 1);
     }
 
 
     void popSpace() { space_dir.pop_back(); }
 
 
-    NameSpace* findSpace(const std::string& name) {
-        const auto *space = getNamespaceAt(space_dir, global_spaces);
+    // NameSpace* findSpace(const std::string& name, bool global_search = false) {
 
-        while (space) {
-            for (const auto& ns : space->children) {
-                if (ns->name == name) return ns.get();
+    //     if (not global_search) {
+    //         const auto *space = getNamespaceAt(space_dir, global_spaces);
+
+    //         while (space) {
+    //             for (const auto& ns : space->children)
+    //                 if (ns->name == name) return ns.get();
+
+    //             space = space->parent;
+    //         }
+    //     }
+
+
+    //     for (const auto& ns : global_spaces)
+    //         if (ns->name == name) return ns.get();
+
+
+    //     util::error();
+    // }
+
+
+
+    bool matchChain(const std::vector<std::string>& names, const NameSpace *space) {
+        if (names.empty()) return true;
+        if (names[0] != space->name) return false;
+
+        for (const auto& name : names | std::views::drop(1)) {
+            for (const auto& child : space->children) {
+                // if the space is found
+                // move the current down the chain to look for the nested name
+                if (name == child->name) {
+                    space = child.get();
+                    goto keep_going;
+                }
             }
+            return false;
 
-            space = space->parent;
+            keep_going:
         }
 
+        return true;
+    }
+
+
+    // ideally, should be called findSpaces!
+    NameSpace* findSpace(const std::vector<std::string>& names, const bool global_search_only = false) {
+        if (not global_search_only) {
+            auto space = getNamespaceAt(space_dir, global_spaces);
+
+            while (space) {
+                for (const auto& child : space->children)
+                    if (matchChain(names, child.get())) return child.get();
+                // if not found, then move up the chain and look again
+                space = space->parent;
+            }
+        }
 
         for (const auto& ns : global_spaces)
-            if (ns->name == name) return ns.get();
+            if (matchChain(names, ns.get())) return ns.get();
+
+
 
         util::error();
     }
@@ -469,7 +549,7 @@ struct LexicalAnalysis {
         if (space_dir.empty()) env.back().push_back(std::move(name));
         else {
             const auto space = getNamespaceAt(space_dir, global_spaces);
-            namespaces[space->name].push_back(std::move(name));
+            namespaces[fullName(space)].push_back(std::move(name));
         }
     }
 

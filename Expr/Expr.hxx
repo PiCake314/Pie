@@ -658,7 +658,7 @@ struct Namespace : Expr {
     std::string stringify(const size_t indent = 0) const override {
         std::string s = "space " + name + " {\n";
 
-        for (const std::string spacing(indent + 4, ' '); auto&& expr : space) {
+        for (const std::string spacing(indent + 4, ' '); const auto& expr : space) {
             s += spacing + expr->stringify(indent + 4) + ";\n";
         }
 
@@ -677,14 +677,27 @@ struct Namespace : Expr {
 
 struct Use : Expr {
     // ExprPtr ns;
-    std::string ns;
+    bool global;
+    std::vector<std::string> spaces;
 
-    explicit Use(std::string n) noexcept
-    : ns{std::move(n)} {}
+    explicit Use(bool g, std::vector<std::string> ns) noexcept
+    : global{g}, spaces{std::move(ns)} {}
 
 
     std::string stringify(const size_t = 0) const override {
-        return "use " + ns;
+        std::string s = "use ";
+
+        if (global) {
+            for (const auto& space : spaces)
+                s += "::" + space;
+        }
+        else {
+            s += spaces[0];
+            for (const auto& space : spaces | std::views::drop(1))
+                s += "::" + space;
+        }
+
+        return s;
     }
 
     bool involvesName(const std::string_view sv) const override {
@@ -719,22 +732,21 @@ struct Import : Expr {
 
 
 struct SpaceAccess : Expr {
-    std::vector<std::string> space;
-    std::string member;
+    bool global;
+    std::vector<std::string> spaces;
 
 
-    SpaceAccess(std::vector<std::string> s, std::string m) noexcept
-    : space{std::move(s)}, member{std::move(m)} {}
+    SpaceAccess(bool g, std::vector<std::string> s) noexcept
+    : global{g}, spaces{std::move(s)} {}
 
     std::string stringify(const size_t = 0) const override {
-        if (space.empty()) return "::" + member;
 
         std::string s;
 
-        for (const auto& sp : space)
+        for (const auto& sp : spaces)
             s += sp + "::";
 
-        return s + member;
+        return s;
     }
 
     bool involvesName(const std::string_view) const override {
