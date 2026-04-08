@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
 
     // this would leave file name at argv[1]
     for(; argc > 1; --argc, ++argv) {
-             if (argv[1] == "-token"sv) print_tokens       = true ;
+        if (argv[1] == "-token"sv) print_tokens       = true ;
         else if (argv[1] == "-ast"sv  ) print_parsed       = true ;
         else if (argv[1] == "-pre"sv  ) print_preprocessed = true ;
         else if (argv[1] == "-help"sv ) print_help         = true ;

@@ -151,19 +151,19 @@ namespace type {
     };
 
 
-    struct SpaceType : Type {
+    // struct SpaceType : Type {
 
-        std::string text(const size_t = 0) const override { return "Space"; }
-        bool involvesT(const Type& T) const override { return T == *this; }
-        bool typeCheck(interp::Visitor*, [[maybe_unused]] const value::Value& v, const TypePtr& other) const override { return *this >= *other; }
+    //     std::string text(const size_t = 0) const override { return "Space"; }
+    //     bool involvesT(const Type& T) const override { return T == *this; }
+    //     bool typeCheck(interp::Visitor*, [[maybe_unused]] const value::Value& v, const TypePtr& other) const override { return *this >= *other; }
 
-        // a namespace is only not greater than any other type...
-        bool operator>(const Type&) const override { return false; }
-        // ...so >= only needs to check for equality!
-        bool operator>=(const Type& other) const override { return *this == other; }
+    //     // a namespace is only not greater than any other type...
+    //     bool operator>(const Type&) const override { return false; }
+    //     // ...so >= only needs to check for equality!
+    //     bool operator>=(const Type& other) const override { return *this == other; }
 
-        TypePtr clone() const override { return std::make_shared<SpaceType>(*this); }
-    };
+    //     TypePtr clone() const override { return std::make_shared<SpaceType>(*this); }
+    // };
 
 
     struct FuncType final : Type {

@@ -3,11 +3,9 @@
 #include <string>
 #include <string_view>
 #include <vector>
-#include <map>
 #include <unordered_map>
 #include <ranges>
 #include <algorithm>
-#include <numeric>
 #include <iterator>
 #include <optional>
 #include <utility>
@@ -44,7 +42,9 @@ struct Visitor {
 
     std::vector<std::pair<Environment, EnvTag>> env;
     Operators ops;
-    std::unordered_map<std::string, value::NameSpace> namespaces;
+
+    std::unordered_map<std::string, std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>>> namespaces;
+    std::vector<std::string> current_ns;
 
     // _this_ (or self) context
     std::vector<Object> selves{};
@@ -57,6 +57,8 @@ struct Visitor {
 
     // v_table ahh name
     std::unordered_map<std::string, std::vector<size_t>> co_map;
+
+
 
 
     Visitor(Operators ops = {}) noexcept : env(1), ops{std::move(ops)} { }
@@ -609,59 +611,22 @@ struct Visitor {
 
 
     Value spaceAccessAssign(const expr::Assignment *ass, expr::SpaceAccess *sa) {
-        util::error();
+        const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
-        // Value space = std::visit(*this, sa->space->variant());
+        if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name + "' not found in space " + space);
 
-        // if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+        auto [type, _] = namespaces[space][sa->name];
 
+        auto value = std::visit(*this, ass->rhs->variant());
 
-        // const auto& ns = std::get<NameSpace>(space);
+        *namespaces[space][sa->name].second = typeCheck(value, std::move(type),
+            "In assignment: " + ass->stringify() +
+            "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
+        );
 
-        // const auto& found = std::ranges::find_if(ns.members->members,
-        //     [&name = sa->member] (const auto& member) { return get<0>(member).stringify() == name;}
-        // );
-        // if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
-
-        // // Value value = get<type::TypePtr>(*found)->text() == "Syntax" ? ass->rhs->variant() : std::visit(*this, ass->rhs->variant());
-
-        // Value value;
-        // if (get<type::TypePtr>(*found)->text() == "Syntax")
-        //     value = ass->rhs->variant();
-        // else
-        //     value = std::visit(*this, ass->rhs->variant());
-
-
-
-        // typeCheck(value, get<type::TypePtr>(*found),
-        //     "In assignment: " + ass->stringify() +
-        //     "\nType mis-match! Expected: " + get<type::TypePtr>(*found)->text() + ", got: " + typeOf(value)->text()
-        // );
-
-        // // get<Value>(*found) = value;
-        // *get<ValuePtr>(*found) = value;
-
-        // return value;
+        return *namespaces[space][sa->name].second = std::move(value);
     }
 
-
-    Value spaceAssign(const NameSpace& ns1, const NameSpace& ns2) {
-        for (const auto& [name, type, value] : ns2.members->members) {
-            if (
-                const auto& it = std::ranges::find_if(ns1.members->members, [&name] (const auto& e) { return get<expr::Name>(e).stringify() == name.stringify(); });
-                it != ns1.members->members.end()
-            ) {
-                // explicit copying
-                get<type::TypePtr>(*it) = type;
-                get<ValuePtr>(*it) = std::make_shared<Value>(*value);
-            }
-            // same here
-            else ns1.members->members.push_back({name ,type, value});
-        }
-
-
-        return ns1;
-    }
 
 
     Value nameAssign(const expr::Assignment *ass, const expr::Name* name) {
@@ -699,20 +664,10 @@ struct Visitor {
             auto value = std::visit(*this, ass->rhs->variant());
 
 
-            // reassigning to an existing namespace. special | I think I don't have to use typeCheck here..maybe!
-            if (change and std::holds_alternative<NameSpace>(value) and (*type >= *typeOf(value))) {
-                if (not std::holds_alternative<NameSpace>(getVar(name->name)->first))
-                    changeVar(name->name, NameSpace{std::make_shared<Members>()});
-
-                return spaceAssign(get<NameSpace>(getVar(name->name)->first), get<NameSpace>(value));
-            }
-
-
             value = typeCheck(value, type,
                 "In assignment: " + ass->stringify() +
                 "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
             );
-
 
 
             // casting the function type in case assigning a function to our variable
@@ -867,18 +822,11 @@ struct Visitor {
 
 
     Value operator()(const expr::Cascade *) {
-
         util::error();
-        // const auto obj = std::visit(*this, cas->var);
-
-        // if (not std::holds_alternative<value::Object>(obj)) util::error("Cannot access a non-object");
-
-
-        // o.((x * 1) + 2);
     }
 
 
-    static std::string stringify(const std::vector<std::string>& spaces) {
+    static std::string NSName(const std::vector<std::string>& spaces) {
         if (spaces.size() == 1) return spaces[0];
 
         std::string s = spaces[0];
@@ -888,11 +836,37 @@ struct Visitor {
         return s;
     }
 
+
+    std::string findNS(std::vector<std::string> spaces) {
+        auto fixed_spaces = current_ns;
+
+        fixed_spaces.append_range(spaces);
+
+        std::string name = NSName(spaces);
+        while (not namespaces.contains(name)) {
+            fixed_spaces.erase(fixed_spaces.end() - spaces.size(), fixed_spaces.end());
+
+            if (fixed_spaces.empty()) util::error("couldn't find space: " + name);
+
+            fixed_spaces.pop_back();
+            fixed_spaces.append_range(spaces);
+            name = NSName(spaces);
+        }
+
+
+        return name;
+    }
+
+
+
     Value operator()(const expr::Namespace *ns) {
         if (const auto& var = getVar(ns->stringify()); var) return var->first;
 
 
         ScopeGuard sg{this};
+        current_ns.push_back(ns->name);
+        util::Deferred d{[this] { current_ns.pop_back(); }};
+
         Value value;
         // execute all the expressions in the namespace
         for (const auto& expr : ns->space)
@@ -901,16 +875,15 @@ struct Visitor {
 
 
         // then add the variables that resulted from that execution
-        std::vector<std::tuple<expr::Name, type::TypePtr, ValuePtr>> members;
+        std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>> members;
         for (auto& [name, val] : env.back().first) {
             auto& [value, type] = val;
 
-            members.push_back({expr::Name{name}, std::move(type), std::move(value)});
+            // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
+            members[name] = {std::move(type), std::move(value)};
         }
 
-        std::ranges::reverse(members);
-        namespaces.insert({ns->name, {std::make_shared<Members>(std::move(members))}});
-
+        namespaces.insert({NSName(current_ns), std::move(members)});
 
         return value;
     }
@@ -920,20 +893,34 @@ struct Visitor {
         if (const auto& var = getVar(use->stringify()); var) return var->first;
 
 
-        // if (not namespaces.contains(use->spaces))
-        //     util::error("Can't apply keyword 'use' on a non-namespace: " + use->ns);
+        const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
 
+        if (not namespaces[space].contains(use->name)) util::error("Name '" + use->name + "' not found in space " + space);
 
-        // const auto& space = namespaces[use->ns];
+        const auto value = *namespaces.at(space).at(use->name).second;
+        addVar(use->name, value); // will figure something out for mutability, FUCK
 
-        // Value ret;
-        // for (const auto& [name, type, value] : space.members->members)
-        //     ret = addVar(name.stringify(), *value, type);
-
-        // return ret;
-
-        return 0;
+        return value;
     }
+
+    Value operator()(const expr::UseSpace *use) {
+        if (const auto& var = getVar(use->stringify()); var) return var->first;
+
+        const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
+
+        if (not namespaces.contains(space)) util::error("space '" + space + "' not found!");
+
+        Value v;
+        for (const auto& [name, t_v] : namespaces.at(space)) {
+            const auto& [type, value] = t_v;
+
+            v = *value;
+            addVar(name, *value); // will figure something out for mutability, FUCK
+        }
+
+        return v;
+    }
+
 
     Value operator()(const expr::Import *import) const {
         const auto src = util::readFile(auto{import->path}.replace_extension(".pie").string());
@@ -952,44 +939,15 @@ struct Visitor {
     }
 
 
-    Value operator()(const expr::SpaceAccess* sa) {
+    Value operator()(const expr::SpaceAccess *sa) {
         if (const auto& var = getVar(sa->stringify()); var) return var->first;
 
-        util::error();
+        const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
-        // if (not sa->space) { // global namespace `::x`
-        //     if (const auto& var = globalLookup(sa->member); var) return var->first; 
-        //     else util::error("Name '" + sa->member + "' not found in global namespace!");
-        // }
-
-        // // const auto& var = getVar(sa->spacename);
-        // // if (not var) error("Name '" + sa->spacename + "' does is not defined!");
-
-        // Value space = std::visit(*this, sa->space->variant());
-
-        // if (not std::holds_alternative<NameSpace>(space)) util::error("Can't apply scope-resolution-operator '::' on a non-namespace: " + sa->space->stringify());
+        if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name + "' not found in space " + space);
 
 
-        // const auto& ns = std::get<NameSpace>(space);
-
-        // const auto& found = std::ranges::find_if(ns.members->members, [&name = sa->member] (const auto& member) { return get<expr::Name>(member).stringify() == name; });
-
-        // if (found == ns.members->members.end()) util::error("Name '" + sa->member + "' doesn't exist inside namesapce '" + sa->space->stringify() + '\'');
-
-
-        // if (std::holds_alternative<expr::Closure>(*get<ValuePtr>(*found))) {
-        //     const auto& closure = get<expr::Closure>(*get<ValuePtr>(*found));
-
-        //     Environment capture_list;
-        //     for (const auto& [name, type, value] : ns.members->members)
-        //         capture_list[name.stringify()] = {std::make_shared<Value>(*value), typeOf(*value)};
-
-        //     closure.capture(capture_list);
-
-        //     return closure;
-        // }
-
-        // return *get<ValuePtr>(*found);
+        return *namespaces[space][sa->name].second;
     }
 
 
@@ -3638,7 +3596,7 @@ struct Visitor {
             return type::MapOf(type::builtins::Any()     , type::builtins::Any()      );
         }
 
-        if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();
+        // if (std::holds_alternative<NameSpace>(value)) return std::make_shared<type::SpaceType>();
 
 
         util::error("Unknown Type for value: " + stringify(value));

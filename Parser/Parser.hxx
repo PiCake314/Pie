@@ -146,12 +146,20 @@ public:
 
             case NAMESPACE: return nameSpace();
             case USE: {
+                const bool  using_space  = match(NAMESPACE);
                 const bool global_access = match(SCOPE_RESOLVE);
 
                 std::vector<std::string> spaces = {consume(NAME).text};
                 while (match(SCOPE_RESOLVE)) spaces.push_back(consume(NAME).text);
 
-                return std::make_shared<expr::Use>(global_access, std::move(spaces));
+                if (not using_space) {
+                    std::string name = spaces.back();
+                    spaces.pop_back();
+
+                    return std::make_shared<expr::Use     >(global_access, std::move(spaces), std::move(name));
+                }
+                else
+                    return std::make_shared<expr::UseSpace>(global_access, std::move(spaces));
             }
 
 
@@ -165,11 +173,15 @@ public:
 
             // global namespace
             case SCOPE_RESOLVE: {
+                constexpr bool is_global_access = true;
+
                 std::vector<std::string> spaces = {consume(NAME).text};
                 while (match(SCOPE_RESOLVE)) spaces.push_back(consume(NAME).text);
 
-                constexpr bool is_global_access = true;
-                return std::make_shared<expr::SpaceAccess>(is_global_access, std::move(spaces));
+                std::string name = std::move(spaces).back();
+                spaces.pop_back();
+
+                return std::make_shared<expr::SpaceAccess>(is_global_access, std::move(spaces), std::move(name));
             }
 
             case COLON: return std::make_shared<expr::Type>(parseType());
@@ -361,11 +373,20 @@ public:
 
 
             case SCOPE_RESOLVE: {
-                std::vector<std::string> spaces = {consume(NAME).text};
+                constexpr bool is_global_access = false;
+
+
+                auto accessee_ptr = dynamic_cast<expr::Name*>(left.get());
+                if (not accessee_ptr) util::error("Scope resolution operator '::' applied on non-name: " + left->stringify());
+
+
+                std::vector<std::string> spaces = {accessee_ptr->name, consume(NAME).text};
                 while (match(SCOPE_RESOLVE)) spaces.push_back(consume(NAME).text);
 
-                constexpr bool is_global_access = false;
-                return std::make_shared<expr::SpaceAccess>(is_global_access, std::move(spaces));
+                std::string name = std::move(spaces).back();
+                spaces.pop_back();
+
+                return std::make_shared<expr::SpaceAccess>(is_global_access, std::move(spaces), std::move(name));
             }
 
             case COLON: {
@@ -489,7 +510,7 @@ public:
         }
 
         // or an expression
-        return std::make_shared<type::ExprType>(parseExpr(prec::ASSIGNMENT_VALUE));
+        return std::make_shared<type::ExprType>(parseExpr<false>(prec::ASSIGNMENT_VALUE));
     }
 
     std::unique_ptr<expr::Match::Case::Pattern> parsePattern() {
@@ -911,6 +932,8 @@ public:
         if (match(TokenKind::COLON)){ // exprs preceeded by `:` are parsed as type
             // consume(/* COLON */);
             auto type = parseType();
+
+
             consume(TokenKind::ASSIGN);
 
             return std::make_shared<expr::Assignment>(

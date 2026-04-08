@@ -6,7 +6,6 @@
 #include <memory>
 #include <ranges>
 #include <variant>
-#include <optional>
 
 #include "../Utils/utils.hxx"
 #include "../Utils/Exceptions.hxx"
@@ -41,8 +40,6 @@ struct LexicalAnalysis {
 
 
     std::unordered_map<std::string, std::vector<std::string>> namespaces;
-
-
     std::string space_dir;
     std::vector<std::unique_ptr<NameSpace>> global_spaces;
 
@@ -299,17 +296,19 @@ struct LexicalAnalysis {
 
     void operator()(const expr::Import *import) {
         if (findVar(import->stringify())) return;
+        else util::error();
 
-        const auto src = util::readFile(auto{import->path}.replace_extension(".pie").string());
-        const Tokens v = lex::lex(src);
-        if (v.empty()) util::error("Can't import an empty file!");
 
-        Parser p{v, import->path};
+        // const auto src = util::readFile(auto{import->path}.replace_extension(".pie").string());
+        // const Tokens v = lex::lex(src);
+        // if (v.empty()) util::error("Can't import an empty file!");
 
-        auto [exprs, _] = p.parse();
+        // Parser p{v, import->path};
 
-        for (const auto& expr : exprs)
-            std::visit(*this, std::move(expr)->variant());
+        // auto [exprs, _] = p.parse();
+
+        // for (const auto& expr : exprs)
+        //     std::visit(*this, std::move(expr)->variant());
     }
 
 
@@ -325,7 +324,7 @@ struct LexicalAnalysis {
     }
 
 
-    void operator()(const expr::Use *use) {
+    void operator()(const expr::UseSpace *use) {
         if (findVar(use->stringify())) return;
 
 
@@ -335,13 +334,38 @@ struct LexicalAnalysis {
         for (const auto& var : namespaces[stringify(use->spaces)]) {
             addVar(var);
         }
+    }
 
-        // util::error();
+    void operator()(const expr::Use *use) {
+        if (findVar(use->stringify())) return;
+
+
+        const auto space = findSpace(use->spaces, use->global);
+        if (not space) util::error();
+
+        for (const auto& var : namespaces[stringify(use->spaces)]) {
+            if (var == use->name) {
+                addVar(var);
+                goto success;
+            }
+        }
+
+        util::error("Name " + use->name + " not found in space " + stringify(use->spaces));
+
+        success:
     }
 
 
     void operator()(const expr::SpaceAccess *acc) {
-        util::error();
+        const auto space = findSpace(acc->spaces, acc->global);
+
+        if (not space) util::error();
+
+        for (const auto& var : namespaces[stringify(acc->spaces)]) {
+            if (var == acc->name) return;
+        }
+
+        util::error("Name " + acc->name + " not found in space " + stringify(acc->spaces));
     }
 
 
@@ -542,7 +566,7 @@ struct LexicalAnalysis {
 
 
 
-        util::error();
+        util::error("Space '" + stringify(names) + "' not found!");
     }
 
     void addVar(std::string name) {

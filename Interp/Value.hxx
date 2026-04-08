@@ -10,7 +10,7 @@
 #include "../Expr/Expr.hxx"
 #include "../Type/Type.hxx"
 #include "../Declarations.hxx"
-#include "../Utils/utils.hxx"
+
 
 
 inline namespace pie {
@@ -20,7 +20,7 @@ struct Fields;
 struct ClassValue { std::shared_ptr<Fields> blueprint; };
 
 struct Members;
-struct NameSpace  { std::shared_ptr<Members> members  ; };
+// struct NameSpace  { std::shared_ptr<Members> members  ; };
 
 struct Elements;
 struct ListValue { std::shared_ptr<Elements> elts; };
@@ -39,7 +39,7 @@ using VariantType = std::variant<
     std::string,
     expr::Closure,
     type::TypePtr,
-    NameSpace,
+    // NameSpace,
     Object,
     expr::Node,
     PackList,

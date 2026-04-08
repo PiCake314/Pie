@@ -1,7 +1,8 @@
 #pragma once
 
-#include <memory>
 #include <string_view>
+#include <variant>
+#include <memory>
 
 #ifdef WEB_PIE
 using BigInt = long long;
@@ -40,6 +41,7 @@ using Node = std::variant<
     const struct Cascade           *,
     const struct Namespace         *,
     const struct Use               *,
+    const struct UseSpace          *,
     const struct Import            *,
     const struct SpaceAccess       *,
     const struct Grouping          *,

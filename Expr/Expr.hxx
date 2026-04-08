@@ -676,16 +676,44 @@ struct Namespace : Expr {
 
 
 struct Use : Expr {
-    // ExprPtr ns;
+    bool global;
+    // last name is not a space
+    std::vector<std::string> spaces;
+    std::string name;
+
+    explicit Use(bool g, std::vector<std::string> ns, std::string n) noexcept
+    : global{g}, spaces{std::move(ns)}, name{std::move(n)} {}
+
+
+    std::string stringify(const size_t = 0) const override {
+        std::string s;
+
+        for (const auto& space : spaces)
+            s += space + "::";
+
+        return (global ? "use ::" : "use" ) + s + "::" + name;
+    }
+
+    bool involvesName(const std::string_view sv) const override {
+        return sv == stringify();
+    }
+
+    ExprPtr left() const override { return std::make_shared<Use>(*this); }
+
+    Node variant() const override { return this; }
+};
+
+
+struct UseSpace : Expr {
     bool global;
     std::vector<std::string> spaces;
 
-    explicit Use(bool g, std::vector<std::string> ns) noexcept
+    explicit UseSpace(bool g, std::vector<std::string> ns) noexcept
     : global{g}, spaces{std::move(ns)} {}
 
 
     std::string stringify(const size_t = 0) const override {
-        std::string s = "use ";
+        std::string s = "use space";
 
         if (global) {
             for (const auto& space : spaces)
@@ -704,7 +732,7 @@ struct Use : Expr {
         return sv == stringify();
     }
 
-    ExprPtr left() const override { return std::make_shared<Use>(*this); }
+    ExprPtr left() const override { return std::make_shared<UseSpace>(*this); }
 
     Node variant() const override { return this; }
 };
@@ -734,10 +762,11 @@ struct Import : Expr {
 struct SpaceAccess : Expr {
     bool global;
     std::vector<std::string> spaces;
+    std::string name;
 
 
-    SpaceAccess(bool g, std::vector<std::string> s) noexcept
-    : global{g}, spaces{std::move(s)} {}
+    SpaceAccess(bool g, std::vector<std::string> s, std::string n) noexcept
+    : global{g}, spaces{std::move(s)}, name{std::move(n)} {}
 
     std::string stringify(const size_t = 0) const override {
 
@@ -746,12 +775,11 @@ struct SpaceAccess : Expr {
         for (const auto& sp : spaces)
             s += sp + "::";
 
-        return s;
+        return (global ? "::" : "") + s + name;
     }
 
     bool involvesName(const std::string_view) const override {
-        return false; // argubaly, any qualified name doesn't involve other names!
-        // return sv == stringify(); // or space->involvesName(sv);
+        return false; // qualified names don't involve other names!
     }
 
     ExprPtr left() const override { return nullptr; }
