@@ -131,23 +131,28 @@ Pie booleans have 2 literals: `true` and `false`.
 ### 4.3 Strings
 Anything that starts and ends with quotes (`"`) is considered a string.
 
-
+ˆ
 ### 4.4 Identifiers
 Identifiers are names that bind to values. What you know as "variables".
-Identifiers can consist of any combonation of the following letters, numbers, symbols:
-`abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&|*+~-_\'/<>[]`
 
+Identifier names can either be proper or improper.
 #### 4.4.1 Proper Names
-These are identifiers that contain a letter or one of the following symbols `!@#$%^&|*+~-_\'/<>[]` in them. These identifiers are special because they can be annotated with a type, unlike improper names.
+A name is proper if it has these three properties:
+- Contain **NO** spaces
+- Must **NOT** purely consist of numbers.
+- Consist of the following sigils only:
+    `abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&|*+~-_\'/<>[]`
+
+These identifiers are special because they can be annotated with a type, unlike improper names.
 
 #### 4.4.1 Improper Names
-Any valid Pie expression is a valid identifier. This means that all the following are valid identifiers:
+Any valid Pie expression, that is not a proper name already, is a valid improper name. This means that all the following are valid identifiers:
 - `5`
 - `"hello"`
 - `func(x, y)`
 - `1 + 2`
 
-These identifiers are improper, which means they cannot be annotatetd with a type.
+These identifiers cannot be annotatetd with a type.
 
 
 ### 4.5 Assignments
