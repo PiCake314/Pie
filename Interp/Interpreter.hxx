@@ -3787,9 +3787,13 @@ struct Visitor {
     }
 
     void removeVar(const std::string& name) {
-        for(auto& curr_env : env) curr_env.first.erase(name);
+        for(auto& curr_env : std::views::reverse(env)) {
+            if (curr_env.first.contains(name)) {
+                curr_env.first.erase(name);
+                return;
+            }
+        }
     }
-
 
     Environment envStackToEnvMap() const {
         Environment e;

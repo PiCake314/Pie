@@ -5,3 +5,4 @@ code/
 remote_includes/
 *.dSYM/
 *.txt
+*.pie

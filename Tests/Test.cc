@@ -8,6 +8,49 @@
 
 
 
+TEST_CASE("Lexical Scoping - Invalid Builtin Reset", "[Func][Builtin]") {
+    const auto src1 = R"(
+print = __builtin_print;
+
+.: f(a, 1) = "bye";
+
+func = () => {
+    .: f(a, 1) = "hi";
+
+    .: Should this reset clear the f right above / the top f?
+    __builtin_reset(f(a, 1));
+};
+
+f2 = () => {
+    f(a, 1) = 69;
+    func();
+};
+
+f2();
+.: print(f(a, 1));
+)";
+
+    REQUIRE_THROWS_AS(pie::test::run(src1), pie::except::NameLookup);
+}
+
+TEST_CASE("Lexical Scoping - Builtin Reset", "[Func][Builtin]") {
+    const auto src1 = R"(
+print = __builtin_print;
+f(a, 1) = "bye";
+
+func = () => {
+    f(a, 1) = "hi";
+
+    .: Should this reset clear the f right above / the top f?
+    __builtin_reset(f(a, 1));
+};
+
+func();
+print(f(a, 1));
+)";
+
+    REQUIRE(pie::test::run(src1) == "bye");
+}
 
 TEST_CASE("Operator Precedence", "[Operator][Prec]") {
     const auto src1 = R"(
@@ -2288,4 +2331,3 @@ print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.0));
 
     REQUIRE(pie::test::run(src) == "0");
 }
-
