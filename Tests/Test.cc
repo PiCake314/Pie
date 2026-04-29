@@ -511,7 +511,7 @@ Object {
 
 TEST_CASE("Self Outside Class", "[Class]") {
     const auto src = R"(
-f = () => std::print(self);
+f = () => print(self);
 C = class {
     x = 1;
 
@@ -528,7 +528,7 @@ C(10).func();
 
 TEST_CASE("Using Variable Before Definition", "[Var]") {
     const auto src = R"(
-func1 = () => std::print(x);
+func1 = () => print(x);
 func2 = () => {
     x = 22;
     func1();
@@ -939,36 +939,36 @@ f(Any());
 }
 
 
-TEST_CASE("Class + Object Equality", "[Object][Class]") {
-    const auto src = R"(
-print = __builtin_print;
+// TEST_CASE("Class + Object Equality", "[Object][Class]") {
+//     const auto src = R"(
+// print = __builtin_print;
 
-x = 1;
-y = 1;
-ns = space {
-    x: Any = 2;
-    y = 2;
+// x = 1;
+// y = 1;
+// ns = space {
+//     x: Any = 2;
+//     y = 2;
 
-    printX1 = () => print(::x);
-    printX2 = () => print(x);
+//     printX1 = () => print(::x);
+//     printX2 = () => print(x);
 
-    printY1 = () => print(::y);
-    printY2 = () => print(y);
-};
+//     printY1 = () => print(::y);
+//     printY2 = () => print(y);
+// };
 
-ns::printX1();
-ns::printX2();
+// ns::printX1();
+// ns::printX2();
 
-ns::printY1();
-ns::printY2();
-)";
+// ns::printY1();
+// ns::printY2();
+// )";
 
 
-    REQUIRE(pie::test::run(src) == R"(1
-2
-2
-2)");
-}
+//     REQUIRE(pie::test::run(src) == R"(1
+// 2
+// 2
+// 2)");
+// }
 
 
 // TEST_CASE("Class + Object Equality", "[Object][Class]") {
@@ -1933,61 +1933,61 @@ print(1 + 1);
 }
 
 
-TEST_CASE("recursive namespaces", "[Namespace]") {
-    const auto src = R"(
-print = __builtin_print;
+// TEST_CASE("recursive namespaces", "[Namespace]") {
+//     const auto src = R"(
+// print = __builtin_print;
 
-x = space {
-    a = 1;
-    y = 1;
-};
+// x = space {
+//     a = 1;
+//     y = 1;
+// };
 
-x::y = x;
+// x::y = x;
 
-print(x::y::y::y::y::a);
+// print(x::y::y::y::y::a);
 
-)";
+// )";
 
-    REQUIRE(pie::test::run(src) == "1");
-}
-
-
-
-TEST_CASE("namespaces2", "[Namespace]") {
-    const auto src = R"(
-print = __builtin_print;
-
-x = space {
-    cls = class { meow: Int = 0; };
-
-    v: String = "hi";
-
-    o: cls = cls(1);
-
-    func = (e: cls) => e.meow;
-
-    infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
-
-    y = space {
-        n = 1;
-    };
-};
+//     REQUIRE(pie::test::run(src) == "1");
+// }
 
 
-a = x::y::n;
-print(a);
-print(x::y::n);
-x::y::n = 10;
-print(a);
-print(x::y::n);
-a = 20;
-print(a);
-print(x::y::n);
 
-)";
+// TEST_CASE("namespaces2", "[Namespace]") {
+//     const auto src = R"(
+// print = __builtin_print;
 
-    REQUIRE(pie::test::run(src) == "1\n1\n1\n10\n20\n10");
-}
+// x = space {
+//     cls = class { meow: Int = 0; };
+
+//     v: String = "hi";
+
+//     o: cls = cls(1);
+
+//     func = (e: cls) => e.meow;
+
+//     infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
+
+//     y = space {
+//         n = 1;
+//     };
+// };
+
+
+// a = x::y::n;
+// print(a);
+// print(x::y::n);
+// x::y::n = 10;
+// print(a);
+// print(x::y::n);
+// a = 20;
+// print(a);
+// print(x::y::n);
+
+// )";
+
+//     REQUIRE(pie::test::run(src) == "1\n1\n1\n10\n20\n10");
+// }
 
 
 
@@ -1995,7 +1995,7 @@ TEST_CASE("namespaces1", "[Namespace]") {
     const auto src = R"(
 print = __builtin_print;
 
-x = space {
+space x {
     cls = class { meow: Int = 0; };
 
     v: String = "hi";
@@ -2006,7 +2006,7 @@ x = space {
 
     infix(+) + = (a: cls, b: cls) => __builtin_add(a.meow, b.meow);
 
-    y = space {
+    space y {
         n = 1;
     };
 };

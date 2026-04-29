@@ -370,6 +370,7 @@ public:
 
                 // return std::make_shared<expr::Access>(std::move(left), std::move(accessee_ptr)->name);
             }
+            [[fallthrough]];
 
 
             case SCOPE_RESOLVE: {

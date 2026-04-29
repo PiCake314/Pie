@@ -10,6 +10,7 @@
 #include <optional>
 #include <utility>
 
+
 #include <cassert>
 #include <cctype>
 
@@ -2074,6 +2075,7 @@ struct Visitor {
         // ScopeGuard& sg,
         Environment& args_env
     ) {
+
         const auto findType = [&func] (const size_t p, const type::TypePtr& type) {
             // it doesn't matter if there are multiple arguments with this name
             // `validateType` will choose the lastly-bounded one
@@ -2182,7 +2184,7 @@ struct Visitor {
 
         // curry! 
         if (args_size + call->named_args.size() < func.params.size() - is_variadic) {
-            return partialApplication(call, func, args_size, std::move(expand_at), std::move(args), is_variadic);
+            return partialApplication(call, func, args_size, std::move(expand_at), args, is_variadic);
         }
 
 
@@ -2230,6 +2232,14 @@ struct Visitor {
             if (cond) named_args.erase(p.first);
             return cond;
         });
+
+
+        if (args.size() != pos_params.size())
+            util::error(
+                "Expected " + std::to_string(pos_params.size()) +
+                " postional arguments. Got " + std::to_string(args.size()) +
+                ": " + call->stringify()
+            );
 
 
         if (is_variadic) {
@@ -3721,7 +3731,12 @@ struct Visitor {
     }
 
     void removeVar(const std::string& name) {
-        for(auto& curr_env : env) curr_env.first.erase(name);
+        for(auto& curr_env : std::views::reverse(env)) {
+            if (curr_env.first.contains(name)) {
+                curr_env.first.erase(name);
+                return;
+            }
+        }
     }
 
 

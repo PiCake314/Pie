@@ -1,6 +1,7 @@
 #pragma once
 
 
+#include <optional>
 #include <string>
 #include <vector>
 #include <memory>
@@ -35,17 +36,21 @@ struct NameSpace {
 
 
 struct LexicalAnalysis {
+
+    size_t variable_index{};
+
     // scopes
-    std::vector<std::vector<std::string>> env;
+    std::vector<std::unordered_map<std::string, size_t>> env;
 
-
-    std::unordered_map<std::string, std::vector<std::string>> namespaces;
+    std::unordered_map<std::string, std::unordered_map<std::string, size_t>> namespaces;
     std::string space_dir;
     std::vector<std::unique_ptr<NameSpace>> global_spaces;
 
 
     LexicalAnalysis() {
-        env.push_back({
+        env.push_back({});
+
+        const auto builtins = {
             "Any",
             "Int",
             "Double",
@@ -92,19 +97,45 @@ struct LexicalAnalysis {
             // "__builtin_read_whole",
             // "__builtin_read_line",
             // "__builtin_read_lines"
-        });
+        };
+
+
+        for (const auto builtin : builtins)
+            env[0][builtin] = variable_index++;
     }
 
 
     void operator()(const expr::Assignment *ass) {
+
+        // this allows for recursion
         const bool is_closure = dynamic_cast<expr::Closure*>(ass->rhs.get());
-        if (is_closure) addVar(ass->lhs->stringify()); // this allows for recursion
+        if (is_closure) {
+            // if there is a type explicitly stated, then a new variable should be create no matter what
+            if (not type::shouldReassign(ass->type)) {
+                ass->lhs->ID = variable_index++;
+                addVar(ass->lhs->stringify(), ass->lhs->ID);
+            }
+            else if (const auto id = findVar(ass->lhs->stringify()); id)
+                ass->lhs->ID = *id;
+            else {
+                ass->lhs->ID = variable_index++;
+                addVar(ass->lhs->stringify(), ass->lhs->ID);
+            }
+        }
 
-        std::visit(*this, std::make_shared<expr::Type>(ass->type)->variant());
-
+        std::visit(*this, expr::Type{ass->type}.variant());
         std::visit(*this, ass->rhs->variant());
 
-        if (not is_closure) addVar(ass->lhs->stringify()); // make sure to add the name if it wasn't added before
+
+        if (not is_closure) {
+            // if there is a type explicitly stated, then a new variable should be create no matter what
+            if (not type::shouldReassign(ass->type)) {
+                ass->lhs->ID = variable_index++;
+                addVar(ass->lhs->stringify(), ass->lhs->ID);
+            }
+            else if (const auto id = findVar(ass->lhs->stringify()); id)
+                ass->lhs->ID = *id;
+        }
     }
 
     // void operator()(const expr::Type *type) {
@@ -130,8 +161,10 @@ struct LexicalAnalysis {
 
         ScopeGuard sg{this};
 
-        for (const auto& param : c->params)
-            addVar(param);
+        for (const auto& [name, type] : std::views::zip(c->params, c->type.params)) {
+            std::visit(*this, expr::Type{type}.variant());
+            addVar(name, variable_index++);
+        }
 
         std::visit(*this, c->body->variant());
     }
@@ -189,14 +222,17 @@ struct LexicalAnalysis {
         std::visit(*this, fold->init->variant());
     }
 
-    void operator()(const expr::Class *cls) {
+    void operator()(expr::Class *cls) {
         if (findVar(cls->stringify())) return;
 
         ScopeGuard sg{this};
-        addVar("self");
+        addVar("self", variable_index++);
 
          // needed for methods to access member variables
-        for (const auto& [name, _, __] : cls->fields) addVar(name.name);
+        for (auto& [name, _, __] : cls->fields) {
+            name.ID = variable_index++;
+            addVar(name.name, variable_index);
+        }
 
         for (const auto& [_, type, value] : cls->fields) {
             std::visit(*this, value->variant());
@@ -211,7 +247,7 @@ struct LexicalAnalysis {
 
         for (const auto& type : onion->types) {
             std::visit(*this, std::make_shared<expr::Type>(type)->variant());
-            addVar(type->text());
+            addVar(type->text(), variable_index++);
         }
     }
 
@@ -220,7 +256,7 @@ struct LexicalAnalysis {
         if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pat.pattern)) {
             const auto& pattern = get<expr::Match::Case::Pattern::Single>(pat.pattern);
 
-            if (not pattern.name.empty()) addVar(pattern.name);
+            if (not pattern.name.empty()) addVar(pattern.name, variable_index++);
 
             if (pattern.type)
                 std::visit(*this, std::make_shared<expr::Type>(pattern.type)->variant());
@@ -266,7 +302,11 @@ struct LexicalAnalysis {
         ScopeGuard sg{this};
 
         if (loop->kind) std::visit(*this, loop->kind->variant());
-        if (loop->var) addVar(loop->var->stringify());
+        if (loop->var) {
+            if (dynamic_cast<expr::Name*>(loop->var.get())) {
+                addVar(loop->var->stringify(), variable_index++);
+            }
+        }
         std::visit(*this, loop->body->variant());
         if (loop->els) std::visit(*this, loop->els ->variant());
     }
@@ -331,9 +371,8 @@ struct LexicalAnalysis {
         const auto space = findSpace(use->spaces, use->global);
         if (not space) util::error();
 
-        for (const auto& var : namespaces[stringify(use->spaces)]) {
-            addVar(var);
-        }
+        for (const auto& [var, id] : namespaces[stringify(use->spaces)])
+            addVar(var, id);
     }
 
     void operator()(const expr::Use *use) {
@@ -343,16 +382,14 @@ struct LexicalAnalysis {
         const auto space = findSpace(use->spaces, use->global);
         if (not space) util::error();
 
-        for (const auto& var : namespaces[stringify(use->spaces)]) {
+        for (const auto& [var, id] : namespaces[stringify(use->spaces)]) {
             if (var == use->name) {
-                addVar(var);
-                goto success;
+                addVar(var, id);
+                return;
             }
         }
 
         util::error("Name " + use->name + " not found in space " + stringify(use->spaces));
-
-        success:
     }
 
 
@@ -361,7 +398,7 @@ struct LexicalAnalysis {
 
         if (not space) util::error();
 
-        for (const auto& var : namespaces[stringify(acc->spaces)]) {
+        for (const auto& [var, _] : namespaces[stringify(acc->spaces)]) {
             if (var == acc->name) return;
         }
 
@@ -454,7 +491,7 @@ struct LexicalAnalysis {
             getNamespaceAt(dir.substr(0, dir.size() - 1), spaces[ind]->children);
     }
 
-    std::string fullName(const NameSpace* ns) {
+    std::string fullName(const NameSpace* ns) const {
         std::vector<std::string> spaces;
 
         for (auto ptr = ns; ptr; ptr = ptr->parent)
@@ -554,7 +591,7 @@ struct LexicalAnalysis {
             auto space = getNamespaceAt(space_dir, global_spaces);
 
             while (space) {
-                for (const auto& child : space->children)
+                for (const auto& child : space->children) // !!this could be a bug. Why search the children?
                     if (matchChain(names, child.get())) return child.get();
                 // if not found, then move up the chain and look again
                 space = space->parent;
@@ -569,21 +606,42 @@ struct LexicalAnalysis {
         util::error("Space '" + stringify(names) + "' not found!");
     }
 
-    void addVar(std::string name) {
-        if (space_dir.empty()) env.back().push_back(std::move(name));
+    void addVar(std::string name, const size_t index) {
+        if (space_dir.empty()) env.back()[std::move(name)] = index;
         else {
             const auto space = getNamespaceAt(space_dir, global_spaces);
-            namespaces[fullName(space)].push_back(std::move(name));
+            namespaces[fullName(space)][std::move(name)] = index;
         }
     }
 
 
-    bool findVar(const std::string& name) const {
-        for (const auto& e : env)
-            if (std::ranges::find_if(e, [&name](const auto& n) { return n == name; }) != e.cend())
-                return true;
+    std::optional<size_t> findVarInSpace(const std::string& name) const {
+        auto space = getNamespaceAt(space_dir, global_spaces);
 
-        return false;
+        while (space) {
+            for (const auto& child : space->children) {
+                const auto fullname = fullName(child.get());
+                if (namespaces.at(fullname).contains(name))
+                    return namespaces.at(fullname).at(name);
+            }
+
+            // if not found, then move up the chain and look again
+            space = space->parent;
+        }
+
+        return {};
+    }
+
+
+    std::optional<size_t> findVar(const std::string& name) const {
+        if (not space_dir.empty())
+            if (const auto id = findVarInSpace(name); id) return id;
+
+
+        for (const auto& e : env)
+            if (e.contains(name)) return e.at(name);
+
+        return {};
     }
 
 

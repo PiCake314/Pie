@@ -152,7 +152,7 @@ Any valid Pie expression, that is not a proper name already, is a valid improper
 - `func(x, y)`
 - `1 + 2`
 
-These identifiers cannot be annotatetd with a type.
+These identifiers cannot be annotated with a type.
 
 
 ### 4.5 Assignments

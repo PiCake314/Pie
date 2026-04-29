@@ -65,6 +65,8 @@ struct Expr;
 using ExprPtr = std::shared_ptr<Expr>;
 
 struct Expr {
+    ssize_t ID{-1};
+
     virtual ~Expr() = default;
     virtual std::string stringify(const size_t indent = 0) const = 0;
     virtual bool involvesName(const std::string_view sv) const = 0;
