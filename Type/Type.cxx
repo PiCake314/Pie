@@ -85,12 +85,18 @@ namespace type {
 
         if (not f.type.params[0]->typeCheck(visitor, v, other)) return false;
 
-        sg.addEnv({{f.params[0],
-            {
-                std::make_shared<value::Value>(v),
-                other
-            }}}
-        );
+
+        // concepts are unary functions, meaning 1 parameter only!
+        sg.addEnv({
+        {f.params[0].ID,
+
+                {
+                    f.params[0].name,
+                    std::make_shared<value::Value>(v),
+                    other
+                }
+            }
+        });
 
 
         auto ret = visitor->checkReturnType(std::visit(*visitor, f.body->variant()), f.type.ret);

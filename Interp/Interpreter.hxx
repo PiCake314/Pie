@@ -2,6 +2,7 @@
 
 #include <string>
 #include <string_view>
+#include <sys/_types/_ssize_t.h>
 #include <vector>
 #include <unordered_map>
 #include <ranges>
@@ -80,7 +81,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Num *n) {
-        if (const auto& var = getVar(n->stringify()); var) return var->first;
+        if (const auto& var = getVar(n->ID); var) return var->first;
 
 
         // have to do an if rather than ternary so the return value isn't always coerced into doubles
@@ -90,14 +91,14 @@ struct Visitor {
 
 
     Value operator()(const expr::Bool *b) {
-        if (const auto& var = getVar(b->stringify()); var) return var->first;
+        if (const auto& var = getVar(b->ID); var) return var->first;
 
         return b->boolean;
     }
 
 
     Value operator()(const expr::String *s) {
-        if (const auto& var = getVar(s->stringify()); var) return var->first;
+        if (const auto& var = getVar(s->ID); var) return var->first;
 
         return s->str;
     }
@@ -134,7 +135,7 @@ struct Visitor {
         // interesting!
         // how about a special value?
 
-        if (const auto& var = getVar(n->name); var) return var->first;
+        if (const auto& var = getVar(n->ID); var) return var->first;
         if (const auto var = checkMemberInThisObject(n->name); var) return *var;
         if (n->name == "self" and not selves.empty()) return selves.back();
 
@@ -161,7 +162,7 @@ struct Visitor {
 
 
     Value operator()(const expr::List* list) {
-        if (const auto& var = getVar(list->stringify()); var) return var->first;
+        if (const auto& var = getVar(list->ID); var) return var->first;
 
         std::vector<Value> values;
         std::transform(
@@ -221,8 +222,7 @@ struct Visitor {
 
 
     Value operator()(const expr::UnaryFold *fold) {
-        if (const auto& var = getVar(fold->stringify()); var) return var->first;
-
+        if (const auto& var = getVar(fold->ID); var) return var->first;
 
         Value pack = std::visit(*this, fold->pack->variant());
 
@@ -264,7 +264,7 @@ struct Visitor {
 
                 typeCheck(ret, func->type.params[first_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                    "', parameter '" + func->params[0] +
+                    "', parameter '" + func->params[0].name +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
@@ -272,14 +272,14 @@ struct Visitor {
 
                 typeCheck(value, func->type.params[second_idx], 
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                    "', parameter '" + func->params[1] +
+                    "', parameter '" + func->params[1].name +
                     "' expected: " + func->type.params[1]->text() +
                     ", got: " + stringify(value) + " which is " + typeOf(value)->text()
                 );
 
                 Environment args_env;
-                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret  ), func->type.params[ first_idx]};
-                args_env[func->params[second_idx]] = {std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret  ), func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -304,8 +304,11 @@ struct Visitor {
 
 
                 Environment args_env;
-                args_env[func->params[1 - fold->left_to_right]] = {std::make_shared<Value>(ret)  , func->type.params[1 - fold->left_to_right]};
-                args_env[func->params[    fold->left_to_right]] = {std::make_shared<Value>(value), func->type.params[    fold->left_to_right]};
+                args_env[func->params[1 - fold->left_to_right].ID] =
+                    {func->params[1 - fold->left_to_right].name, std::make_shared<Value>(ret)  , func->type.params[1 - fold->left_to_right]};
+
+                args_env[func->params[    fold->left_to_right].ID] =
+                    {func->params[    fold->left_to_right].name, std::make_shared<Value>(value), func->type.params[    fold->left_to_right]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -319,7 +322,7 @@ struct Visitor {
 
 
     Value operator()(const expr::SeparatedUnaryFold *fold) {
-        if (const auto& var = getVar(fold->stringify()); var) return var->first;
+        if (const auto& var = getVar(fold->ID); var) return var->first;
 
 
         Value lhs = std::visit(*this, fold->lhs->variant());
@@ -396,22 +399,22 @@ struct Visitor {
 
                 typeCheck(ret, func->type.params[first_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                    "', parameter '" + func->params[0] +
+                    "', parameter '" + func->params[0].name +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
 
                 typeCheck(ret, func->type.params[second_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                    "', parameter '" + func->params[1] +
+                    "', parameter '" + func->params[1].name +
                     "' expected: " + func->type.params[1]->text() +
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
 
 
                 Environment args_env;
-                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx]] = {std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -435,8 +438,8 @@ struct Visitor {
 
 
                 Environment args_env;
-                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx]] = {std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -450,7 +453,7 @@ struct Visitor {
 
 
     Value operator()(const expr::BinaryFold *fold) {
-        if (const auto& var = getVar(fold->stringify()); var) return var->first;
+        if (const auto& var = getVar(fold->ID); var) return var->first;
 
 
         Value pack = std::visit(*this, fold->pack->variant());
@@ -520,7 +523,7 @@ struct Visitor {
 
                 typeCheck(ret, func->type.params[first_idx],
                     "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                    "', parameter '" + func->params[0] +
+                    "', parameter '" + func->params[0].name +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
@@ -528,14 +531,14 @@ struct Visitor {
 
                 typeCheck(ret, func->type.params[second_idx],
                         "Type mis-match in Fold expressions with Infix operator '" + fold->op + 
-                        "', parameter '" + func->params[1] +
+                        "', parameter '" + func->params[1].name +
                         "' expected: " + func->type.params[1]->text() +
                         ", got: " + stringify(ret) + " which is " + typeOf(ret)->text()
                 );
 
 
-                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx]] = {std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -557,8 +560,8 @@ struct Visitor {
                 func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
-                args_env[func->params[ first_idx]] = {std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx]] = {std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -637,7 +640,7 @@ struct Visitor {
             bool change{};
 
             // variable already exists. Check that type matches the rhs type
-            if (const auto& var = getVar(name->name); var and type::shouldReassign(type)) {
+            if (const auto& var = getVar(name->ID); var and type::shouldReassign(type)) {
                 // no need to check if it's a valid type since that already was checked when it was creeated
                 type = var->second;
                 change = true;
@@ -659,7 +662,7 @@ struct Visitor {
 
 
             if (type->text() == "Syntax")
-                return addVar(name->stringify(), ass->rhs->variant(), type);
+                return addVar(name->stringify(), name->ID, ass->rhs->variant(), type);
 
 
             auto value = std::visit(*this, ass->rhs->variant());
@@ -678,15 +681,15 @@ struct Visitor {
                 if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
                     closure.type = *t;
                 else if (const auto* t = dynamic_cast<type::BuiltinType*>(type.get()); t and t->text() != "Any")
-                     util::error("Incompatible types. This should never happen. File a bug report!");
+                     util::error();
                 // else error("Again, Incompatible types. This should never happen. File a bug report!");
             }
 
 
             if (change) {
-                if (not changeVar(name->name, value)) util::error();
+                if (not changeVar(name->ID, value)) util::error();
             }
-            else addVar(name->stringify(), value, type);
+            else addVar(name->stringify(), name->ID, value, type);
 
             return value;
     }
@@ -710,12 +713,12 @@ struct Visitor {
             util::error("Cannot assign namespaces to non-names: " + ass->stringify());
 
         // assign to the serialization (stringification) of the AST node
-        return addVar(ass->lhs->stringify(), std::visit(*this, ass->rhs->variant()));
+        return addVar(ass->lhs->stringify(), ass->lhs->ID, std::visit(*this, ass->rhs->variant()));
     }
 
 
     Value operator()(const expr::Class *cls) {
-        if (const auto& var = getVar(cls->stringify()); var) return var->first;
+        if (const auto& var = getVar(cls->ID); var) return var->first;
 
 
         return // getting lispy :sob: fuck this memory ass shit
@@ -861,7 +864,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Namespace *ns) {
-        if (const auto& var = getVar(ns->stringify()); var) return var->first;
+        if (const auto& var = getVar(ns->ID); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -877,8 +880,8 @@ struct Visitor {
 
         // then add the variables that resulted from that execution
         std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>> members;
-        for (auto& [name, val] : env.back().first) {
-            auto& [value, type] = val;
+        for (auto& [id, val] : env.back().first) {
+            auto& [name, value, type] = val;
 
             // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
             members[name] = {std::move(type), std::move(value)};
@@ -891,7 +894,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Use *use) {
-        if (const auto& var = getVar(use->stringify()); var) return var->first;
+        if (const auto& var = getVar(use->ID); var) return var->first;
 
 
         const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
@@ -899,13 +902,15 @@ struct Visitor {
         if (not namespaces[space].contains(use->name)) util::error("Name '" + use->name + "' not found in space " + space);
 
         const auto value = *namespaces.at(space).at(use->name).second;
-        addVar(use->name, value); // will figure something out for mutability, FUCK
+
+        util::error();
+        // addVar(use->name, value); // will figure something out for mutability, FUCK
 
         return value;
     }
 
     Value operator()(const expr::UseSpace *use) {
-        if (const auto& var = getVar(use->stringify()); var) return var->first;
+        if (const auto& var = getVar(use->ID); var) return var->first;
 
         const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
 
@@ -916,7 +921,8 @@ struct Visitor {
             const auto& [type, value] = t_v;
 
             v = *value;
-            addVar(name, *value); // will figure something out for mutability, FUCK
+            util::error();
+            // addVar(name, *value); // will figure something out for mutability, FUCK
         }
 
         return v;
@@ -941,7 +947,7 @@ struct Visitor {
 
 
     Value operator()(const expr::SpaceAccess *sa) {
-        if (const auto& var = getVar(sa->stringify()); var) return var->first;
+        if (const auto& var = getVar(sa->ID); var) return var->first;
 
         const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
@@ -952,64 +958,64 @@ struct Visitor {
     }
 
 
-    bool match(const Value& value, const expr::Match::Case::Pattern& pattern) {
-        if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
-            const auto& [name, typ, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
-            const auto type = validateType(typ);
+    bool match(const Value& value, const expr::Match::Case::Pattern& pattern) { return 0;
+        // if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
+        //     const auto& [name, typ, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
+        //     const auto type = validateType(typ);
 
-            // not gonna use typeCheck for now. Let's see how it goes
-            if (not (*type >= *typeOf(value))) return false;
+        //     // not gonna use typeCheck for now. Let's see how it goes
+        //     if (not (*type >= *typeOf(value))) return false;
 
-            if (val_expr) {
-                const auto val = std::visit(*this, val_expr->variant());
-                if (value != val) return false;
-            }
+        //     if (val_expr) {
+        //         const auto val = std::visit(*this, val_expr->variant());
+        //         if (value != val) return false;
+        //     }
 
-            if (name.length() != 0) {
-                addVar(name, value, type);
-            }
+        //     if (name.length() != 0) {
+        //         addVar(name, 0, value, type);
+        //     }
 
-            return true;
-        }
+        //     return true;
+        // }
 
-        const auto& [type_name, patterns] = get<expr::Match::Case::Pattern::Structure>(pattern.pattern);
+        // const auto& [type_name, patterns] = get<expr::Match::Case::Pattern::Structure>(pattern.pattern);
 
-        const auto var = getVar(type_name);
-        if (not var)
-            util::error("Name `" + type_name + "` in match expression does not name a constructor");
+        // const auto var = getVar(type_name);
+        // if (not var)
+        //     util::error("Name `" + type_name + "` in match expression does not name a constructor");
 
-        const Value type_value = var->first;
-        // if (not std::holds_alternative<ClassValue>(type_value))
-        if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
-            util::error("Name `" + type_name + "` in match expression does not name a constructor");
+        // const Value type_value = var->first;
+        // // if (not std::holds_alternative<ClassValue>(type_value))
+        // if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
+        //     util::error("Name `" + type_name + "` in match expression does not name a constructor");
 
 
-        // const auto& cls = get<ClassValue>(type_value);
-        // const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
-        const auto& type = get<type::TypePtr>(type_value);
+        // // const auto& cls = get<ClassValue>(type_value);
+        // // const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
+        // const auto& type = get<type::TypePtr>(type_value);
+        // // if (not (*type == *typeOf(value))) return false;
         // if (not (*type == *typeOf(value))) return false;
-        if (not (*type == *typeOf(value))) return false;
 
-        if (
-            type::isClass(type) and
-            patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->fields.size()
-        )
-            util::error("Number of singles is greater than number of fields in class " + stringify(type));
+        // if (
+        //     type::isClass(type) and
+        //     patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->fields.size()
+        // )
+        //     util::error("Number of singles is greater than number of fields in class " + stringify(type));
 
 
-        const auto& obj = get<Object>(value);
-        if (obj.second->members.size() != obj.second->members.size()) util::error("idek what error message this should be..!");
+        // const auto& obj = get<Object>(value);
+        // if (obj.second->members.size() != obj.second->members.size()) util::error("idek what error message this should be..!");
 
-        for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
-            if (not match(*get<ValuePtr>(member), *pat)) return false;
-        }
+        // for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
+        //     if (not match(*get<ValuePtr>(member), *pat)) return false;
+        // }
 
-        return true;
+        // return true;
     }
 
 
     Value operator()(const expr::Match *m) {
-        if (const auto& var = getVar(m->stringify()); var) return var->first;
+        if (const auto& var = getVar(m->ID); var) return var->first;
 
         const Value value = std::visit(*this, m->expr->variant());
 
@@ -1038,14 +1044,14 @@ struct Visitor {
 
 
     Value operator()(const expr::Type* type) {
-        if (const auto& var = getVar(type->stringify()); var) return var->first;
+        if (const auto& var = getVar(type->ID); var) return var->first;
 
         return validateType(type->type);
     };
 
 
     Value operator()(const expr::Loop *loop) {
-        if (const auto& var = getVar(loop->stringify()); var) return var->first;
+        if (const auto& var = getVar(loop->ID); var) return var->first;
 
 
         enum class Type { NONE = 0, INT, BOOL, LIST, PACK, OBJECT };
@@ -1084,7 +1090,7 @@ struct Visitor {
                         for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
                             continued = false;
 
-                            addVar(var_name, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+                            addVar(var_name, 0, loop_counter); // will change to "proper type" soon. for now, `Any` will do
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1115,7 +1121,7 @@ struct Visitor {
                         for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
                             continued = false;
 
-                            addVar(var_name, loop_counter);
+                            addVar(var_name, 0, loop_counter);
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1151,7 +1157,7 @@ struct Visitor {
                         for (const auto& elt : list.elts->values) {
                             continued = false;
 
-                            addVar(var_name, elt);
+                            addVar(var_name, 0, elt);
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1182,7 +1188,7 @@ struct Visitor {
                         for (const auto& elt : pack->values) {
                             continued = false;
 
-                            addVar(var_name, elt);
+                            addVar(var_name, 0, elt);
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1235,7 +1241,7 @@ struct Visitor {
                         while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
                             continued = false;
 
-                            addVar(var_name, std::visit(*this, next_call.variant()));
+                            addVar(var_name, 0, std::visit(*this, next_call.variant()));
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1265,7 +1271,7 @@ struct Visitor {
             std::string var_name = loop->var->stringify();
 
             for (loop_counter = 0; ; ++loop_counter) {
-                addVar(var_name, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+                addVar(var_name, 0, loop_counter); // will change to "proper type" soon. for now, `Any` will do
 
                 ret = std::visit(*this, loop->body->variant());
 
@@ -1307,7 +1313,7 @@ struct Visitor {
 
     //* only added to differentiate between expressions such as: 1 + 2 and (1 + 2)
     Value operator()(const expr::Grouping *g) {
-        if (const auto& var = getVar(g->stringify()); var) return var->first;
+        if (const auto& var = getVar(g->ID); var) return var->first;
 
         return std::visit(*this, g->expr->variant());
     }
@@ -1395,7 +1401,7 @@ struct Visitor {
     }
 
     Value operator()(const expr::UnaryOp *up) {
-        if (const auto& var = getVar(up->stringify()); var) return var->first;
+        if (const auto& var = getVar(up->ID); var) return var->first;
 
 
         const auto& op = ops.at(up->op);
@@ -1409,7 +1415,7 @@ struct Visitor {
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params.front(), up->expr->variant());
                 //* maybe should use Syntax() instead of Any();
-                args_env[func->params[0]] = {std::make_shared<Value>(up->expr->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(up->expr->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1422,16 +1428,9 @@ struct Visitor {
                     ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
                 );
 
-                // if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match! Prefix operator '" + up->op + 
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                //     );
-
                 // addVar(func->params.front(), arg);
                 //* maybe should use Syntax() instead of Any();
-                args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
         }
         else { // do selection based on type
@@ -1441,7 +1440,7 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
-            args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
         }
 
 
@@ -1466,8 +1465,9 @@ struct Visitor {
         // return checkReturnType(std::visit(*this, func->body->variant()), func->type.ret);
     }
 
+
     Value operator()(const expr::BinOp *bp) {
-        if (const auto& var = getVar(bp->stringify()); var) return var->first;
+        if (const auto& var = getVar(bp->ID); var) return var->first;
 
 
         const auto& op = ops.at(bp->op);
@@ -1480,7 +1480,7 @@ struct Visitor {
             // LHS
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], bp->lhs->variant());
-                args_env[func->params[0]] = {std::make_shared<Value>(bp->lhs->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(bp->lhs->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1489,26 +1489,17 @@ struct Visitor {
 
                 typeCheck(arg1, func->type.params[0],
                     "Type mis-match! Infix operator '" + bp->op + 
-                    "', parameter '" + func->params[0] +
+                    "', parameter '" + func->params[0].name +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(arg1) + " which is " + typeOf(arg1)->text()
                 );
 
-                // if (const auto& type_of_arg = typeOf(arg1); not (*func->type.params[0] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match! Infix operator '" + bp->op + 
-                //         "', parameter '" + func->params[0] +
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(arg1) + " which is " + type_of_arg->text()
-                //     );
-
-                // addVar(func->params[0], arg1);
-                args_env[func->params[0]] = {std::make_shared<Value>(arg1), func->type.params[0]};
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg1), func->type.params[0]};
             }
 
             // RHS
             if (func->type.params[1]->text() == "Syntax") {
-                args_env[func->params[1]] = {std::make_shared<Value>(bp->rhs->variant()), func->type.params[1]};
+                args_env[func->params[1].ID] = {func->params[1].name, std::make_shared<Value>(bp->rhs->variant()), func->type.params[1]};
             }
             else {
                 func->type.params[1] = validateType(std::move(func)->type.params[1]);
@@ -1517,21 +1508,12 @@ struct Visitor {
 
                 typeCheck(arg2, func->type.params[1],
                     "Type mis-match! Infix operator '" + bp->op + 
-                    "', parameter '" + func->params[1] +
+                    "', parameter '" + func->params[1].name +
                     "' expected: " + func->type.params[1]->text() +
                     ", got: " + stringify(arg2) + " which is " + typeOf(arg2)->text()
                 );
 
-                // if (const auto& type_of_arg = typeOf(arg2); not (*func->type.params[1] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match! Infix operator '" + bp->op + 
-                //         "', parameter '" + func->params[1] +
-                //         "' expected: " + func->type.params[1]->text() +
-                //         ", got: " + stringify(arg2) + " which is " + type_of_arg->text()
-                //     );
-
-
-                args_env[func->params[1]] = {std::make_shared<Value>(arg2), func->type.params[1]};
+                args_env[func->params[1].ID] = {func->params[1].name, std::make_shared<Value>(arg2), func->type.params[1]};
             }
 
         }
@@ -1543,8 +1525,8 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg1, arg2});
 
-            args_env[func->params[0]] = {std::make_shared<Value>(arg1), func->type.params[0]};
-            args_env[func->params[1]] = {std::make_shared<Value>(arg2), func->type.params[1]};
+            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg1), func->type.params[0]};
+            args_env[func->params[1].ID] = {func->params[1].name, std::make_shared<Value>(arg2), func->type.params[1]};
         }
 
 
@@ -1588,7 +1570,7 @@ struct Visitor {
 
 
     Value operator()(const expr::PostOp *pp) {
-        if (const auto& var = getVar(pp->stringify()); var) return var->first;
+        if (const auto& var = getVar(pp->ID); var) return var->first;
 
 
         const auto& op = ops.at(pp->op);
@@ -1602,7 +1584,7 @@ struct Visitor {
 
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], pp->expr->variant());
-                args_env[func->params[0]] = {std::make_shared<Value>(pp->expr->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(pp->expr->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1611,20 +1593,12 @@ struct Visitor {
 
                 typeCheck(arg, func->type.params[0],
                     "Type mis-match! Suffix operator '" + pp->op + 
-                    "', parameter '" + func->params[0] +
+                    "', parameter '" + func->params[0].name +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
                 );
 
-                // if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match! Suffix operator '" + pp->op + 
-                //         "', parameter '" + func->params[0] +
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                //     );
-
-                args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
 
         }
@@ -1635,7 +1609,7 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
-            args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]};
+            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]};
         }
 
         ScopeGuard sg{this, args_env};
@@ -1662,7 +1636,7 @@ struct Visitor {
 
 
     Value operator()(const expr::CircumOp *cp) {
-        if (const auto& var = getVar(cp->stringify()); var) return var->first;
+        if (const auto& var = getVar(cp->ID); var) return var->first;
 
         const auto& op = ops.at(cp->op1);
         expr::Closure* func;
@@ -1675,7 +1649,7 @@ struct Visitor {
 
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], co->expr->variant());
-                args_env[func->params[0]] = {std::make_shared<Value>(cp->expr->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(cp->expr->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1684,22 +1658,12 @@ struct Visitor {
 
                 typeCheck(arg, func->type.params[0],
                     "Type mis-match! Suffix operator '" + cp->op1 + 
-                    "', parameter '" + func->params[0] +
+                    "', parameter '" + func->params[0].name +
                     "' expected: " + func->type.params[0]->text() +
                     ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
                 );
 
-                // if (const auto& type_of_arg = typeOf(arg); not (*func->type.params[0] >= *type_of_arg))
-                //     error<except::TypeMismatch>(
-                //         "Type mis-match! Suffix operator '" + cp->op1 + 
-                //         "', parameter '" + func->params[0] +
-                //         "' expected: " + func->type.params[0]->text() +
-                //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                //         // ", got: " + type_of_arg->text()
-                //     );
-
-                // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-                args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
         }
         else {
@@ -1709,7 +1673,7 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
-            args_env[func->params[0]] = {std::make_shared<Value>(arg), func->type.params[0]};
+            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]};
         }
 
 
@@ -1735,7 +1699,7 @@ struct Visitor {
     };
 
     Value operator()(const expr::OpCall *oc) {
-        if (const auto& var = getVar(oc->stringify()); var) return var->first;
+        if (const auto& var = getVar(oc->ID); var) return var->first;
 
 
         const auto& op = ops.at(oc->first);
@@ -1751,7 +1715,7 @@ struct Visitor {
 
             for (auto [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
                 if (param_type->text() == "Syntax") {
-                    args_env[param] = {std::make_shared<Value>(arg_expr->variant()), param_type}; //?
+                    args_env[param.ID] = {param.name, std::make_shared<Value>(arg_expr->variant()), param_type}; //?
                 }
                 else {
                     param_type = validateType(std::move(param_type));
@@ -1764,19 +1728,9 @@ struct Visitor {
                         op_name + "' expected type: " + param_type->text() + ", got: " + typeOf(arg)->text()
                     );
 
-                    // if (const auto& type_of_arg = typeOf(arg); not (*param_type >= *type_of_arg)) {
-                    //     const auto& op_name = oc->first + 
-                    //         std::accumulate(oc->rest.cbegin(), oc->rest.cend(), std::string{}, [](const auto& acc, const auto& e) { return acc + ':' + e; });
-                    //     error<except::TypeMismatch>(
-                    //         "Type mis-match! Operator '" + op_name + 
-                    //         "', parameter '" + param +
-                    //         "' expected: " + param_type->text() +
-                    //         ", got: " + stringify(arg) + " which is " + type_of_arg->text()
-                    //     );
-                    // }
 
                     // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-                    args_env[param] = {std::make_shared<Value>(arg), param_type}; //? fix Any Type!!
+                    args_env[param.ID] = {param.name, std::make_shared<Value>(arg), param_type}; //? fix Any Type!!
                 }
             }
         }
@@ -1794,7 +1748,7 @@ struct Visitor {
             func = resolveOverloadSet(op->OpName(), op->funcs, args);
 
             for (const auto& [param, arg, type] : std::views::zip(func->params, args, func->type.params))
-                args_env[param] = {std::make_shared<Value>(arg), type};
+                args_env[param.ID] = {param.name, std::make_shared<Value>(arg), type};
         }
 
 
@@ -1831,7 +1785,7 @@ struct Visitor {
     };
 
     Value operator()(const expr::Call *call) {
-        if (const auto& var = getVar(call->stringify()); var) return var->first;
+        if (const auto& var = getVar(call->ID); var) return var->first;
 
         // const auto args = std::move(call)->args;
         const auto args = call->args;
@@ -1867,7 +1821,7 @@ struct Visitor {
 
 
         if (std::holds_alternative<expr::Closure>(var)) {
-            return closureCall(call, var, std::move(args), std::move(expand_at));
+            return closureCall(call, get<expr::Closure>(std::move(var)), std::move(args), std::move(expand_at));
         }
 
 
@@ -1877,7 +1831,7 @@ struct Visitor {
         if (std::holds_alternative<value::Object>(var)) {
             const auto& obj = get<value::Object>(var);
             if (const auto callable = objectIsCallable(obj); callable) {
-                return closureCall(call, *callable, std::move(args), std::move(expand_at));
+                return closureCall(call, get<expr::Closure>(*std::move(callable)), std::move(args), std::move(expand_at));
             }
         }
 
@@ -1887,10 +1841,10 @@ struct Visitor {
         if (args.size() == 1) {       // set
             const auto val = std::visit(*this, args[0]->variant());
 
-            #if 1
+            #if 0
                 addVar(stringify(var), val, typeOf(val));
             #else
-                addVar(call->func->stringify(), val, typeOf(val));
+                addVar(call->func->stringify(), call->func->ID, val, typeOf(val));
             #endif
 
             return var;
@@ -1905,7 +1859,7 @@ struct Visitor {
 
     void variadicCall(
         const expr::Closure& func,
-        std::vector<std::pair<std::string, type::TypePtr>>& pos_params,
+        std::vector<std::pair<expr::StringID, type::TypePtr>>& pos_params,
         const std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
         const std::vector<pie::expr::ExprPtr>& args,
         const size_t args_size,
@@ -1929,14 +1883,17 @@ struct Visitor {
             // `validateType` will choose the lastly-bounded one
             // we just need to proof that A parameter exists in order to call `validateType`
             for (size_t i{}; i <= p; ++i)
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i].name)}))
                     return true;
 
             // // look in the arguments env (from a partially evaluated function that yielded this function)
             // for (const auto& [key, _] : func.args_env)
-            for (const auto& [key, _] : func.env)
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
+            for (const auto& [_, obj] : func.env) {
+                const auto& [name, __, ___] = obj;
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name)})) {
                     return true;
+                }
+            }
 
             return false;
         };
@@ -1947,7 +1904,8 @@ struct Visitor {
             size_t arg_index{}, param_index{}, pack_index{}, curr_expansion{};
             arg_index < args.size(); // can't be args_size since arg_index is only used to index into args
         ) {
-            auto [name, type] = pos_params[param_index];
+            auto [sid, type] = pos_params[param_index];
+            const auto& [name, id] = sid;
             type = type->clone();
 
             Value value;
@@ -2004,7 +1962,7 @@ struct Visitor {
                 ++param_index;
 
                 // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                args_env[name] = {std::make_shared<Value>(std::move(pack)), std::move(type)};
+                args_env[id] = {name, std::make_shared<Value>(std::move(pack)), std::move(type)};
             }
             else {
                 if (findType(param_index, type)) {
@@ -2051,24 +2009,34 @@ struct Visitor {
 
                 ++param_index;
                 // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+                args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
             }
         }
 
 
         if (variadic_size == 0) {
             sg.addEnv({{
-                pos_params[variadic_index].first,
-                { std::make_shared<Value>(makePack()), pos_params[variadic_index].second }
+                pos_params[variadic_index].first.ID,
+                {
+                    pos_params[variadic_index].first.name,
+                    std::make_shared<Value>(makePack()),
+                    pos_params[variadic_index].second
+                }
             }});
-            args_env[pos_params[variadic_index].first] = {std::make_shared<Value>(makePack()), std::move(pos_params)[variadic_index].second};
+
+            args_env[pos_params[variadic_index].first.ID] = {
+                pos_params[variadic_index].first.name,
+                std::make_shared<Value>(makePack()),
+                std::move(pos_params)[variadic_index].second
+            };
         }
     }
 
 
+    // sets up the arguments
     void regularCall(
         const expr::Closure& func,
-        std::vector<std::pair<std::string, type::TypePtr>>& pos_params,
+        std::vector<std::pair<expr::StringID, type::TypePtr>>& pos_params,
         std::vector<std::pair<size_t, std::vector<Value>>>& expand_at,
         const std::vector<pie::expr::ExprPtr>& args,
         const size_t args_size,
@@ -2081,14 +2049,17 @@ struct Visitor {
             // `validateType` will choose the lastly-bounded one
             // we just need to proof that A parameter exists in order to call `validateType`
             for (size_t i{}; i <= p; ++i)
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i].name)}))
                     return true;
 
             // // look in the arguments env (from a partially evaluated function that yielded this function)
             // for (const auto& [key, _] : func.args_env)
-            for (const auto& [key, _] : func.env)
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
+            for (const auto& [_, obj] : func.env) {
+                const auto& [name, __, ___] = obj;
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name)})) {
                     return true;
+                }
+            }
 
             return false;
         };
@@ -2097,7 +2068,8 @@ struct Visitor {
 
             if (curr < expand_at.size() and i == expand_at[curr].first) {
                 for (auto& val : expand_at[curr++].second) {
-                    auto& [name, type] = pos_params[p];
+                    auto& [sid, type] = pos_params[p];
+                    const auto& [name, id] = sid;
                     if (findType(p, type)) {
                         // ScopeGuard sg{this, func.args_env, args_env};
                         ScopeGuard sg{this, func.env, args_env};
@@ -2115,12 +2087,13 @@ struct Visitor {
 
 
                     // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                    args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
+                    args_env[id] = {name, std::make_shared<Value>(std::move(val)), std::move(type)};
                 }
                 --p; // the parameter index will have gone one too far. bring it back
             }
             else {
-                auto& [name, type] = pos_params[p];
+                auto& [sid, type] = pos_params[p];
+                const auto& [name, id] = sid;
                 if (findType(p, type)) {
                     // ScopeGuard sg{this, func.args_env, args_env};
                     ScopeGuard sg{this, func.env, args_env};
@@ -2144,7 +2117,7 @@ struct Visitor {
                 }
 
                 // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+                args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
             }
         }
     }
@@ -2152,11 +2125,10 @@ struct Visitor {
 
     Value closureCall(
         const expr::Call *call,
-        const Value& var,
+        expr::Closure func,
         const std::vector<pie::expr::ExprPtr>& args,
         std::vector<std::pair<size_t, std::vector<Value>>> expand_at
     ) {
-        auto func = std::get<expr::Closure>(var);
 
         // // types are validate in operator()(const expr::Closure* c) for now
         // for (auto& type : func.type.params) type = validateType(std::move(type));
@@ -2169,7 +2141,7 @@ struct Visitor {
 
         // check for invalid named arguments
         for (const auto& [name, _] : call->named_args) {
-            if (std::ranges::find(func.params, name) == func.params.end())
+            if (std::ranges::find(func.params, name, &expr::StringID::name) == func.params.end())
                 util::error("Named argument '" + name + "' does not name a parameter name!");
         }
 
@@ -2197,9 +2169,12 @@ struct Visitor {
         // !
         for (const auto& [name, expr] : call->named_args) {
             type::TypePtr type;
+            ssize_t id;
+
             for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
-                if (n == name) {
+                if (n.name == name) {
                     type = t;
+                    id = n.ID;
                     break;
                 }
             }
@@ -2219,34 +2194,35 @@ struct Visitor {
                 //     captureEnvForPassedClosure(get<expr::Closure>(value));
             }
 
-            // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-            args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+            args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
 
-        std::vector<std::pair<std::string, type::TypePtr>> pos_params;
-        for (const auto& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
+        std::vector<std::pair<expr::StringID, type::TypePtr>> pos_params;
+        for (const auto& [param, type] : std::views::zip(func.params, func.type.params))
+            pos_params.push_back({param, type});
 
         std::erase_if(pos_params, [named_args = call->named_args] (const auto& p)  mutable {
-            const auto cond = std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first; }) != named_args.cend();
-            if (cond) named_args.erase(p.first);
+            const auto cond = std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first.name; }) != named_args.cend();
+            if (cond) named_args.erase(p.first.name);
             return cond;
         });
 
 
-        if (args.size() != pos_params.size())
-            util::error(
-                "Expected " + std::to_string(pos_params.size()) +
-                " postional arguments. Got " + std::to_string(args.size()) +
-                ": " + call->stringify()
-            );
+        // todo: this is needed but it doesn't work well rn
+        // if (args.size() != pos_params.size())
+        //     util::error(
+        //         "Expected " + std::to_string(pos_params.size()) +
+        //         " postional arguments. Got " + std::to_string(args.size()) +
+        //         ": " + call->stringify()
+        //     );
 
 
         if (is_variadic) {
             variadicCall(func, pos_params, expand_at, args, args_size, sg, args_env);
         }
         else {
-            regularCall (func, pos_params, expand_at, args, args_size,    args_env);
+            regularCall(func, pos_params, expand_at, args, args_size,    args_env);
         }
 
 
@@ -2254,7 +2230,7 @@ struct Visitor {
         if (
             std::ranges::find_if(
                 func.params, [&type = func.type.ret](const auto& param) {
-                    return type->involvesT(type::ExprType{std::make_shared<expr::Name>(param)});
+                    return type->involvesT(type::ExprType{std::make_shared<expr::Name>(param.name)});
                 }
             ) != func.params.cend()
         ) {
@@ -2335,9 +2311,11 @@ struct Visitor {
 
         for (const auto& [name, expr] : call->named_args) {
             type::TypePtr type;
+            ssize_t id;
             for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
-                if (n == name) {
+                if (n.name == name) {
                     type = t;
+                    id = n.ID;
                     break;
                 }
             }
@@ -2358,25 +2336,27 @@ struct Visitor {
             }
 
             // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-            args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+            args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
 
-        std::vector<std::pair<std::string, type::TypePtr>> pos_params;
-        for (const auto& [param, type] : std::views::zip(func.params, func.type.params)) pos_params.push_back({param, type});
+        std::vector<std::pair<expr::StringID, type::TypePtr>> pos_params;
+        for (const auto& [param, type] : std::views::zip(func.params, func.type.params))
+            pos_params.push_back({param, type});
 
         std::erase_if(pos_params, [&named_args = call->named_args] (const auto& p) {
-            return std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first; }) != named_args.cend();
+            return std::ranges::find_if(named_args, [&p] (const auto& n) { return n.first == p.first.name; }) != named_args.cend();
         });
 
-        std::vector<std::string> new_params;
-        for (const auto& [name, _] : pos_params | std::views::drop(args_size)) new_params.push_back(name);
+        std::vector<expr::StringID> new_params;
+        for (const auto& [name, _] : pos_params | std::views::drop(args_size))
+            new_params.push_back(name);
 
         std::vector<type::TypePtr> new_types;
         for (const auto& name : new_params) {
             type::TypePtr type;
             for (const auto& [n, t] : std::views::zip(func.params, func.type.params)) {
-                if (n == name) {
+                if (n.name == name.name) {
                     type = t;
                     break;
                 }
@@ -2400,8 +2380,15 @@ struct Visitor {
                 normal = false;
 
                 // FIX: first add the empty pack
-                sg.addEnv({{pos_params[variadic_index].first, {std::make_shared<Value>(makePack()), pos_params[variadic_index].second}}});
-                args_env[pos_params[variadic_index].first] = {std::make_shared<Value>(makePack()), std::move(pos_params[variadic_index]).second};
+                sg.addEnv({{
+                    pos_params[variadic_index].first.ID, 
+                    {pos_params[variadic_index].first.name, std::make_shared<Value>(makePack()), pos_params[variadic_index].second}
+                }});
+
+                args_env[pos_params[variadic_index].first.ID] = {
+                    pos_params[variadic_index].first.name, std::make_shared<Value>(makePack()), std::move(pos_params[variadic_index]).second
+                };
+
                 // only then should you remove the parameter
                 // previously, I only had the following. So the pack was left as undefined instead of empty
                 pos_params.erase(std::next(pos_params.begin(), variadic_index));
@@ -2415,12 +2402,8 @@ struct Visitor {
 
                     if (curr < expand_at.size() and i == expand_at[curr].first) {
                         for (auto& val : expand_at[curr++].second) {
-                            // if (const auto& type_of_value = typeOf(val); not (*type >= *type_of_value))
-                            //     error<except::TypeMismatch>(
-                            //         "Type mis-match! Parameter '" + name + "' "
-                            //         "expected type: " + type->text() + ", got: " + type_of_value->text()
-                            //     );
-                            auto& [name, type] = pos_params[p];
+                            auto& [sid, type] = pos_params[p];
+                            const auto& [name, id] = sid;
                             // if (findType(p, type)) type = validateType(std::move(type));
                             ++p;
 
@@ -2432,12 +2415,13 @@ struct Visitor {
                                 captureEnvForPassedClosure(get<expr::Closure>(val));
 
                             // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                            args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
+                            args_env[id] = {name, std::make_shared<Value>(std::move(val)), std::move(type)};
                         }
                         --p;
                     }
                     else {
-                        auto& [name, type] = pos_params[p];
+                        auto& [sid, type] = pos_params[p];
+                        const auto& [name, id] = sid;
                         const auto& expr = args[i];
                         // if (findType(p, type)) type = validateType(std::move(type));
 
@@ -2455,7 +2439,7 @@ struct Visitor {
                             //     captureEnvForPassedClosure(get<expr::Closure>(value));
                         }
                         // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                        args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+                        args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
                     }
                 }
             }
@@ -2467,14 +2451,16 @@ struct Visitor {
                 // `validateType` will choose the lastly-bounded one
                 // we just need to proof that A parameter exists in order to call `validateType`
                 for (size_t i{}; i <= p; ++i)
-                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i])}))
+                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(func.params[i].name)}))
                         return true;
 
                 // // look in the arguments env (from a partially evaluated function that yielded this function)
                 // for (const auto& [key, _] : func.args_env)
-                for (const auto& [key, _] : func.env)
-                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(key)}))
+                for (const auto& [_, obj] : func.env) {
+                    const auto& [name, __, ___] = obj;
+                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name)}))
                         return true;
+                }
 
                 return false;
             };
@@ -2484,7 +2470,9 @@ struct Visitor {
 
                 if (curr < expand_at.size() and i == expand_at[curr].first) {
                     for (auto& val : expand_at[curr++].second) {
-                        auto& [name, type] = pos_params[p];
+                        auto& [sid, type] = pos_params[p];
+                        const auto& [name, id] = sid;
+
                         if (findType(p, type)) {
                             // ScopeGuard sg{this, func.args_env, args_env};
                             ScopeGuard sg{this, func.env, args_env};
@@ -2500,12 +2488,13 @@ struct Visitor {
                             captureEnvForPassedClosure(get<expr::Closure>(val));
 
                         // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                        args_env[name] = {std::make_shared<Value>(std::move(val)), std::move(type)};
+                        args_env[id] = {name, std::make_shared<Value>(std::move(val)), std::move(type)};
                     }
                     --p;
                 }
                 else {
-                    auto& [name, type] = pos_params[p];
+                    auto& [sid, type] = pos_params[p];
+                    const auto& [name, id] = sid;
                     if (findType(p, type)) {
                         // ScopeGuard sg{this, func.args_env, args_env};
                         ScopeGuard sg{this, func.env, args_env};
@@ -2528,7 +2517,7 @@ struct Visitor {
                     }
 
                     // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                    args_env[name] = {std::make_shared<Value>(std::move(value)), std::move(type)};
+                    args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
                 }
             }
         }
@@ -2583,7 +2572,7 @@ struct Visitor {
         for (; index < starting_index; ++index) {
             const auto& [name, type, value] = obj.second->members[index];
 
-            addVar(name.stringify(), *value, type);
+            addVar(name.stringify(), 0, *value, type);
         }
 
         for (; index < fields.size(); ++index) {
@@ -2611,7 +2600,7 @@ struct Visitor {
 
 
             // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
-            addVar(name.stringify(), v, type);
+            addVar(name.stringify(), 0, v, type);
             obj.second->members.push_back({name, type, std::make_shared<Value>(v)});
         }
 
@@ -2659,7 +2648,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Closure *c) {
-        if (const auto& var = getVar(c->stringify()); var) return var->first;
+        if (const auto& var = getVar(c->ID); var) return var->first;
 
         expr::Closure closure = *c; // copy to use for fix the types
 
@@ -2669,8 +2658,14 @@ struct Visitor {
 
             bool found{};
             for (size_t j{}; j < i; ++j) {
-                auto t = type::ExprType{std::make_shared<expr::Name>(closure.params[j])};
-                if (type->involvesT(t)) { found = true; break; }
+                if (
+                    type->involvesT(
+                        type::ExprType{std::make_shared<expr::Name>(closure.params[j].name)}
+                    )
+                ) {
+                    found = true;
+                    break;
+                }
             }
 
             if (not found) type = validateType(std::move(type));
@@ -2679,7 +2674,7 @@ struct Visitor {
         if (
             std::ranges::find_if(
                 closure.params, [&type = closure.type.ret](const auto& p) {
-                    return type->involvesT(type::ExprType{std::make_shared<expr::Name>(p)});
+                    return type->involvesT(type::ExprType{std::make_shared<expr::Name>(p.name)});
                 }
             ) == closure.params.cend()
         )
@@ -2693,7 +2688,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Block *block) {
-        if (const auto& var = getVar(block->stringify()); var) return var->first;
+        if (const auto& var = getVar(block->ID); var) return var->first;
 
 
         ScopeGuard sg{this};
@@ -2721,7 +2716,7 @@ struct Visitor {
 
 
     Value operator()(const expr::Fix *fix) {
-        if (const auto& var = getVar(fix->stringify()); var) return var->first;
+        if (const auto& var = getVar(fix->ID); var) return var->first;
         // return std::visit(*this, fix->func->variant());
 
         auto func = dynamic_cast<expr::Closure*>(fix->funcs[0].get());
@@ -3216,9 +3211,8 @@ struct Visitor {
         // Since this is a meta function that operates on AST nodes rather than values
         // it gets its special treatment here..
         if (name == "reset") {
-            const std::string& s = args[0]->stringify();
-            if (const auto& v = getVar(s); not v) util::error("Reseting an unset value: " + s);
-            else removeVar(s);
+            if (const auto& v = getVar(args[0]->ID); not v) util::error("Reseting an unset value: " + args[0]->stringify());
+            else removeVar(args[0]->ID);
 
             // return to_bigint(num->num);
             return value1;
@@ -3319,17 +3313,18 @@ struct Visitor {
                 not std::holds_alternative<BigInt    >(   end_v) or
                 not std::holds_alternative<BigInt    >(stride_v)
             )
-            util::error<pie::except::InvalidArgument>(
-                "__builtin_str_slice("
-                + args[0]->stringify() + ", "
-                + args[1]->stringify() + ", "
-                + args[2]->stringify() + ", "
-                + args[3]->stringify() + ")"
-            );
+                util::error<pie::except::InvalidArgument>(
+                    "__builtin_str_slice("
+                    + args[0]->stringify() + ", "
+                    + args[1]->stringify() + ", "
+                    + args[2]->stringify() + ", "
+                    + args[3]->stringify() + ")"
+                );
 
-            const auto& str   = get<std::string>(value1);
-                  auto start  = std::max<BigInt>  (get<BigInt>(start_v), 0);
-            const auto end    = std::clamp<BigInt>(get<BigInt>(  end_v), 0, (BigInt)(str.length()));
+
+            const auto& str = get<std::string>(value1);
+            auto start = std::max<BigInt> (get<BigInt>(start_v), 0);
+            const auto end = std::clamp<BigInt>(get<BigInt>(  end_v), 0, (BigInt)(str.length()));
             const auto stride = get<BigInt>(stride_v);
 
             std::string ret;
@@ -3403,21 +3398,28 @@ struct Visitor {
 
     type::TypePtr validateType(const type::TypePtr& type) {
         if (type::shouldReassign(type)) return type::builtins::Any();
+        // //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
 
-        //* comment this if statement if you want builtin types to remain unchanged even when they're assigned to
-        if (auto var = getVar(type->text()); var) {
 
-            if (auto t = typeOf(var->first); not type::isType(t)) {
-                if (type::isFunction(t))
-                    return std::make_shared<type::ConceptType>(std::make_shared<value::Value>(std::move(var)->first));
 
-                return std::make_shared<type::ValueType>(std::make_shared<value::Value>(std::move(var)->first));
+        // if (auto var = getVar(type->text()); var)
+        if (const auto expr_type = type::isExpr(type)) {
+            if (const auto var = getVar(expr_type->t->ID)) {
+
+                if (auto t = typeOf(var->first); not type::isType(t)) {
+                    if (type::isFunction(t))
+                        return std::make_shared<type::ConceptType>(std::make_shared<value::Value>(std::move(var)->first));
+
+                    return std::make_shared<type::ValueType>(std::make_shared<value::Value>(std::move(var)->first));
+                }
+
+                if (std::holds_alternative<type::TypePtr>(var->first))
+                    return get<type::TypePtr>(var->first);
             }
-
-            if (std::holds_alternative<type::TypePtr>(var->first))
-                return get<type::TypePtr>(var->first);
         }
-        else if (type::isBuiltin(type)) return type;
+
+        // else
+        if (type::isBuiltin(type)) return type;
 
 
         if (const auto var_type = dynamic_cast<type::ExprType*>(type.get())) {
@@ -3635,9 +3637,9 @@ struct Visitor {
         }
 
         void addEnv(const Environment& e) {
-            for (const auto& [name, var] : e) {
-                const auto& [value, type] = var;
-                v->addVar(name, *value, type);
+            for (const auto& [ID, var] : e) {
+                const auto& [name, value, type] = var;
+                v->addVar(name, ID, *value, type);
             }
         }
 
@@ -3666,7 +3668,7 @@ struct Visitor {
 
     void unscope() { env.pop_back(); }
 
-    Value addVar(const std::string& name, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
+    Value addVar(const std::string& name, const size_t index, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
         // if (const auto cls = type::isClass(t)) {
         //     auto obj = get<value::Object>(v);
         //     obj.second = std::make_shared<Members>(obj.second->members);
@@ -3687,22 +3689,24 @@ struct Visitor {
         // }
         // else {
         // }
-        env.back().first[name] = {std::make_shared<Value>(v  ), t};
+        // env.back().first[name] = {std::make_shared<Value>(v), t};
+        env.back().first[index] = {name, std::make_shared<Value>(v), t};
+
         return v;
     }
 
     void addEnv(const Environment& e) {
         for (const auto& [key, var] : e) {
-            const auto& [value, type] = var;
+            const auto& [name, value, type] = var;
 
-            env.back().first[key] = {value, type};
+            env.back().first[key] = {name, value, type};
         }
     }
 
-    std::optional<std::pair<Value, type::TypePtr>> getVar(const std::string& name) const {
+    std::optional<std::pair<Value, type::TypePtr>> getVar(const size_t ID) const {
         for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it) {
-            if (rev_it->first.contains(name)) {
-                const auto& [value_ptr, type_ptr] = rev_it->first.at(name);
+            if (rev_it->first.contains(ID)) {
+                const auto& [name, value_ptr, type_ptr] = rev_it->first.at(ID);
                 return {{*value_ptr, type_ptr}};
             }
         }
@@ -3710,30 +3714,32 @@ struct Visitor {
         return {};
     }
 
-    bool changeVar(const std::string& name, const value::Value& v) {
+    bool changeVar(const size_t ID, const value::Value& v) {
         for (auto rev_it = env.rbegin(); rev_it != env.rend(); ++rev_it)
-            if (rev_it->first.contains(name)) {
-                const auto& t = rev_it->first.at(name).second;
-                (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
+            if (rev_it->first.contains(ID)) {
+                // const auto& t = rev_it->first.at(ID);
+                // (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
+                get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
                 return true;
             }
 
         return false;
     }
 
-    std::optional<std::pair<Value, type::TypePtr>> globalLookup(const std::string& name) const {
-        if (env[0].first.contains(name)) {
-            const auto& [value_ptr, type_ptr] = env[0].first.at(name);
-            return {{*value_ptr, type_ptr}};
-        }
+    // std::optional<std::pair<Value, type::TypePtr>> globalLookup(const std::string& name) const {
+    //     if (env[0].first.contains(name)) {
+    //         const auto& [value_ptr, type_ptr] = env[0].first.at(name);
+    //         return {{*value_ptr, type_ptr}};
+    //     }
 
-        return {};
-    }
+    //     return {};
+    // }
 
-    void removeVar(const std::string& name) {
+
+    void removeVar(const size_t ID) {
         for(auto& curr_env : std::views::reverse(env)) {
-            if (curr_env.first.contains(name)) {
-                curr_env.first.erase(name);
+            if (curr_env.first.contains(ID)) {
+                curr_env.first.erase(ID);
                 return;
             }
         }
@@ -3752,10 +3758,10 @@ struct Visitor {
     static void printEnv(const Environment& e) noexcept {
         // const auto& e = envStackToEnvMap();
 
-        for (const auto& [name, v] : e) {
-            const auto& [value, type] = v;
+        for (const auto& [ID, v] : e) {
+            const auto& [name, value, type] = v;
 
-            std::println("{}: {} = {}", name, type->text(), stringify(*value));
+            std::println("[{}] {}: {} = {}", ID, name, type->text(), stringify(*value));
         }
     }
 };

@@ -140,9 +140,9 @@ std::string stringify(const Value& value, const size_t indent) {
 
 
 inline std::ostream& operator<<(std::ostream& os, const Environment& env) {
-    for (const auto& [name, expr] : env){
-        const auto& [value, type] = expr;
-        os << name << ": " << type->text() << " = " << stringify(*value) << std::endl;
+    for (const auto& [ID, expr] : env){
+        const auto& [name, value, type] = expr;
+        os << '[' << ID << "] " << name << ": " << type->text() << " = " << stringify(*value) << std::endl;
     }
 
     return os;

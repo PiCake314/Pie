@@ -105,6 +105,16 @@ struct LexicalAnalysis {
     }
 
 
+
+    void operator()(const auto *) { } // default case. No error!
+    // void operator()(const expr::Num*) { }
+    // void operator()(const expr::Bool*) { }
+    // void operator()(const expr::String*) { }
+    // void operator()(const expr::Type*) { }
+    // void operator()(const expr::Cascade*) { }
+    // void operator()(const expr::Fix*) { }
+
+
     void operator()(const expr::Assignment *ass) {
 
         // this allows for recursion
@@ -135,6 +145,10 @@ struct LexicalAnalysis {
             }
             else if (const auto id = findVar(ass->lhs->stringify()); id)
                 ass->lhs->ID = *id;
+            else { // I could probably shorten this to only use an "if-else" and not "if-elif-else"
+                ass->lhs->ID = variable_index++;
+                addVar(ass->lhs->stringify(), ass->lhs->ID);
+            }
         }
     }
 
@@ -142,8 +156,8 @@ struct LexicalAnalysis {
     //     if (auto t = type::isExpr(type->type)) return std::visit(*this, t->t->variant());
     // }
 
-    void operator()(const expr::Name *name) {
-        checkName(name->name);
+    void operator()(expr::Name *name) {
+        name->ID = checkName(name->name);
     }
 
 
@@ -156,14 +170,21 @@ struct LexicalAnalysis {
             std::visit(*this, e->variant());
     }
 
-    void operator()(const expr::Closure *c) {
+    void operator()(expr::Closure *c) {
         if (findVar(c->stringify())) return;
 
         ScopeGuard sg{this};
 
         for (const auto& [name, type] : std::views::zip(c->params, c->type.params)) {
             std::visit(*this, expr::Type{type}.variant());
-            addVar(name, variable_index++);
+
+            if (auto expr_type = type::isExpr(type)) {
+                if (const auto id = findVar(type->text()); id)
+                    expr_type->t->ID = *id;
+            }
+
+            name.ID = variable_index++;
+            addVar(name.name, name.ID);
         }
 
         std::visit(*this, c->body->variant());
@@ -451,14 +472,13 @@ struct LexicalAnalysis {
 
 
 
-    void operator()(const auto *) { } // default case. No error!
 
-
-    void checkName(
+    size_t checkName(
         const std::string& name,
         const std::source_location& location = std::source_location::current()
     ) {
-        if (not findVar(name)) util::error<except::NameLookup>("Name `" + name + "` not found!", location);
+        if (const auto ID = findVar(name); not ID) util::error<except::NameLookup>("Name `" + name + "` not found!", location);
+        else return *ID;
     }
 
 
@@ -633,13 +653,17 @@ struct LexicalAnalysis {
     }
 
 
-    std::optional<size_t> findVar(const std::string& name) const {
+    [[nodiscard]] std::optional<size_t> findVar(const std::string& name) const {
         if (not space_dir.empty())
             if (const auto id = findVarInSpace(name); id) return id;
 
 
-        for (const auto& e : env)
+        // previously, the order of traversal didn't matter
+        // since once the name was found, that was enough proof that it was lexically available
+        // now we need to assign IDs, which means a reverse traversal is needed
+        for (const auto& e : std::views::reverse(env))
             if (e.contains(name)) return e.at(name);
+
 
         return {};
     }
@@ -652,9 +676,12 @@ struct LexicalAnalysis {
         ~ScopeGuard() { that->env.pop_back(); }
     };
 
+
+
 };
 
 
 
-}
+
+} // namespace analysis
 } // namespace pie

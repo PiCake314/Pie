@@ -105,7 +105,7 @@ namespace cli {
         if(run and (print_parsed or print_preprocessed or print_tokens)) puts("Output:\n");
 
         pie::analysis::LexicalAnalysis anal;
-        for (const auto& expr : exprs)
+        for (auto& expr : exprs)
             std::visit(anal, expr->variant());
 
         if (run) {

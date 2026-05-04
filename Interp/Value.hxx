@@ -90,9 +90,10 @@ template <typename ...Ts>
 
 
 using Environment = std::unordered_map<
-    std::string,
-    std::pair<
-             ValuePtr,
+    size_t,
+    std::tuple<
+        std::string,
+        value::ValuePtr,
         type::TypePtr
     >
 >;
