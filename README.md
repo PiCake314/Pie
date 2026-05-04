@@ -845,6 +845,7 @@ make
 
 ## Contributors
 - [ShawSumma](https://github.com/ShawSumma)
+- [DerkT](https://github.com/DrkWithT)
 
 
 ##### Website forked from:
