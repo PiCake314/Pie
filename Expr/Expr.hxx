@@ -106,7 +106,6 @@ struct String : Expr {
 
 struct Name : Expr {
     std::string name;
-    std::vector<std::string> ns;
 
     explicit Name(std::string n) noexcept : name{std::move(n)} {}
 
@@ -684,7 +683,7 @@ struct Use : Expr {
     bool global;
     // last name is not a space
     std::vector<std::string> spaces;
-    std::string name;
+    StringID name;
 
     explicit Use(bool g, std::vector<std::string> ns, std::string n) noexcept
     : global{g}, spaces{std::move(ns)}, name{std::move(n)} {}
@@ -696,7 +695,7 @@ struct Use : Expr {
         for (const auto& space : spaces)
             s += space + "::";
 
-        return (global ? "use ::" : "use" ) + s + "::" + name;
+        return (global ? "use ::" : "use" ) + s + "::" + name.name;
     }
 
     bool involvesName(const std::string_view sv) const override {
@@ -712,6 +711,7 @@ struct Use : Expr {
 struct UseSpace : Expr {
     bool global;
     std::vector<std::string> spaces;
+    ssize_t last_item_id;
 
     explicit UseSpace(bool g, std::vector<std::string> ns) noexcept
     : global{g}, spaces{std::move(ns)} {}
@@ -767,7 +767,7 @@ struct Import : Expr {
 struct SpaceAccess : Expr {
     bool global;
     std::vector<std::string> spaces;
-    std::string name;
+    StringID name;
 
 
     SpaceAccess(bool g, std::vector<std::string> s, std::string n) noexcept
@@ -780,7 +780,7 @@ struct SpaceAccess : Expr {
         for (const auto& sp : spaces)
             s += sp + "::";
 
-        return (global ? "::" : "") + s + name;
+        return (global ? "::" : "") + s + name.name;
     }
 
     bool involvesName(const std::string_view) const override {

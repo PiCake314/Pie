@@ -42,18 +42,19 @@ struct Visitor {
         SCOPE,
     };
 
-    std::vector<std::pair<Environment, EnvTag>> env;
+    // std::vector<std::pair<Environment, EnvTag>> env;
+    Environment env;
     Operators ops;
 
-    std::unordered_map<std::string, std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>>> namespaces;
-    std::vector<std::string> current_ns;
+    // std::unordered_map<std::string, std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>>> namespaces;
+    // std::vector<std::string> current_ns;
 
     // _this_ (or self) context
     std::vector<Object> selves{};
 
 
     // loop context
-    BigInt loop_counter{};
+    ssize_t loop_counter{};
     bool broken{}, continued{};
 
 
@@ -615,20 +616,33 @@ struct Visitor {
 
 
     Value spaceAccessAssign(const expr::Assignment *ass, expr::SpaceAccess *sa) {
-        const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
+        // const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
-        if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name + "' not found in space " + space);
+        // // should never happen now that there is lexical analysis
+        // if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name.name + "' not found in space " + space);
 
-        auto [type, _] = namespaces[space][sa->name];
+        // auto [type, _] = namespaces[space][sa->name];
+
+        // auto value = std::visit(*this, ass->rhs->variant());
+
+        // *namespaces[space][sa->name].second = typeCheck(value, std::move(type),
+        //     "In assignment: " + ass->stringify() +
+        //     "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
+        // );
+
+        // return *namespaces[space][sa->name].second = std::move(value);
+
 
         auto value = std::visit(*this, ass->rhs->variant());
 
-        *namespaces[space][sa->name].second = typeCheck(value, std::move(type),
+        auto& [name, val_ptr, type] = env[sa->name.ID];
+
+        *val_ptr = typeCheck(value, std::move(type),
             "In assignment: " + ass->stringify() +
             "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
         );
 
-        return *namespaces[space][sa->name].second = std::move(value);
+        return *val_ptr;
     }
 
 
@@ -830,36 +844,36 @@ struct Visitor {
     }
 
 
-    static std::string NSName(const std::vector<std::string>& spaces) {
-        if (spaces.size() == 1) return spaces[0];
+    // static std::string NSName(const std::vector<std::string>& spaces) {
+    //     if (spaces.size() == 1) return spaces[0];
 
-        std::string s = spaces[0];
-        for (const auto& space : spaces | std::views::drop(1))
-            s += "::" + space;
+    //     std::string s = spaces[0];
+    //     for (const auto& space : spaces | std::views::drop(1))
+    //         s += "::" + space;
 
-        return s;
-    }
-
-
-    std::string findNS(std::vector<std::string> spaces) {
-        auto fixed_spaces = current_ns;
-
-        fixed_spaces.append_range(spaces);
-
-        std::string name = NSName(spaces);
-        while (not namespaces.contains(name)) {
-            fixed_spaces.erase(fixed_spaces.end() - spaces.size(), fixed_spaces.end());
-
-            if (fixed_spaces.empty()) util::error("couldn't find space: " + name);
-
-            fixed_spaces.pop_back();
-            fixed_spaces.append_range(spaces);
-            name = NSName(spaces);
-        }
+    //     return s;
+    // }
 
 
-        return name;
-    }
+    // std::string findNS(std::vector<std::string> spaces) {
+    //     auto fixed_spaces = current_ns;
+
+    //     fixed_spaces.append_range(spaces);
+
+    //     std::string name = NSName(spaces);
+    //     while (not namespaces.contains(name)) {
+    //         fixed_spaces.erase(fixed_spaces.end() - spaces.size(), fixed_spaces.end());
+
+    //         if (fixed_spaces.empty()) util::error("couldn't find space: " + name);
+
+    //         fixed_spaces.pop_back();
+    //         fixed_spaces.append_range(spaces);
+    //         name = NSName(spaces);
+    //     }
+
+
+    //     return name;
+    // }
 
 
 
@@ -868,8 +882,8 @@ struct Visitor {
 
 
         ScopeGuard sg{this};
-        current_ns.push_back(ns->name);
-        util::Deferred d{[this] { current_ns.pop_back(); }};
+        // current_ns.push_back(ns->name);
+        // util::Deferred d{[this] { current_ns.pop_back(); }};
 
         Value value;
         // execute all the expressions in the namespace
@@ -879,15 +893,15 @@ struct Visitor {
 
 
         // then add the variables that resulted from that execution
-        std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>> members;
-        for (auto& [id, val] : env.back().first) {
-            auto& [name, value, type] = val;
+        // std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>> members;
+        // for (auto& [id, val] : env.back().first) {
+        //     auto& [name, value, type] = val;
 
-            // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
-            members[name] = {std::move(type), std::move(value)};
-        }
+        //     // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
+        //     members[name] = {std::move(type), std::move(value)};
+        // }
 
-        namespaces.insert({NSName(current_ns), std::move(members)});
+        // namespaces.insert({NSName(current_ns), std::move(members)});
 
         return value;
     }
@@ -897,35 +911,35 @@ struct Visitor {
         if (const auto& var = getVar(use->ID); var) return var->first;
 
 
-        const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
+        // const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
 
-        if (not namespaces[space].contains(use->name)) util::error("Name '" + use->name + "' not found in space " + space);
+        // if (not namespaces[space].contains(use->name)) util::error("Name '" + use->name + "' not found in space " + space);
 
-        const auto value = *namespaces.at(space).at(use->name).second;
+        // const auto value = *namespaces.at(space).at(use->name).second;
 
-        util::error();
-        // addVar(use->name, value); // will figure something out for mutability, FUCK
 
-        return value;
+        // addVar(use->name, value);
+
+        return *get<1>(env[use->name.ID]);
     }
 
     Value operator()(const expr::UseSpace *use) {
         if (const auto& var = getVar(use->ID); var) return var->first;
 
-        const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
+        // const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
 
-        if (not namespaces.contains(space)) util::error("space '" + space + "' not found!");
+        // if (not namespaces.contains(space)) util::error("space '" + space + "' not found!");
 
-        Value v;
-        for (const auto& [name, t_v] : namespaces.at(space)) {
-            const auto& [type, value] = t_v;
+        // Value v;
+        // for (const auto& [name, t_v] : namespaces.at(space)) {
+        //     const auto& [type, value] = t_v;
 
-            v = *value;
-            util::error();
-            // addVar(name, *value); // will figure something out for mutability, FUCK
-        }
+        //     v = *value;
+        //     util::error();
+        //     // addVar(name, *value); // will figure something out for mutability, FUCK
+        // }
 
-        return v;
+        return *get<1>(env[use->last_item_id]);
     }
 
 
@@ -949,12 +963,14 @@ struct Visitor {
     Value operator()(const expr::SpaceAccess *sa) {
         if (const auto& var = getVar(sa->ID); var) return var->first;
 
-        const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
+        // const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
-        if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name + "' not found in space " + space);
+        // if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name.name + "' not found in space " + space);
 
 
-        return *namespaces[space][sa->name].second;
+        // return *namespaces[space][sa->name].second;
+
+        return *get<1>(env[sa->name.ID]);
     }
 
 
@@ -2271,29 +2287,31 @@ struct Visitor {
     }
 
 
-    void captureEnvForReturnedClosure(const expr::Closure& c) {
-        size_t found{};
 
-        for (size_t i{}; i < env.size(); ++i)
-            if (env[i].second == EnvTag::FUNC) found = i;
+    // since all variables are always alive, it there is no need to capture variables...for now at least
+    void captureEnvForReturnedClosure(const expr::Closure&) {
+        // size_t found{};
 
-        for (; found < env.size(); ++found) c.returnCapture(env[found].first);
+        // for (size_t i{}; i < env.size(); ++i)
+        //     if (env[i].second == EnvTag::FUNC) found = i;
+
+        // for (; found < env.size(); ++found) c.returnCapture(env[found].first);
     }
 
 
-    void captureEnvForPassedClosure(const expr::Closure& c) {
-        size_t found1{};
-        size_t found2{};
+    void captureEnvForPassedClosure(const expr::Closure&) {
+        // size_t found1{};
+        // size_t found2{};
 
-        for (size_t i{}; i < env.size(); ++i)
-            if (env[i].second == EnvTag::FUNC) {
-                found1 = found2;
-                found2 = i;
-            }
+        // for (size_t i{}; i < env.size(); ++i)
+        //     if (env[i].second == EnvTag::FUNC) {
+        //         found1 = found2;
+        //         found2 = i;
+        //     }
 
 
-        for (; found1 < found2; ++found1)
-            c.passedCapture(env[found1].first);
+        // for (; found1 < found2; ++found1)
+        //     c.passedCapture(env[found1].first);
     }
 
 
@@ -3663,12 +3681,14 @@ struct Visitor {
 
 
     void scope(Visitor::EnvTag tag = Visitor::EnvTag::NONE) {
-        env.push_back({{}, tag});
+        // env.push_back({{}, tag});
     }
 
-    void unscope() { env.pop_back(); }
+    void unscope() {
+        // env.pop_back();
+    }
 
-    Value addVar(const std::string& name, const size_t index, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
+    Value addVar(const std::string& name, const size_t ID, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
         // if (const auto cls = type::isClass(t)) {
         //     auto obj = get<value::Object>(v);
         //     obj.second = std::make_shared<Members>(obj.second->members);
@@ -3690,38 +3710,49 @@ struct Visitor {
         // else {
         // }
         // env.back().first[name] = {std::make_shared<Value>(v), t};
-        env.back().first[index] = {name, std::make_shared<Value>(v), t};
+        // env.back().first[index] = {name, std::make_shared<Value>(v), t};
+        env[ID] = {name, std::make_shared<Value>(v), t};
 
         return v;
     }
 
-    void addEnv(const Environment& e) {
-        for (const auto& [key, var] : e) {
-            const auto& [name, value, type] = var;
+    // void addEnv(const Environment& e) {
+    //     for (const auto& [key, var] : e) {
+    //         const auto& [name, value, type] = var;
 
-            env.back().first[key] = {name, value, type};
-        }
-    }
+    //         env.back().first[key] = {name, value, type};
+    //     }
+    // }
 
     std::optional<std::pair<Value, type::TypePtr>> getVar(const size_t ID) const {
-        for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it) {
-            if (rev_it->first.contains(ID)) {
-                const auto& [name, value_ptr, type_ptr] = rev_it->first.at(ID);
-                return {{*value_ptr, type_ptr}};
-            }
+        // for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it) {
+        //     if (rev_it->first.contains(ID)) {
+        //         const auto& [name, value_ptr, type_ptr] = rev_it->first.at(ID);
+        //         return {{*value_ptr, type_ptr}};
+        //     }
+        // }
+        if (env.contains(ID)) {
+            const auto& [_, value, type] = env.at(ID);
+            return {{*value, type}};
         }
 
         return {};
     }
 
     bool changeVar(const size_t ID, const value::Value& v) {
-        for (auto rev_it = env.rbegin(); rev_it != env.rend(); ++rev_it)
-            if (rev_it->first.contains(ID)) {
-                // const auto& t = rev_it->first.at(ID);
-                // (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
-                get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
-                return true;
-            }
+        // for (auto rev_it = env.rbegin(); rev_it != env.rend(); ++rev_it)
+        //     if (rev_it->first.contains(ID)) {
+        //         // const auto& t = rev_it->first.at(ID);
+        //         // (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
+        //         get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
+        //         return true;
+        //     }
+
+        if (env.contains(ID)) {
+            const auto& [_, value, __] = env.at(ID);
+            *value = v;
+            return true;
+        }
 
         return false;
     }
@@ -3737,22 +3768,24 @@ struct Visitor {
 
 
     void removeVar(const size_t ID) {
-        for(auto& curr_env : std::views::reverse(env)) {
-            if (curr_env.first.contains(ID)) {
-                curr_env.first.erase(ID);
-                return;
-            }
-        }
+        // for(auto& curr_env : std::views::reverse(env)) {
+        //     if (curr_env.first.contains(ID)) {
+        //         curr_env.first.erase(ID);
+        //         return;
+        //     }
+        // }
+
+        env.erase(ID);
     }
 
 
-    Environment envStackToEnvMap() const {
-        Environment e;
-        for(const auto& curr_env : env)
-            for(const auto& [key, value] : curr_env.first)
-                e[key] = value; // I want the recent values (higher in the stack) to be the ones captured
-        return e;
-    }
+    // Environment envStackToEnvMap() const {
+    //     Environment e;
+    //     for(const auto& curr_env : env)
+    //         for(const auto& [key, value] : curr_env.first)
+    //             e[key] = value; // I want the recent values (higher in the stack) to be the ones captured
+    //     return e;
+    // }
 
 
     static void printEnv(const Environment& e) noexcept {

@@ -385,18 +385,7 @@ struct LexicalAnalysis {
     }
 
 
-    void operator()(const expr::UseSpace *use) {
-        if (findVar(use->stringify())) return;
-
-
-        const auto space = findSpace(use->spaces, use->global);
-        if (not space) util::error();
-
-        for (const auto& [var, id] : namespaces[stringify(use->spaces)])
-            addVar(var, id);
-    }
-
-    void operator()(const expr::Use *use) {
+    void operator()(expr::UseSpace *use) {
         if (findVar(use->stringify())) return;
 
 
@@ -404,26 +393,43 @@ struct LexicalAnalysis {
         if (not space) util::error();
 
         for (const auto& [var, id] : namespaces[stringify(use->spaces)]) {
-            if (var == use->name) {
+            addVar(var, id);
+            use->last_item_id = id;
+        }
+    }
+
+    void operator()(expr::Use *use) {
+        if (findVar(use->stringify())) return;
+
+
+        const auto space = findSpace(use->spaces, use->global);
+        if (not space) util::error();
+
+        for (const auto& [var, id] : namespaces[stringify(use->spaces)]) {
+            if (var == use->name.name) {
+                use->name.ID = id;
                 addVar(var, id);
                 return;
             }
         }
 
-        util::error("Name " + use->name + " not found in space " + stringify(use->spaces));
+        util::error("Name " + use->name.name + " not found in space " + stringify(use->spaces));
     }
 
 
-    void operator()(const expr::SpaceAccess *acc) {
+    void operator()(expr::SpaceAccess *acc) {
         const auto space = findSpace(acc->spaces, acc->global);
 
         if (not space) util::error();
 
-        for (const auto& [var, _] : namespaces[stringify(acc->spaces)]) {
-            if (var == acc->name) return;
+        for (const auto& [var, id] : namespaces[stringify(acc->spaces)]) {
+            if (var == acc->name.name) {
+                acc->name.ID = id;
+                return;
+            }
         }
 
-        util::error("Name " + acc->name + " not found in space " + stringify(acc->spaces));
+        util::error("Name " + acc->name.name + " not found in space " + stringify(acc->spaces));
     }
 
 
