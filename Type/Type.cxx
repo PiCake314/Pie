@@ -61,9 +61,9 @@ namespace type {
     // * Value Type * //
     std::string ValueType::text(const size_t indent) const { return stringify(*val, indent); }
 
-    bool ValueType::typeCheck(interp::Visitor*, [[maybe_unused]] const value::Value& v, const TypePtr& other) const {
+    bool ValueType::typeCheck(interp::Visitor*, const value::Value& v, const TypePtr& other) const {
         if (std::holds_alternative<expr::Closure>(*val)) { // concept case. test the upcoming value
-
+            util::error();
         }
 
         if (*val == v) return true;
@@ -76,8 +76,7 @@ namespace type {
     // * Concept Type * //
     std::string ConceptType::text(const size_t indent) const { return stringify(*func, indent); }
 
-    bool ConceptType::typeCheck(interp::Visitor* visitor, [[maybe_unused]] const value::Value& v, const TypePtr& other) const {
-        // const auto* f = dynamic_cast<const expr::Closure*>(func.get());
+    bool ConceptType::typeCheck(interp::Visitor* visitor, const value::Value& v, const TypePtr& other) const {
         const auto& f = get<expr::Closure>(*func);
         // interp::Visitor::ScopeGuard sg{visitor, interp::Visitor::EnvTag::FUNC, f.args_env, f.env};
         interp::Visitor::ScopeGuard sg{visitor, interp::Visitor::EnvTag::FUNC, f.env};
@@ -91,7 +90,7 @@ namespace type {
         {f.params[0].ID,
 
                 {
-                    f.params[0].name,
+                    {f.params[0].name},
                     std::make_shared<value::Value>(v),
                     other
                 }

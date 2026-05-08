@@ -9,13 +9,179 @@
 
 
 
-// .: C = class {
-// .:     pack: ...Int = 0;
-// .: };
+// LOOK AT THIS AT SOME POINT
+// C = class {
+//     pack: ...Int = 0;
+// };
+// makeC = (x: ...Int) => C(x);
+// std::print((makeC(1, 2, 3).pack + ...));
 
-// .: makeC = (x: ...Int) => C(x);
 
-// .: std::print((makeC(1, 2, 3).pack + ...));
+
+TEST_CASE("Fib 10", "[Func]") {
+    const auto src1 = R"(
+fib = (n) => __builtin_conditional(
+    __builtin_lt(n, 2),
+    1,
+    __builtin_add(fib(__builtin_sub(n, 1)), fib(__builtin_sub(n, 2)))
+);
+
+loop 10 => i __builtin_print(fib(i));
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(1
+1
+2
+3
+5
+8
+13
+21
+34
+55)");
+}
+
+
+
+TEST_CASE("Arguments of Recursive Functions", "[Func][Param][Var]") {
+    const auto src1 = R"(
+func = (a, b) => __builtin_conditional(
+    a,
+    __builtin_print(a, b),
+    {
+        func(true, 100);
+        __builtin_print(a, b);
+    }
+);
+
+func(false, 1);
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(true 100
+false 1)");
+}
+
+
+
+TEST_CASE("Transitive Namespace", "[Space][Var]") {
+    const auto src1 = R"(
+space ns { a = 1; };
+
+space ns { x = a; };
+
+__builtin_print(ns::x);
+)";
+
+    REQUIRE(pie::test::run(src1) == "1");
+}
+
+
+
+TEST_CASE("Namespace Extension", "[Space][Var]") {
+    const auto src1 = R"(
+space ns {
+    a = 1;
+    b = 2;
+    c = 3;
+};
+
+space ns {
+    a = 5;
+    x = 10;
+    y = 20;
+};
+
+__builtin_print(ns::a);
+__builtin_print(ns::b);
+__builtin_print(ns::x);
+)";
+
+    REQUIRE(pie::test::run(src1) == "5\n2\n10");
+}
+
+
+
+TEST_CASE("Namespaces Aliases", "[Space][Var]") {
+    const auto src1 = R"(
+
+print = __builtin_print;
+
+space x {
+    a = 1;
+    space y {
+        b = 2;
+    };
+};
+
+print(x::a);
+print(x::y::b);
+
+x::y::b = 5;
+
+use space x;
+
+print(x::y::b);
+print(y::b);
+
+
+y::b = 10;
+
+print(x::y::b);
+print(y::b);
+
+use y::b;
+
+print(b);
+
+b = 20;
+
+print(b);
+print(x::y::b);
+print(y::b);
+
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(1
+2
+5
+5
+10
+10
+10
+20
+20
+20)");
+}
+
+
+
+TEST_CASE("Namespaces 2", "[Space]") {
+    const auto src1 = R"(
+print = __builtin_print;
+space x { a = 1; };
+print(a);
+)";
+
+    REQUIRE_THROWS_AS(pie::test::run(src1), pie::except::NameLookup);
+}
+
+
+TEST_CASE("Using Declaration Introduces References", "[Space][var]") {
+    const auto src1 = R"(
+print = __builtin_print;
+
+space x { a = 1; };
+
+use x::a;
+
+a = 5;
+print(a);
+print(x::a);
+
+)";
+
+    REQUIRE(pie::test::run(src1) == "5\n5");
+}
 
 
 
@@ -1936,7 +2102,7 @@ print(1 + 1);
 }
 
 
-// TEST_CASE("recursive namespaces", "[Namespace]") {
+// TEST_CASE("recursive namespaces", "[Space]") {
 //     const auto src = R"(
 // print = __builtin_print;
 
@@ -1956,7 +2122,7 @@ print(1 + 1);
 
 
 
-// TEST_CASE("namespaces2", "[Namespace]") {
+// TEST_CASE("namespaces2", "[Space]") {
 //     const auto src = R"(
 // print = __builtin_print;
 
@@ -1994,7 +2160,7 @@ print(1 + 1);
 
 
 
-TEST_CASE("namespaces1", "[Namespace]") {
+TEST_CASE("namespaces1", "[Space]") {
     const auto src = R"(
 print = __builtin_print;
 

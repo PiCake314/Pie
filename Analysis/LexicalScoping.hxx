@@ -33,7 +33,7 @@ struct NameSpace {
     std::string name;
 
     NameSpace *parent = nullptr;
-    std::vector<std::unique_ptr<NameSpace>> children;
+    std::vector<std::shared_ptr<NameSpace>> children;
 };
 
 
@@ -46,7 +46,7 @@ struct LexicalAnalysis {
 
     std::unordered_map<std::string, std::unordered_map<std::string, size_t>> namespaces;
     std::string space_dir;
-    std::vector<std::unique_ptr<NameSpace>> global_spaces;
+    std::vector<std::shared_ptr<NameSpace>> global_spaces;
 
     void printSpaces() {
         for (const auto& [spacename, space] : namespaces) {
@@ -194,8 +194,9 @@ struct LexicalAnalysis {
                 ass->lhs->ID = variable_index++;
                 addVar(ass->lhs->stringify(), ass->lhs->ID);
             }
-            else if (const auto id = findVar(ass->lhs->stringify()); id)
+            else if (const auto id = findVar(ass->lhs->stringify()); id) {
                 ass->lhs->ID = *id;
+            }
             else {
                 ass->lhs->ID = variable_index++;
                 addVar(ass->lhs->stringify(), ass->lhs->ID);
@@ -553,13 +554,29 @@ struct LexicalAnalysis {
         }
 
 
-        const auto space = findSpace(use->spaces, use->global);
+        auto space = findSpace(use->spaces, use->global);
         if (not space) util::error();
 
         for (const auto& [var, id] : namespaces[fullName(space)]) {
             addVar(var, id);
             use->last_item_id = id;
         }
+
+        // pull child namespaces into the parent's
+        if (space->parent) {
+            for (auto& child : space->children) {
+                space->parent->children.push_back(child);
+                use->children.push_back({fullName(child.get()), child->name});
+            }
+        }
+        else {
+            for (auto& child : space->children) {
+                global_spaces.push_back(child);
+                use->children.push_back({fullName(child.get()), child->name});
+            }
+        }
+
+
     }
 
     void operator()(expr::Use *use) {
@@ -731,7 +748,7 @@ struct LexicalAnalysis {
 
     static NameSpace* getNamespaceAt(
         const std::string& dir,
-        const std::vector<std::unique_ptr<NameSpace>>& spaces
+        const std::vector<std::shared_ptr<NameSpace>>& spaces
     ) {
         if (dir.empty()) return nullptr;
 
@@ -763,7 +780,7 @@ struct LexicalAnalysis {
         const auto parent = getNamespaceAt(space_dir, global_spaces);
 
         if (not parent) {
-            global_spaces.push_back({std::make_unique<NameSpace>(std::move(name))});
+            global_spaces.push_back({std::make_shared<NameSpace>(std::move(name))});
             space_dir += std::to_string(global_spaces.size() - 1);
             namespaces[name];
             return;
@@ -818,9 +835,10 @@ struct LexicalAnalysis {
 
 
 
-    bool matchChain(const std::vector<std::string>& names, const NameSpace *space) {
-        if (names.empty()) return true;
-        if (names[0] != space->name) return false;
+    NameSpace* matchChain(const std::vector<std::string>& names, NameSpace *space) {
+        if (names.empty()) return nullptr;
+        if (names[0] != space->name) return nullptr;
+
 
         for (const auto& name : names | std::views::drop(1)) {
             for (const auto& child : space->children) {
@@ -831,12 +849,12 @@ struct LexicalAnalysis {
                     goto keep_going;
                 }
             }
-            return false;
+            return nullptr;
 
             keep_going:
         }
 
-        return true;
+        return space;
     }
 
 
@@ -846,15 +864,20 @@ struct LexicalAnalysis {
             auto space = getNamespaceAt(space_dir, global_spaces);
 
             while (space) {
-                for (const auto& child : space->children) // !!this could be a bug. Why search the children?
-                    if (matchChain(names, child.get())) return child.get();
+                // for (const auto& child : space->children) // !!this could be a bug. Why search the children?
+                //     if (matchChain(names, child.get())) return child.get();
+
+                if (const auto s = matchChain(names, space)) return s;
+
                 // if not found, then move up the chain and look again
                 space = space->parent;
             }
         }
 
+
         for (const auto& ns : global_spaces)
-            if (matchChain(names, ns.get())) return ns.get();
+            if (auto s = matchChain(names, ns.get()))
+                return s;
 
 
 

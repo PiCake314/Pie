@@ -27,12 +27,18 @@ inline namespace value {
 
     struct Members;
     using Object      = std::pair<type::TypePtr, std::shared_ptr<Members>>;
-    // using Value       = std::variant<ssize_t, double, bool, std::string, expr::Closure /*, ClassValue, expr::Union, */, type::TypePtr, NameSpace, Object, expr::Node, PackList, ListValue, MapValue>;
+
+    struct PotentialRef {
+        std::string name;
+        std::string space = "";
+
+        bool isRef() const { return not space.empty(); }
+    };
 
     using Environment = std::unordered_map<
         size_t,
         std::tuple<
-            std::string,
+            PotentialRef,
             value::ValuePtr,
             type::TypePtr
         >
@@ -711,6 +717,9 @@ struct UseSpace : Expr {
     bool global;
     std::vector<std::string> spaces;
     ssize_t last_item_id;
+
+    std::vector<std::pair<std::string, std::string>> children; // children full name against short name
+
 
     explicit UseSpace(bool g, std::vector<std::string> ns) noexcept
     : global{g}, spaces{std::move(ns)} {}

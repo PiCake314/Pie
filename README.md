@@ -275,17 +275,16 @@ Of course, you can have both conditions and pipes in the same case.
 
 ## Namespaces
 
-Like everything else in this language, Namespaces are expressions too, and they yield a value!
-Declare a namespace by using the `space` keyword. Assign a namespace to a variable in order to name it:
+Declare a namespace by using the `space` keyword followed by a proper name:
 
 ```pie
-my_space = space {
+space my_space {
     __builtin_print("start");
 
     decl1: Int = 1;
     ID: (Any): Any = (x) => x;
 
-    nested = space {
+    space nested {
         __builtin_print("inner");
         decl2 = "Hi";
     };
@@ -294,25 +293,25 @@ my_space = space {
 };
 ```
 
-Namespaces could seem like just syntactic sugar for classes, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may only have assignments.
+Namespaces could seem like just syntactic sugar for classes, but they're not! There is a major difference which is the fact that you can run arbitrary code inside namespaces. A class may consist of assignments only.
 
-To access a member of a `namespace`, use the "scope resolution operator", or `::`:
+To access a member of a `space`, use the "scope resolution operator", or `::`:
 
 ```pie
-x = space { a = 1; };
+space x { a = 1; };
 __builtin_print(x::a);
 ```
 
-Assigning a namespace to an existing namespace will consolidate the two namespaces onto the first:
+You may extend the contents of a namespace by declaring again:
 
 ```pie
-ns = space {
+space ns {
     a = 1;
     b = 2;
     c = 3;
 };
 
-ns = space {
+space ns {
     a = 5;
     x = 10;
     y = 20;
@@ -324,26 +323,42 @@ __builtin_print(ns::x); .: prints 10
 ```
 This allows you to split code that belongs to a single namespace in multiple different files and have all the declarations be in the same namespace.
 
-**Keep in mind**, if you assign a namespace to another value, it loses its content:
+**Keep in mind**, that namespaces are not variables. You can have a variable named the same name as a namespace!
 
+Sample 1:
 ```pie
-x = space { a = 1; };
+space x { };
 x = 5;
-x = space { b = 1; };
-
-__builtin_print(x::a); .: ERROR!
+__builtin_print(x); .: prints 5
 ```
-### `use` directive
-
-The `use` directive pulls all the names in from a namespace into the current namespace.
+Sample 2:
 ```pie
-ns = space {
+space x { x = 2; };
+__builtin_print(x); .: prints 2
+```
+
+### `use` declaration
+A `use` declaration introduces a name from one namespace into another:
+```pie
+space x { a = 1; };
+use x::a;
+a = 5;
+
+__builtin_print(a);    .: prints 5
+__builtin_print(x::a); .: prints 5
+```
+
+### `use space` directive
+
+The `use space` directive pulls all the names in from a namespace into the current namespace. It works as if all the names inside the given namespace had a `use` declaration applied on them:
+```pie
+space ns {
     x = 1;
     y = "hi";
     z = 3.14;
 };
 
-use ns;
+use space ns;
 
 __builtin_print(x);
 ```
@@ -790,6 +805,11 @@ make
 ---
 
 ### Done
+- [x] Using delcarations introduce "references"
+- [x] fix `use x` and `use space ns`;
+- [x] Pie's internal environment system now uses unique IDs per unique variable, which helps wit shadowing
+- [x] Made namespaces parse-time things instead of runtime
+- [x] Added Lexical Scoping (1.5)
 - [x] Functions as types (concepts)
 - [x] Eager Parameter Evaluation (Lazy Function Parameter Types)
 - [x] add `lex` and `value` namespaces to codebase

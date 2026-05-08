@@ -48,7 +48,18 @@ struct Visitor {
     // Environment env;
     Operators ops;
 
-    std::unordered_map<std::string, std::unordered_map<size_t, std::tuple<std::string, type::TypePtr, value::ValuePtr>>> namespaces;
+    std::unordered_map<
+        std::string,
+        std::unordered_map<
+            size_t,
+            std::tuple<
+                value::PotentialRef,
+                value::ValuePtr,
+                type::TypePtr
+            >
+        >
+    > namespaces;
+
     std::vector<std::string> current_ns;
 
     // _this_ (or self) context
@@ -135,6 +146,23 @@ struct Visitor {
         util::error("Name '" + name + "' not found in object: " + stringify(selves.back()));
     }
 
+    Value fetchRef(const expr::Name *n) {
+        for (const auto& [e, _] : std::views::reverse(env)) {
+            if (e.contains(n->ID)) {
+                const auto& [named_ref, value_ptr, type_ptr] = e.at(n->ID);
+                const auto& [_, space] = named_ref;
+
+                if (not namespaces.contains(space) or not namespaces[space].contains(n->ID)) 
+                    util::error();
+
+                return *get<value::ValuePtr>(namespaces[space][n->ID]);
+            }
+        }
+
+
+        util::error();
+    }
+
 
     Value operator()(const expr::Name *n) {
         // what should builtins evaluate to?
@@ -142,7 +170,11 @@ struct Visitor {
         // interesting!
         // how about a special value?
 
-        if (const auto& var = getVar(n->ID); var) return var->first;
+        if (const auto& var = getVar(n->ID); var) {
+            if (isRef(n->ID)) return fetchRef(n);
+
+            return var->first;
+        }
         if (const auto var = checkMemberInThisObject(n->name); var) return *var;
         if (n->name == "self" and not selves.empty()) return selves.back();
 
@@ -286,8 +318,8 @@ struct Visitor {
                 );
 
                 Environment args_env;
-                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret  ), func->type.params[ first_idx]};
-                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {{func->params[ first_idx].name}, std::make_shared<Value>(ret  ), func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {{func->params[second_idx].name}, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -313,10 +345,10 @@ struct Visitor {
 
                 Environment args_env;
                 args_env[func->params[1 - fold->left_to_right].ID] =
-                    {func->params[1 - fold->left_to_right].name, std::make_shared<Value>(ret)  , func->type.params[1 - fold->left_to_right]};
+                    {{func->params[1 - fold->left_to_right].name}, std::make_shared<Value>(ret)  , func->type.params[1 - fold->left_to_right]};
 
                 args_env[func->params[    fold->left_to_right].ID] =
-                    {func->params[    fold->left_to_right].name, std::make_shared<Value>(value), func->type.params[    fold->left_to_right]};
+                    {{func->params[    fold->left_to_right].name}, std::make_shared<Value>(value), func->type.params[    fold->left_to_right]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -421,8 +453,8 @@ struct Visitor {
 
 
                 Environment args_env;
-                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {{func->params[ first_idx].name}, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {{func->params[second_idx].name}, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -446,8 +478,8 @@ struct Visitor {
 
 
                 Environment args_env;
-                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {{func->params[ first_idx].name}, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {{func->params[second_idx].name}, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -545,8 +577,8 @@ struct Visitor {
                 );
 
 
-                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {{func->params[ first_idx].name}, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {{func->params[second_idx].name}, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -568,8 +600,8 @@ struct Visitor {
                 func->type.params[second_idx] = validateType(std::move(func)->type.params[second_idx]);
 
 
-                args_env[func->params[ first_idx].ID] = {func->params[ first_idx].name, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
-                args_env[func->params[second_idx].ID] = {func->params[second_idx].name, std::make_shared<Value>(value), func->type.params[second_idx]};
+                args_env[func->params[ first_idx].ID] = {{func->params[ first_idx].name}, std::make_shared<Value>(ret)  , func->type.params[ first_idx]};
+                args_env[func->params[second_idx].ID] = {{func->params[second_idx].name}, std::make_shared<Value>(value), func->type.params[second_idx]};
 
 
                 ScopeGuard sg{this, args_env};
@@ -629,7 +661,7 @@ struct Visitor {
         if (not namespaces.contains(space)) util::error("Namespace `" + space + "` not found!");
         if (not namespaces[space].contains(sa->name.ID)) util::error("Name `" + sa->name.name + "` with ID [" + std::to_string(sa->name.ID) + "] not found in space " + space);
 
-        auto [_, type, __] = namespaces[space][sa->name.ID];
+        auto [_, __, type] = namespaces[space][sa->name.ID];
 
         auto value = std::visit(*this, ass->rhs->variant());
 
@@ -655,6 +687,38 @@ struct Visitor {
 
 
 
+    Value refAssign(const expr::Assignment *ass, const expr::Name* name) {
+
+        for (const auto& [e, _] : std::views::reverse(env)) {
+            if (e.contains(name->ID)) {
+                const auto& [named_ref, value_ptr, type_ptr] = e.at(name->ID);
+                const auto& [_, space] = named_ref;
+
+                if (not namespaces.contains(space) or not namespaces[space].contains(name->ID)) 
+                    util::error();
+
+
+                // should never happen now that there is lexical analysis
+                if (not namespaces.contains(space)) util::error("Namespace `" + space + "` not found!");
+                if (not namespaces[space].contains(name->ID)) util::error("Name `" + name->name + "` with ID [" + std::to_string(name->ID) + "] not found in space " + space);
+
+                auto [__, ___, type] = namespaces[space][name->ID];
+
+                auto value = std::visit(*this, ass->rhs->variant());
+
+                *get<value::ValuePtr>(namespaces[space][name->ID]) = typeCheck(value, std::move(type),
+                    "In assignment: " + ass->stringify() +
+                    "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
+                );
+
+                return *get<value::ValuePtr>(namespaces[space][name->ID]) = std::move(value);
+            }
+        }
+
+        util::error();
+    }
+
+
     Value nameAssign(const expr::Assignment *ass, const expr::Name* name) {
         // type::TypePtr type = type::builtins::Any();
         // type::TypePtr type = name->type;
@@ -662,10 +726,14 @@ struct Visitor {
         bool change{};
 
         // variable already exists. Check that type matches the rhs type
-        if (const auto& var = getVar(name->ID); var and type::shouldReassign(type)) {
-            // no need to check if it's a valid type since that already was checked when it was creeated
-            type = var->second;
-            change = true;
+        if (const auto& var = getVar(name->ID); var) {
+            if (isRef(name->ID)) return refAssign(ass, name);
+
+            if (type::shouldReassign(type)) {
+                // no need to check if it's a valid type since that already was checked when it was creeated
+                type = var->second;
+                change = true;
+            }
         }
         else if (checkMemberInThisObject(name->name)) {
             const auto val = std::visit(*this, ass->rhs->variant());
@@ -866,7 +934,7 @@ struct Visitor {
     }
 
 
-    std::string findNS(std::vector<std::string> spaces) {
+    std::string findNS(const std::vector<std::string> spaces) {
         auto fixed_spaces = current_ns;
 
         fixed_spaces.append_range(spaces);
@@ -879,7 +947,8 @@ struct Visitor {
 
             fixed_spaces.pop_back();
             fixed_spaces.append_range(spaces);
-            name = NSName(spaces);
+            // name = NSName(spaces);
+            name = NSName(fixed_spaces);
         }
 
 
@@ -896,6 +965,9 @@ struct Visitor {
         current_ns.push_back(ns->name);
         util::Deferred d{[this] { current_ns.pop_back(); }};
 
+        const auto ns_name = NSName(current_ns); 
+        if (namespaces.contains(ns_name)) sg.addEnv(namespaces.at(ns_name));
+
         Value value;
         // execute all the expressions in the namespace
         for (const auto& expr : ns->space)
@@ -904,15 +976,23 @@ struct Visitor {
 
 
         // then add the variables that resulted from that execution
-        std::unordered_map<size_t, std::tuple<std::string, type::TypePtr, value::ValuePtr>> members;
+        std::unordered_map<size_t, std::tuple<value::PotentialRef, value::ValuePtr, type::TypePtr>> members;
         for (auto& [id, val] : env.back().first) {
             auto& [name, value, type] = val;
 
             // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
-            members[id] = {std::move(name), std::move(type), std::move(value)};
+            // I know this name is not a reference since each class member is responsible for its members
+            members[id] = {{std::move(name).name}, std::move(value), std::move(type)};
         }
 
-        namespaces.insert({NSName(current_ns), std::move(members)});
+
+        if (namespaces.contains(ns_name)) {
+            for (const auto& [id, var] : members) {
+                namespaces[ns_name][id] = var;
+            }
+        }
+        else namespaces[ns_name] = std::move(members);
+
 
         return value;
     }
@@ -928,7 +1008,7 @@ struct Visitor {
 
         const auto value = *get<value::ValuePtr>(namespaces.at(space).at(use->name.ID));
 
-        return addVar(use->name.name, use->name.ID, value);
+        return addVar(use->name.name, use->name.ID, value, type::builtins::Any(), space);
 
         // return *get<2>(env[use->name.ID]);
     }
@@ -942,11 +1022,16 @@ struct Visitor {
 
         Value v;
         for (const auto& [ID, t_v] : namespaces.at(space)) {
-            const auto& [name, type, value] = t_v;
+            const auto& [name, value, type] = t_v;
 
             v = *value;
             // util::error();
-            addVar(name, ID, *value); // todo will figure something out for mutability, FUCK
+            addVar(name.name, ID, *value, type::builtins::Any(), space); // todo will figure something out for mutability, FUCK
+        }
+
+
+        for (const auto& [fullname, shortname] : use->children) {
+            namespaces.insert({shortname, namespaces[fullname]});
         }
 
         return v;
@@ -1442,7 +1527,7 @@ struct Visitor {
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params.front(), up->expr->variant());
                 //* maybe should use Syntax() instead of Any();
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(up->expr->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(up->expr->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1457,7 +1542,7 @@ struct Visitor {
 
                 // addVar(func->params.front(), arg);
                 //* maybe should use Syntax() instead of Any();
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
         }
         else { // do selection based on type
@@ -1467,7 +1552,7 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
-            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+            args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
         }
 
 
@@ -1507,7 +1592,7 @@ struct Visitor {
             // LHS
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], bp->lhs->variant());
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(bp->lhs->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(bp->lhs->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1521,12 +1606,12 @@ struct Visitor {
                     ", got: " + stringify(arg1) + " which is " + typeOf(arg1)->text()
                 );
 
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg1), func->type.params[0]};
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg1), func->type.params[0]};
             }
 
             // RHS
             if (func->type.params[1]->text() == "Syntax") {
-                args_env[func->params[1].ID] = {func->params[1].name, std::make_shared<Value>(bp->rhs->variant()), func->type.params[1]};
+                args_env[func->params[1].ID] = {{func->params[1].name}, std::make_shared<Value>(bp->rhs->variant()), func->type.params[1]};
             }
             else {
                 func->type.params[1] = validateType(std::move(func)->type.params[1]);
@@ -1540,7 +1625,7 @@ struct Visitor {
                     ", got: " + stringify(arg2) + " which is " + typeOf(arg2)->text()
                 );
 
-                args_env[func->params[1].ID] = {func->params[1].name, std::make_shared<Value>(arg2), func->type.params[1]};
+                args_env[func->params[1].ID] = {{func->params[1].name}, std::make_shared<Value>(arg2), func->type.params[1]};
             }
 
         }
@@ -1552,8 +1637,8 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg1, arg2});
 
-            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg1), func->type.params[0]};
-            args_env[func->params[1].ID] = {func->params[1].name, std::make_shared<Value>(arg2), func->type.params[1]};
+            args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg1), func->type.params[0]};
+            args_env[func->params[1].ID] = {{func->params[1].name}, std::make_shared<Value>(arg2), func->type.params[1]};
         }
 
 
@@ -1611,7 +1696,7 @@ struct Visitor {
 
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], pp->expr->variant());
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(pp->expr->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(pp->expr->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1625,7 +1710,7 @@ struct Visitor {
                     ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
                 );
 
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
 
         }
@@ -1636,7 +1721,7 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
-            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]};
+            args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg), func->type.params[0]};
         }
 
         ScopeGuard sg{this, args_env};
@@ -1676,7 +1761,7 @@ struct Visitor {
 
             if (func->type.params[0]->text() == "Syntax") {
                 // addVar(func->params[0], co->expr->variant());
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(cp->expr->variant()), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(cp->expr->variant()), func->type.params[0]}; //? fixed
             }
             else {
                 func->type.params[0] = validateType(std::move(func)->type.params[0]);
@@ -1690,7 +1775,7 @@ struct Visitor {
                     ", got: " + stringify(arg) + " which is " + typeOf(arg)->text()
                 );
 
-                args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
+                args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg), func->type.params[0]}; //? fixed
             }
         }
         else {
@@ -1700,7 +1785,7 @@ struct Visitor {
 
             func = resolveOverloadSet(op->OpName(), op->funcs, {arg});
 
-            args_env[func->params[0].ID] = {func->params[0].name, std::make_shared<Value>(arg), func->type.params[0]};
+            args_env[func->params[0].ID] = {{func->params[0].name}, std::make_shared<Value>(arg), func->type.params[0]};
         }
 
 
@@ -1742,7 +1827,7 @@ struct Visitor {
 
             for (auto [arg_expr, param, param_type] : std::views::zip(oc->exprs, func->params, func->type.params)) {
                 if (param_type->text() == "Syntax") {
-                    args_env[param.ID] = {param.name, std::make_shared<Value>(arg_expr->variant()), param_type}; //?
+                    args_env[param.ID] = {{param.name}, std::make_shared<Value>(arg_expr->variant()), param_type}; //?
                 }
                 else {
                     param_type = validateType(std::move(param_type));
@@ -1757,7 +1842,7 @@ struct Visitor {
 
 
                     // addVar(func->params[0], std::visit(*this, co->expr->variant()));
-                    args_env[param.ID] = {param.name, std::make_shared<Value>(arg), param_type}; //? fix Any Type!!
+                    args_env[param.ID] = {{param.name}, std::make_shared<Value>(arg), param_type}; //? fix Any Type!!
                 }
             }
         }
@@ -1775,7 +1860,7 @@ struct Visitor {
             func = resolveOverloadSet(op->OpName(), op->funcs, args);
 
             for (const auto& [param, arg, type] : std::views::zip(func->params, args, func->type.params))
-                args_env[param.ID] = {param.name, std::make_shared<Value>(arg), type};
+                args_env[param.ID] = {{param.name}, std::make_shared<Value>(arg), type};
         }
 
 
@@ -1917,7 +2002,7 @@ struct Visitor {
             // for (const auto& [key, _] : func.args_env)
             for (const auto& [_, obj] : func.env) {
                 const auto& [name, __, ___] = obj;
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name)})) {
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name.name)})) {
                     return true;
                 }
             }
@@ -1989,7 +2074,7 @@ struct Visitor {
                 ++param_index;
 
                 // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                args_env[id] = {name, std::make_shared<Value>(std::move(pack)), std::move(type)};
+                args_env[id] = {{name}, std::make_shared<Value>(std::move(pack)), std::move(type)};
             }
             else {
                 if (findType(param_index, type)) {
@@ -2036,7 +2121,7 @@ struct Visitor {
 
                 ++param_index;
                 // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
+                args_env[id] = {{name}, std::make_shared<Value>(std::move(value)), std::move(type)};
             }
         }
 
@@ -2045,14 +2130,14 @@ struct Visitor {
             sg.addEnv({{
                 pos_params[variadic_index].first.ID,
                 {
-                    pos_params[variadic_index].first.name,
+                    {pos_params[variadic_index].first.name},
                     std::make_shared<Value>(makePack()),
                     pos_params[variadic_index].second
                 }
             }});
 
             args_env[pos_params[variadic_index].first.ID] = {
-                pos_params[variadic_index].first.name,
+                {pos_params[variadic_index].first.name},
                 std::make_shared<Value>(makePack()),
                 std::move(pos_params)[variadic_index].second
             };
@@ -2083,7 +2168,7 @@ struct Visitor {
             // for (const auto& [key, _] : func.args_env)
             for (const auto& [_, obj] : func.env) {
                 const auto& [name, __, ___] = obj;
-                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name)})) {
+                if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name.name)})) {
                     return true;
                 }
             }
@@ -2114,7 +2199,7 @@ struct Visitor {
 
 
                     // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                    args_env[id] = {name, std::make_shared<Value>(std::move(val)), std::move(type)};
+                    args_env[id] = {{name}, std::make_shared<Value>(std::move(val)), std::move(type)};
                 }
                 --p; // the parameter index will have gone one too far. bring it back
             }
@@ -2144,7 +2229,7 @@ struct Visitor {
                 }
 
                 // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
+                args_env[id] = {{name}, std::make_shared<Value>(std::move(value)), std::move(type)};
             }
         }
     }
@@ -2221,7 +2306,7 @@ struct Visitor {
                 //     captureEnvForPassedClosure(get<expr::Closure>(value));
             }
 
-            args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
+            args_env[id] = {{name}, std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
 
@@ -2365,7 +2450,7 @@ struct Visitor {
             }
 
             // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-            args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
+            args_env[id] = {{name}, std::make_shared<Value>(std::move(value)), std::move(type)};
         }
 
 
@@ -2411,11 +2496,17 @@ struct Visitor {
                 // FIX: first add the empty pack
                 sg.addEnv({{
                     pos_params[variadic_index].first.ID, 
-                    {pos_params[variadic_index].first.name, std::make_shared<Value>(makePack()), pos_params[variadic_index].second}
+                    {
+                        {pos_params[variadic_index].first.name},
+                        std::make_shared<Value>(makePack()),
+                        pos_params[variadic_index].second
+                    }
                 }});
 
                 args_env[pos_params[variadic_index].first.ID] = {
-                    pos_params[variadic_index].first.name, std::make_shared<Value>(makePack()), std::move(pos_params[variadic_index]).second
+                    {pos_params[variadic_index].first.name},
+                    std::make_shared<Value>(makePack()),
+                    std::move(pos_params[variadic_index]).second
                 };
 
                 // only then should you remove the parameter
@@ -2444,7 +2535,7 @@ struct Visitor {
                                 captureEnvForPassedClosure(get<expr::Closure>(val));
 
                             // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                            args_env[id] = {name, std::make_shared<Value>(std::move(val)), std::move(type)};
+                            args_env[id] = {{name}, std::make_shared<Value>(std::move(val)), std::move(type)};
                         }
                         --p;
                     }
@@ -2468,7 +2559,7 @@ struct Visitor {
                             //     captureEnvForPassedClosure(get<expr::Closure>(value));
                         }
                         // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                        args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
+                        args_env[id] = {{name}, std::make_shared<Value>(std::move(value)), std::move(type)};
                     }
                 }
             }
@@ -2487,7 +2578,7 @@ struct Visitor {
                 // for (const auto& [key, _] : func.args_env)
                 for (const auto& [_, obj] : func.env) {
                     const auto& [name, __, ___] = obj;
-                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name)}))
+                    if (type->involvesT(type::ExprType{std::make_shared<expr::Name>(name.name)}))
                         return true;
                 }
 
@@ -2517,7 +2608,7 @@ struct Visitor {
                             captureEnvForPassedClosure(get<expr::Closure>(val));
 
                         // sg.addEnv({{name, {std::make_shared<Value>(val), type}}});
-                        args_env[id] = {name, std::make_shared<Value>(std::move(val)), std::move(type)};
+                        args_env[id] = {{name}, std::make_shared<Value>(std::move(val)), std::move(type)};
                     }
                     --p;
                 }
@@ -2546,7 +2637,7 @@ struct Visitor {
                     }
 
                     // sg.addEnv({{name, {std::make_shared<Value>(value), type}}});
-                    args_env[id] = {name, std::make_shared<Value>(std::move(value)), std::move(type)};
+                    args_env[id] = {{name}, std::make_shared<Value>(std::move(value)), std::move(type)};
                 }
             }
         }
@@ -3669,7 +3760,7 @@ struct Visitor {
         void addEnv(const Environment& e) {
             for (const auto& [ID, var] : e) {
                 const auto& [name, value, type] = var;
-                v->addVar(name, ID, *value, type);
+                v->addVar(name.name, ID, *value, type);
             }
         }
 
@@ -3700,7 +3791,8 @@ struct Visitor {
         const std::string& name,
         const size_t ID,
         const Value& v,
-        const type::TypePtr& t = type::builtins::Any()
+        const type::TypePtr& t = type::builtins::Any(),
+        const std::string& space = ""
     ) {
         // if (const auto cls = type::isClass(t)) {
         //     auto obj = get<value::Object>(v);
@@ -3723,7 +3815,8 @@ struct Visitor {
         // else {
         // }
         // env.back().first[name] = {std::make_shared<Value>(v), t};
-        env.back().first[ID] = {name, std::make_shared<Value>(v), t};
+
+        env.back().first[ID] = {{name, space}, std::make_shared<Value>(v), t};
         // env[ID] = {name, std::make_shared<Value>(v), t};
 
         return v;
@@ -3737,10 +3830,23 @@ struct Visitor {
     //     }
     // }
 
+
+    bool isRef(const size_t ID) const {
+        for (const auto& [e, _] : std::views::reverse(env)) {
+            if (e.contains(ID)) {
+                const auto& [named_ref, _, __] = e.at(ID);
+                return named_ref.isRef();
+            }
+        }
+
+
+        return false;
+    }
+
     std::optional<std::pair<Value, type::TypePtr>> getVar(const size_t ID) const {
         for (const auto& [e, _] : std::views::reverse(env)) {
             if (e.contains(ID)) {
-                const auto& [name, value_ptr, type_ptr] = e.at(ID);
+                const auto& [named_ref, value_ptr, type_ptr] = e.at(ID);
                 return {{*value_ptr, type_ptr}};
             }
         }
@@ -3808,7 +3914,7 @@ struct Visitor {
         for (const auto& [ID, v] : e) {
             const auto& [name, value, type] = v;
 
-            std::println("[{}] {}: {} = {}", ID, name, type->text(), stringify(*value));
+            std::println("[{}] {}::{}: {} = {}", ID, name.space, name.name, type->text(), stringify(*value));
         }
     }
 
@@ -3819,7 +3925,7 @@ struct Visitor {
         for (const auto& [ID, v] : e) {
             const auto& [name, value, type] = v;
 
-            std::println("[{}] {}: {} = {}", ID, name, type->text(), stringify(*value));
+            std::println("[{}] {}: {} = {}", ID, name.space, name.name, type->text(), stringify(*value));
         }
     }
 };
