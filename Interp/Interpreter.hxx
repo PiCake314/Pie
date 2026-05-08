@@ -945,8 +945,15 @@ struct Visitor {
             if (fixed_spaces.empty()) util::error("couldn't find space: " + name);
 
             fixed_spaces.pop_back();
+
+            // * append_range only available in gcc-15
+            // * GH Actions doesn't support gcc-15
+            #if 0
             fixed_spaces.append_range(spaces);
-            // name = NSName(spaces);
+            #else
+            for (const auto& space : spaces) fixed_spaces.push_back(space);
+            #endif
+
             name = NSName(fixed_spaces);
         }
 
