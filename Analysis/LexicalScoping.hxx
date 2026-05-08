@@ -19,7 +19,7 @@
 inline namespace pie {
 namespace analysis {
 
-std::string stringify(const std::vector<std::string>& spaces) {
+inline std::string stringify(const std::vector<std::string>& spaces) {
     if (spaces.size() == 1) return spaces[0];
 
     std::string s = spaces[0];
@@ -48,14 +48,8 @@ struct LexicalAnalysis {
     std::string space_dir;
     std::vector<std::shared_ptr<NameSpace>> global_spaces;
 
-    void printSpaces() {
-        for (const auto& [spacename, space] : namespaces) {
-            std::clog << "space " << spacename << std::endl;
-            for (const auto& [var, id] : space) {
-                std::clog << "var: " << var << " [" << id << "]\n";
-            }
-        }
-    }
+
+    bool in_loop = false;
 
 
     LexicalAnalysis() {
@@ -472,7 +466,12 @@ struct LexicalAnalysis {
             loop->var.ID = variable_index++;
             addVar(loop->var.name, loop->var.ID);
         }
+
+        const auto was_in_loop = in_loop;
+        in_loop = true;
         std::visit(*this, loop->body->variant());
+        in_loop = was_in_loop;
+
         if (loop->els) std::visit(*this, loop->els ->variant());
     }
 
@@ -483,7 +482,9 @@ struct LexicalAnalysis {
             return;
         }
 
-        std::visit(*this, br  ->expr->variant());
+        if (not in_loop) util::error("Can't use `break` outside a loop: " + br->stringify());
+
+        std::visit(*this, br->expr->variant());
     }
 
     void operator()(expr::Continue *cont) {
@@ -492,7 +493,9 @@ struct LexicalAnalysis {
             return;
         }
 
-        std::visit(*this, cont->expr->variant());
+        if (not in_loop) util::error("Can't use `continue` outside a loop: " + cont->stringify());
+
+        if (cont->expr) std::visit(*this, cont->expr->variant());
     }
 
 
@@ -944,6 +947,14 @@ struct LexicalAnalysis {
 
 
 
+    void printSpaces() {
+        for (const auto& [spacename, space] : namespaces) {
+            std::clog << "space " << spacename << std::endl;
+            for (const auto& [var, id] : space) {
+                std::clog << "var: " << var << " [" << id << "]\n";
+            }
+        }
+    }
 };
 
 
