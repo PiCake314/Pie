@@ -18,6 +18,127 @@
 
 
 
+TEST_CASE("Shadowing Loop Variables", "[Loop][Var]") {
+    const auto src1 = R"(
+loop 5 => i {
+    loop 3 => i {
+        __builtin_print(i);
+    };
+    __builtin_print(i);
+};
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(0
+1
+2
+0
+0
+1
+2
+1
+0
+1
+2
+2
+0
+1
+2
+3
+0
+1
+2
+4)");
+}
+
+
+TEST_CASE("Nested Loops", "[Loop]") {
+    const auto src1 = R"(
+loop 5 => i {
+    x = loop 3 => e {
+        __builtin_conditional(
+            __builtin_eq(e, 2), break "broken", __builtin_print(i)
+        );
+    };
+    __builtin_conditional(
+        __builtin_eq(i, 3), continue, 0
+    );
+
+    __builtin_print(x);
+};
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(0
+0
+broken
+1
+1
+broken
+2
+2
+broken
+3
+3
+4
+4
+broken)");
+}
+
+
+
+TEST_CASE("Break 1", "[Loop]") {
+    const auto src1 = R"(
+r = loop 5 => i
+    __builtin_conditional(__builtin_eq(i, 2), break "meow", __builtin_print(i));
+
+__builtin_print(r);
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(0
+1
+meow)");
+}
+
+
+
+TEST_CASE("Continue 1", "[Loop]") {
+    const auto src1 = R"(
+loop 5 => i __builtin_conditional(__builtin_eq(i, 2), __builtin_print(continue), __builtin_print(i));
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(0
+1
+2
+3
+4)");
+
+
+    const auto src2 = R"(
+loop 5 => i __builtin_conditional(__builtin_eq(i, 2), continue, __builtin_print(i));
+)";
+
+    REQUIRE(pie::test::run(src2) == R"(0
+1
+3
+4)");
+}
+
+
+TEST_CASE("Break/Continue Outside Loop", "[Loop]") {
+    const auto src1 = R"(
+func1 = (x) => continue;
+func2 = (x, y) => __builtin_print(y);
+
+loop {1, 2, 3} => e {
+  func2(func1(e), "hey");
+  __builtin_print("hi");
+};
+)";
+
+    REQUIRE_THROWS(pie::test::run(src1));
+}
+
+
+
 TEST_CASE("Fib 10", "[Func]") {
     const auto src1 = R"(
 fib = (n) => __builtin_conditional(
