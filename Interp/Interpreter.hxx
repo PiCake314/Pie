@@ -14,6 +14,7 @@
 
 
 #include <cassert>
+#include <cmath>
 #include <cctype>
 
 #include <stdx/tuple.hpp>
@@ -936,7 +937,14 @@ struct Visitor {
     std::string findNS(const std::vector<std::string> spaces) {
         auto fixed_spaces = current_ns;
 
+        // * append_range only available in gcc-15
+        // * GH Actions doesn't support gcc-15
+        #if 0
         fixed_spaces.append_range(spaces);
+        #else
+        for (const auto& space : spaces) fixed_spaces.push_back(space);
+        #endif
+
 
         std::string name = NSName(spaces);
         while (not namespaces.contains(name)) {
