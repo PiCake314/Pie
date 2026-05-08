@@ -1,8 +1,10 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <string_view>
 #include <sys/_types/_ssize_t.h>
+#include <variant>
 #include <vector>
 #include <unordered_map>
 #include <ranges>
@@ -42,12 +44,12 @@ struct Visitor {
         SCOPE,
     };
 
-    // std::vector<std::pair<Environment, EnvTag>> env;
-    Environment env;
+    std::vector<std::pair<Environment, EnvTag>> env;
+    // Environment env;
     Operators ops;
 
-    // std::unordered_map<std::string, std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>>> namespaces;
-    // std::vector<std::string> current_ns;
+    std::unordered_map<std::string, std::unordered_map<size_t, std::tuple<std::string, type::TypePtr, value::ValuePtr>>> namespaces;
+    std::vector<std::string> current_ns;
 
     // _this_ (or self) context
     std::vector<Object> selves{};
@@ -108,8 +110,10 @@ struct Visitor {
     std::optional<Value> checkMemberInThisObject(const std::string& name) {
         if (selves.empty()) return {};
 
-        for (const auto& [member, _, value] : selves.back().second->members) {
-            if (member.name == name) return *value;
+        for (const auto& self : std::views::reverse(selves)) {
+            for (const auto& [member, _, value] : self.second->members) {
+                if (member.name == name) return *value;
+            }
         }
 
         return {};
@@ -119,10 +123,12 @@ struct Visitor {
     void changeThis(const std::string& name, Value val) {
         if (selves.empty()) util::error();
 
-        for (auto& [member, _, value] : selves.back().second->members) {
-            if (member.name == name) {
-                *value = val;
-                return;
+        for (const auto& self : std::views::reverse(selves)){
+            for (auto& [member, _, value] : self.second->members) {
+                if (member.name == name) {
+                    *value = val;
+                    return;
+                }
             }
         }
 
@@ -154,7 +160,8 @@ struct Visitor {
         if (n->name == "Syntax" ) return type::builtins::Syntax();
 
 
-        util::error("Name \"" + n->name + "\" is not defined!");
+        // printEnv(env);
+        util::error("Name `" + n->name + "`, with ID [" + std::to_string(n->ID) + "] is not defined!");
     }
 
 
@@ -578,7 +585,7 @@ struct Visitor {
     Value accessAssign(const expr::Assignment *ass, expr::Access *acc) {
         if (auto name = dynamic_cast<const expr::Name*>(acc->var.get()); name and name->name == "self") {
             if (selves.empty())
-                util::error("Can't use 'self' outside of class scope: " + ass->stringify());
+                util::error("Can't use 'self' outside of class scope: " + ass->stringify()); // shouldn't happen anyway
 
             if (not checkMemberInThisObject(acc->name))
                 util::error("Name '" + acc->name + "' not found in object '" + acc->var->stringify() + "' in assignment: " + ass->stringify());
@@ -616,96 +623,97 @@ struct Visitor {
 
 
     Value spaceAccessAssign(const expr::Assignment *ass, expr::SpaceAccess *sa) {
-        // const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
+        const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
-        // // should never happen now that there is lexical analysis
-        // if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name.name + "' not found in space " + space);
+        // should never happen now that there is lexical analysis
+        if (not namespaces.contains(space)) util::error("Namespace `" + space + "` not found!");
+        if (not namespaces[space].contains(sa->name.ID)) util::error("Name `" + sa->name.name + "` with ID [" + std::to_string(sa->name.ID) + "] not found in space " + space);
 
-        // auto [type, _] = namespaces[space][sa->name];
-
-        // auto value = std::visit(*this, ass->rhs->variant());
-
-        // *namespaces[space][sa->name].second = typeCheck(value, std::move(type),
-        //     "In assignment: " + ass->stringify() +
-        //     "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
-        // );
-
-        // return *namespaces[space][sa->name].second = std::move(value);
-
+        auto [_, type, __] = namespaces[space][sa->name.ID];
 
         auto value = std::visit(*this, ass->rhs->variant());
 
-        auto& [name, val_ptr, type] = env[sa->name.ID];
-
-        *val_ptr = typeCheck(value, std::move(type),
+        *get<value::ValuePtr>(namespaces[space][sa->name.ID]) = typeCheck(value, std::move(type),
             "In assignment: " + ass->stringify() +
             "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
         );
 
-        return *val_ptr;
+        return *get<value::ValuePtr>(namespaces[space][sa->name.ID]) = std::move(value);
+
+
+        // auto value = std::visit(*this, ass->rhs->variant());
+
+        // auto& [name, val_ptr, type] = env[sa->name.ID];
+
+        // *val_ptr = typeCheck(value, std::move(type),
+        //     "In assignment: " + ass->stringify() +
+        //     "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
+        // );
+
+        // return *val_ptr;
     }
 
 
 
     Value nameAssign(const expr::Assignment *ass, const expr::Name* name) {
-            // type::TypePtr type = type::builtins::Any();
-            // type::TypePtr type = name->type;
-            type::TypePtr type = ass->type;
-            bool change{};
+        // type::TypePtr type = type::builtins::Any();
+        // type::TypePtr type = name->type;
+        type::TypePtr type = ass->type;
+        bool change{};
 
-            // variable already exists. Check that type matches the rhs type
-            if (const auto& var = getVar(name->ID); var and type::shouldReassign(type)) {
-                // no need to check if it's a valid type since that already was checked when it was creeated
-                type = var->second;
-                change = true;
-            }
-            else if (checkMemberInThisObject(name->name)) {
-                const auto val = std::visit(*this, ass->rhs->variant());
-                changeThis(name->name, val);
-                return val;
-            }
-            else { // New var
+        // variable already exists. Check that type matches the rhs type
+        if (const auto& var = getVar(name->ID); var and type::shouldReassign(type)) {
+            // no need to check if it's a valid type since that already was checked when it was creeated
+            type = var->second;
+            change = true;
+        }
+        else if (checkMemberInThisObject(name->name)) {
+            const auto val = std::visit(*this, ass->rhs->variant());
+            changeThis(name->name, val);
+            return val;
+        }
+        else { // New var
 
-                type = type::shouldReassign(type) ? type::builtins::Any() : validateType(std::move(type));
+            type = type::shouldReassign(type) ? type::builtins::Any() : validateType(std::move(type));
 
-                // if (type::shouldReassign(type))
-                //  type = type::builtins::Any();
-                // else
-                //  type = validateType(std::move(type));
-            }
-
-
-            if (type->text() == "Syntax")
-                return addVar(name->stringify(), name->ID, ass->rhs->variant(), type);
+            // if (type::shouldReassign(type))
+            //  type = type::builtins::Any();
+            // else
+            //  type = validateType(std::move(type));
+        }
 
 
-            auto value = std::visit(*this, ass->rhs->variant());
+        if (type->text() == "Syntax")
+            return addVar(name->stringify(), name->ID, ass->rhs->variant(), type);
 
 
-            value = typeCheck(value, type,
-                "In assignment: " + ass->stringify() +
-                "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
-            );
+        auto value = std::visit(*this, ass->rhs->variant());
 
 
-            // casting the function type in case assigning a function to our variable
-            if (std::holds_alternative<expr::Closure>(value)) {
-                auto& closure = get<expr::Closure>(value);
-                // we verified types are compatible so this is fine..should be...I hope
-                if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
-                    closure.type = *t;
-                else if (const auto* t = dynamic_cast<type::BuiltinType*>(type.get()); t and t->text() != "Any")
-                     util::error();
-                // else error("Again, Incompatible types. This should never happen. File a bug report!");
-            }
+        value = typeCheck(value, type,
+            "In assignment: " + ass->stringify() +
+            "\nType mis-match! Expected: " + type->text() + ", got: " + typeOf(value)->text()
+        );
 
 
-            if (change) {
-                if (not changeVar(name->ID, value)) util::error();
-            }
-            else addVar(name->stringify(), name->ID, value, type);
+        // casting the function type in case assigning a function to our variable
+        if (std::holds_alternative<expr::Closure>(value)) {
+            auto& closure = get<expr::Closure>(value);
+            // we verified types are compatible so this is fine..should be...I hope
+            if (const auto* t = dynamic_cast<type::FuncType*>(type.get()))
+                closure.type = *t;
+            else if (const auto* t = dynamic_cast<type::BuiltinType*>(type.get()); t and t->text() != "Any")
+                    util::error();
+            // else error("Again, Incompatible types. This should never happen. File a bug report!");
+        }
 
-            return value;
+
+        if (change) {
+            if (not changeVar(name->ID, value)) util::error();
+        }
+        else addVar(name->stringify(), name->ID, value, type);
+
+        return value;
     }
 
 
@@ -786,10 +794,13 @@ struct Visitor {
 
 
     Value operator()(const expr::Union *onion) {
+        if (const auto& var = getVar(onion->ID); var) return var->first;
+
+
         std::vector<type::TypePtr> types;
-        for (auto& type : onion->types)
-            // type = validateType(std::move(type));
+        for (auto& type : onion->types) {
             types.push_back(validateType(std::move(type)));
+        }
 
         return std::make_shared<type::UnionType>(std::move(types));
     }
@@ -844,36 +855,36 @@ struct Visitor {
     }
 
 
-    // static std::string NSName(const std::vector<std::string>& spaces) {
-    //     if (spaces.size() == 1) return spaces[0];
+    static std::string NSName(const std::vector<std::string>& spaces) {
+        if (spaces.size() == 1) return spaces[0];
 
-    //     std::string s = spaces[0];
-    //     for (const auto& space : spaces | std::views::drop(1))
-    //         s += "::" + space;
+        std::string s = spaces[0];
+        for (const auto& space : spaces | std::views::drop(1))
+            s += "::" + space;
 
-    //     return s;
-    // }
-
-
-    // std::string findNS(std::vector<std::string> spaces) {
-    //     auto fixed_spaces = current_ns;
-
-    //     fixed_spaces.append_range(spaces);
-
-    //     std::string name = NSName(spaces);
-    //     while (not namespaces.contains(name)) {
-    //         fixed_spaces.erase(fixed_spaces.end() - spaces.size(), fixed_spaces.end());
-
-    //         if (fixed_spaces.empty()) util::error("couldn't find space: " + name);
-
-    //         fixed_spaces.pop_back();
-    //         fixed_spaces.append_range(spaces);
-    //         name = NSName(spaces);
-    //     }
+        return s;
+    }
 
 
-    //     return name;
-    // }
+    std::string findNS(std::vector<std::string> spaces) {
+        auto fixed_spaces = current_ns;
+
+        fixed_spaces.append_range(spaces);
+
+        std::string name = NSName(spaces);
+        while (not namespaces.contains(name)) {
+            fixed_spaces.erase(fixed_spaces.end() - spaces.size(), fixed_spaces.end());
+
+            if (fixed_spaces.empty()) util::error("couldn't find space: " + name);
+
+            fixed_spaces.pop_back();
+            fixed_spaces.append_range(spaces);
+            name = NSName(spaces);
+        }
+
+
+        return name;
+    }
 
 
 
@@ -882,8 +893,8 @@ struct Visitor {
 
 
         ScopeGuard sg{this};
-        // current_ns.push_back(ns->name);
-        // util::Deferred d{[this] { current_ns.pop_back(); }};
+        current_ns.push_back(ns->name);
+        util::Deferred d{[this] { current_ns.pop_back(); }};
 
         Value value;
         // execute all the expressions in the namespace
@@ -893,15 +904,15 @@ struct Visitor {
 
 
         // then add the variables that resulted from that execution
-        // std::unordered_map<std::string, std::pair<type::TypePtr, value::ValuePtr>> members;
-        // for (auto& [id, val] : env.back().first) {
-        //     auto& [name, value, type] = val;
+        std::unordered_map<size_t, std::tuple<std::string, type::TypePtr, value::ValuePtr>> members;
+        for (auto& [id, val] : env.back().first) {
+            auto& [name, value, type] = val;
 
-        //     // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
-        //     members[name] = {std::move(type), std::move(value)};
-        // }
+            // members.push_back({expr::Name{name}, std::move(type), std::move(value)});
+            members[id] = {std::move(name), std::move(type), std::move(value)};
+        }
 
-        // namespaces.insert({NSName(current_ns), std::move(members)});
+        namespaces.insert({NSName(current_ns), std::move(members)});
 
         return value;
     }
@@ -911,35 +922,35 @@ struct Visitor {
         if (const auto& var = getVar(use->ID); var) return var->first;
 
 
-        // const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
+        const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
 
-        // if (not namespaces[space].contains(use->name)) util::error("Name '" + use->name + "' not found in space " + space);
+        if (not namespaces[space].contains(use->name.ID)) util::error("Name '" + use->name.name + "' not found in space " + space);
 
-        // const auto value = *namespaces.at(space).at(use->name).second;
+        const auto value = *get<value::ValuePtr>(namespaces.at(space).at(use->name.ID));
 
+        return addVar(use->name.name, use->name.ID, value);
 
-        // addVar(use->name, value);
-
-        return *get<1>(env[use->name.ID]);
+        // return *get<2>(env[use->name.ID]);
     }
 
     Value operator()(const expr::UseSpace *use) {
         if (const auto& var = getVar(use->ID); var) return var->first;
 
-        // const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
+        const auto space = use->global ? NSName(use->spaces) : findNS(use->spaces);
 
-        // if (not namespaces.contains(space)) util::error("space '" + space + "' not found!");
+        if (not namespaces.contains(space)) util::error("space '" + space + "' not found!");
 
-        // Value v;
-        // for (const auto& [name, t_v] : namespaces.at(space)) {
-        //     const auto& [type, value] = t_v;
+        Value v;
+        for (const auto& [ID, t_v] : namespaces.at(space)) {
+            const auto& [name, type, value] = t_v;
 
-        //     v = *value;
-        //     util::error();
-        //     // addVar(name, *value); // will figure something out for mutability, FUCK
-        // }
+            v = *value;
+            // util::error();
+            addVar(name, ID, *value); // todo will figure something out for mutability, FUCK
+        }
 
-        return *get<1>(env[use->last_item_id]);
+        return v;
+        // return *get<2>(env[use->last_item_id]);
     }
 
 
@@ -963,70 +974,70 @@ struct Visitor {
     Value operator()(const expr::SpaceAccess *sa) {
         if (const auto& var = getVar(sa->ID); var) return var->first;
 
-        // const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
+        const auto space = sa->global ? NSName(sa->spaces) : findNS(sa->spaces);
 
-        // if (not namespaces[space].contains(sa->name)) util::error("Name '" + sa->name.name + "' not found in space " + space);
+        if (not namespaces[space].contains(sa->name.ID)) util::error("Name '" + sa->name.name + "' not found in space " + space);
 
 
-        // return *namespaces[space][sa->name].second;
+        return *get<value::ValuePtr>(namespaces[space][sa->name.ID]);
 
-        return *get<1>(env[sa->name.ID]);
+        // return *get<1>(env[sa->name.ID]);
     }
 
 
-    bool match(const Value& value, const expr::Match::Case::Pattern& pattern) { return 0;
-        // if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
-        //     const auto& [name, typ, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
-        //     const auto type = validateType(typ);
+    bool match(const Value& value, const expr::Match::Case::Pattern& pattern) {
+        if (std::holds_alternative<expr::Match::Case::Pattern::Single>(pattern.pattern)) {
+            const auto& [name, typ, val_expr] = get<expr::Match::Case::Pattern::Single>(pattern.pattern);
+            const auto type = validateType(typ);
 
-        //     // not gonna use typeCheck for now. Let's see how it goes
-        //     if (not (*type >= *typeOf(value))) return false;
+            // not gonna use typeCheck for now. Let's see how it goes
+            if (not (*type >= *typeOf(value))) return false;
 
-        //     if (val_expr) {
-        //         const auto val = std::visit(*this, val_expr->variant());
-        //         if (value != val) return false;
-        //     }
+            if (val_expr) {
+                const auto val = std::visit(*this, val_expr->variant());
+                if (value != val) return false;
+            }
 
-        //     if (name.length() != 0) {
-        //         addVar(name, 0, value, type);
-        //     }
+            if (name.name.length() != 0) {
+                addVar(name.name, name.ID, value, type);
+            }
 
-        //     return true;
-        // }
+            return true;
+        }
 
-        // const auto& [type_name, patterns] = get<expr::Match::Case::Pattern::Structure>(pattern.pattern);
+        const auto& [type_name, patterns] = get<expr::Match::Case::Pattern::Structure>(pattern.pattern);
 
-        // const auto var = getVar(type_name);
-        // if (not var)
-        //     util::error("Name `" + type_name + "` in match expression does not name a constructor");
+        const auto var = getVar(type_name.ID);
+        if (not var)
+            util::error("Name `" + type_name.name + "` in match expression does not name a constructor"); // shouldn't happen now that we have lexical analysis
 
-        // const Value type_value = var->first;
-        // // if (not std::holds_alternative<ClassValue>(type_value))
-        // if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
-        //     util::error("Name `" + type_name + "` in match expression does not name a constructor");
+        const Value type_value = var->first;
+        // if (not std::holds_alternative<ClassValue>(type_value))
+        if (not std::holds_alternative<type::TypePtr>(type_value) and not type::isClass(get<type::TypePtr>(type_value)))
+            util::error("Name `" + type_name.name + "` in match expression does not name a constructor");
 
 
-        // // const auto& cls = get<ClassValue>(type_value);
-        // // const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
-        // const auto& type = get<type::TypePtr>(type_value);
-        // // if (not (*type == *typeOf(value))) return false;
+        // const auto& cls = get<ClassValue>(type_value);
+        // const type::TypePtr type = std::make_shared<type::LiteralType>(std::make_shared<ClassValue>(cls));
+        const auto& type = get<type::TypePtr>(type_value);
         // if (not (*type == *typeOf(value))) return false;
+        if (not (*type == *typeOf(value))) return false;
 
-        // if (
-        //     type::isClass(type) and
-        //     patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->fields.size()
-        // )
-        //     util::error("Number of singles is greater than number of fields in class " + stringify(type));
+        if (
+            type::isClass(type) and
+            patterns.size() > dynamic_cast<type::LiteralType*>(type.get())->cls->blueprint->fields.size()
+        )
+            util::error("Number of singles is greater than number of fields in class " + stringify(type));
 
 
-        // const auto& obj = get<Object>(value);
-        // if (obj.second->members.size() != obj.second->members.size()) util::error("idek what error message this should be..!");
+        const auto& obj = get<Object>(value);
+        if (obj.second->members.size() != obj.second->members.size()) util::error("idek what error message this should be..!");
 
-        // for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
-        //     if (not match(*get<ValuePtr>(member), *pat)) return false;
-        // }
+        for (const auto& [member, pat] : std::views::zip(get<Object>(value).second->members, patterns)) {
+            if (not match(*get<ValuePtr>(member), *pat)) return false;
+        }
 
-        // return true;
+        return true;
     }
 
 
@@ -1055,7 +1066,7 @@ struct Visitor {
         }
 
 
-        util::error("Match expression didn't match any pattern:\n" + m->stringify());
+        util::error("Match expression didn't match any pattern:\n" + m->stringify() + "\nWith object:\n" + stringify(value));
     }
 
 
@@ -1100,13 +1111,13 @@ struct Visitor {
                     }
 
 
-                    if (loop->var) {
-                        std::string var_name = loop->var->stringify();
+                    if (not loop->var.name.empty()) {
+                        const auto& [var_name, id] = loop->var;
 
                         for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
                             continued = false;
 
-                            addVar(var_name, 0, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+                            addVar(var_name, id, loop_counter); // will change to "proper type" soon. for now, `Any` will do
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1131,13 +1142,13 @@ struct Visitor {
                         return std::visit(*this, loop->els->variant());
                     }
 
-                    if (auto cond = kind; loop->var) {
-                        std::string var_name = loop->var->stringify();
+                    if (auto cond = kind; not loop->var.name.empty()) {
+                        const auto& [var_name, id] = loop->var;
 
                         for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
                             continued = false;
 
-                            addVar(var_name, 0, loop_counter);
+                            addVar(var_name, id, loop_counter);
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1167,13 +1178,13 @@ struct Visitor {
                     }
 
 
-                    if (loop->var) {
-                        std::string var_name = loop->var->stringify();
+                    if (not loop->var.name.empty()) {
+                        const auto& [var_name, id] = loop->var;
 
                         for (const auto& elt : list.elts->values) {
                             continued = false;
 
-                            addVar(var_name, 0, elt);
+                            addVar(var_name, id, elt);
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1198,13 +1209,13 @@ struct Visitor {
                     }
 
 
-                    if (loop->var) {
-                        std::string var_name = loop->var->stringify();
+                    if (not loop->var.name.empty()) {
+                        const auto& [var_name, id] = loop->var;
 
                         for (const auto& elt : pack->values) {
                             continued = false;
 
-                            addVar(var_name, 0, elt);
+                            addVar(var_name, id, elt);
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1245,19 +1256,19 @@ struct Visitor {
                         not hasNext_func.type.params.empty() or hasNext_func.type.ret->text() != "Bool"
                         or not next_func.type.params.empty()
                     )
-                    util::error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
+                        util::error("Object in loop: " + loop->stringify() + " doesn't follow the iterator protocol!");
 
 
                     expr::Call hasNext_call{std::make_shared<expr::Closure>(hasNext_func)};
                     expr::Call    next_call{std::make_shared<expr::Closure>(   next_func)};
 
-                    if (loop->var) {
-                        std::string var_name = loop->var->stringify();
+                    if (not loop->var.name.empty()) {
+                        const auto& [var_name, id] = loop->var;
 
                         while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
                             continued = false;
 
-                            addVar(var_name, 0, std::visit(*this, next_call.variant()));
+                            addVar(var_name, id, std::visit(*this, next_call.variant()));
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1281,13 +1292,13 @@ struct Visitor {
             }
         }
         // loop till break
-        else if (loop->var) {
+        else if (not loop->var.name.empty()) {
             continued = false;
 
-            std::string var_name = loop->var->stringify();
+            const auto& [var_name, id] = loop->var;
 
             for (loop_counter = 0; ; ++loop_counter) {
-                addVar(var_name, 0, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+                addVar(var_name, id, loop_counter); // will change to "proper type" soon. for now, `Any` will do
 
                 ret = std::visit(*this, loop->body->variant());
 
@@ -1854,17 +1865,17 @@ struct Visitor {
 
         if (args.empty()) return var; // get
 
-        if (args.size() == 1) {       // set
-            const auto val = std::visit(*this, args[0]->variant());
+        // if (args.size() == 1) {       // set
+        //     const auto val = std::visit(*this, args[0]->variant());
 
-            #if 0
-                addVar(stringify(var), val, typeOf(val));
-            #else
-                addVar(call->func->stringify(), call->func->ID, val, typeOf(val));
-            #endif
+        //     #if 0
+        //         addVar(stringify(var), val, typeOf(val));
+        //     #else
+        //         addVar(call->func->stringify(), call->func->ID, val, typeOf(val));
+        //     #endif
 
-            return var;
-        }
+        //     return var;
+        // }
 
         util::error("Can't pass arguments to values!");
     }
@@ -2289,29 +2300,29 @@ struct Visitor {
 
 
     // since all variables are always alive, it there is no need to capture variables...for now at least
-    void captureEnvForReturnedClosure(const expr::Closure&) {
-        // size_t found{};
+    void captureEnvForReturnedClosure(const expr::Closure& c) {
+        size_t found{};
 
-        // for (size_t i{}; i < env.size(); ++i)
-        //     if (env[i].second == EnvTag::FUNC) found = i;
+        for (size_t i{}; i < env.size(); ++i)
+            if (env[i].second == EnvTag::FUNC) found = i;
 
-        // for (; found < env.size(); ++found) c.returnCapture(env[found].first);
+        for (; found < env.size(); ++found) c.returnCapture(env[found].first);
     }
 
 
-    void captureEnvForPassedClosure(const expr::Closure&) {
-        // size_t found1{};
-        // size_t found2{};
+    void captureEnvForPassedClosure(const expr::Closure& c) {
+        size_t found1{};
+        size_t found2{};
 
-        // for (size_t i{}; i < env.size(); ++i)
-        //     if (env[i].second == EnvTag::FUNC) {
-        //         found1 = found2;
-        //         found2 = i;
-        //     }
+        for (size_t i{}; i < env.size(); ++i)
+            if (env[i].second == EnvTag::FUNC) {
+                found1 = found2;
+                found2 = i;
+            }
 
 
-        // for (; found1 < found2; ++found1)
-        //     c.passedCapture(env[found1].first);
+        for (; found1 < found2; ++found1)
+            c.passedCapture(env[found1].first);
     }
 
 
@@ -2542,7 +2553,6 @@ struct Visitor {
 
 
 
-        // printEnv(args_env);
         // closure.captureArgs(args_env);
         closure.capture(args_env);
         return closure;
@@ -2590,7 +2600,7 @@ struct Visitor {
         for (; index < starting_index; ++index) {
             const auto& [name, type, value] = obj.second->members[index];
 
-            addVar(name.stringify(), 0, *value, type);
+            addVar(name.name, name.ID, *value, type);
         }
 
         for (; index < fields.size(); ++index) {
@@ -2612,13 +2622,13 @@ struct Visitor {
                 typeCheck(v, type,
                     "In class member assignment '" +
                     name.stringify() + ": " + typ->text() + " = " + expr->stringify() +
-                    "Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
+                    ": Type mis-match! Expected: " + type->text() + ", got: " + typeOf(v)->text()
                 );
             }
 
 
             // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
-            addVar(name.stringify(), 0, v, type);
+            addVar(name.name, name.ID, v, type);
             obj.second->members.push_back({name, type, std::make_shared<Value>(v)});
         }
 
@@ -2758,6 +2768,7 @@ struct Visitor {
             "print", "concat", 
 
             //* nullary
+            "print_env",
             "panic", "true", "false", "input_str", "input_int",
 
             //* unary
@@ -3161,6 +3172,11 @@ struct Visitor {
             util::error<std::runtime_error, false>("", {});
         }
 
+        if (name == "print_env") {
+            printEnv(env);
+            return 0;
+        }
+
 
         if (name == "true")  {
             arity_check(0);
@@ -3420,20 +3436,16 @@ struct Visitor {
 
 
 
-        // if (auto var = getVar(type->text()); var)
-        if (const auto expr_type = type::isExpr(type)) {
-            if (const auto var = getVar(expr_type->t->ID)) {
+        if (auto var = getVar(type->ID); var) {
+            if (auto t = typeOf(var->first); not type::isType(t)) {
+                if (type::isFunction(t))
+                    return std::make_shared<type::ConceptType>(std::make_shared<value::Value>(std::move(var)->first));
 
-                if (auto t = typeOf(var->first); not type::isType(t)) {
-                    if (type::isFunction(t))
-                        return std::make_shared<type::ConceptType>(std::make_shared<value::Value>(std::move(var)->first));
-
-                    return std::make_shared<type::ValueType>(std::make_shared<value::Value>(std::move(var)->first));
-                }
-
-                if (std::holds_alternative<type::TypePtr>(var->first))
-                    return get<type::TypePtr>(var->first);
+                return std::make_shared<type::ValueType>(std::make_shared<value::Value>(std::move(var)->first));
             }
+
+            if (std::holds_alternative<type::TypePtr>(var->first))
+                return get<type::TypePtr>(var->first);
         }
 
         // else
@@ -3680,15 +3692,16 @@ struct Visitor {
     };
 
 
-    void scope(Visitor::EnvTag tag = Visitor::EnvTag::NONE) {
-        // env.push_back({{}, tag});
-    }
+    void scope([[maybe_unused]] Visitor::EnvTag tag = Visitor::EnvTag::NONE) { env.push_back({{}, tag}); }
 
-    void unscope() {
-        // env.pop_back();
-    }
+    void unscope() { env.pop_back(); }
 
-    Value addVar(const std::string& name, const size_t ID, const Value& v, const type::TypePtr& t = type::builtins::Any()) {
+    Value addVar(
+        const std::string& name,
+        const size_t ID,
+        const Value& v,
+        const type::TypePtr& t = type::builtins::Any()
+    ) {
         // if (const auto cls = type::isClass(t)) {
         //     auto obj = get<value::Object>(v);
         //     obj.second = std::make_shared<Members>(obj.second->members);
@@ -3710,8 +3723,8 @@ struct Visitor {
         // else {
         // }
         // env.back().first[name] = {std::make_shared<Value>(v), t};
-        // env.back().first[index] = {name, std::make_shared<Value>(v), t};
-        env[ID] = {name, std::make_shared<Value>(v), t};
+        env.back().first[ID] = {name, std::make_shared<Value>(v), t};
+        // env[ID] = {name, std::make_shared<Value>(v), t};
 
         return v;
     }
@@ -3725,34 +3738,35 @@ struct Visitor {
     // }
 
     std::optional<std::pair<Value, type::TypePtr>> getVar(const size_t ID) const {
-        // for (auto rev_it = env.crbegin(); rev_it != env.crend(); ++rev_it) {
-        //     if (rev_it->first.contains(ID)) {
-        //         const auto& [name, value_ptr, type_ptr] = rev_it->first.at(ID);
-        //         return {{*value_ptr, type_ptr}};
-        //     }
-        // }
-        if (env.contains(ID)) {
-            const auto& [_, value, type] = env.at(ID);
-            return {{*value, type}};
+        for (const auto& [e, _] : std::views::reverse(env)) {
+            if (e.contains(ID)) {
+                const auto& [name, value_ptr, type_ptr] = e.at(ID);
+                return {{*value_ptr, type_ptr}};
+            }
         }
+
+        // if (env.contains(ID)) {
+        //     const auto& [_, value, type] = env.at(ID);
+        //     return {{*value, type}};
+        // }
 
         return {};
     }
 
     bool changeVar(const size_t ID, const value::Value& v) {
-        // for (auto rev_it = env.rbegin(); rev_it != env.rend(); ++rev_it)
-        //     if (rev_it->first.contains(ID)) {
-        //         // const auto& t = rev_it->first.at(ID);
-        //         // (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
-        //         get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
-        //         return true;
-        //     }
+        for (auto rev_it = env.rbegin(); rev_it != env.rend(); ++rev_it)
+            if (rev_it->first.contains(ID)) {
+                // const auto& t = rev_it->first.at(ID);
+                // (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
+                get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
+                return true;
+            }
 
-        if (env.contains(ID)) {
-            const auto& [_, value, __] = env.at(ID);
-            *value = v;
-            return true;
-        }
+        // if (env.contains(ID)) {
+        //     const auto& [_, value, __] = env.at(ID);
+        //     *value = v;
+        //     return true;
+        // }
 
         return false;
     }
@@ -3768,28 +3782,39 @@ struct Visitor {
 
 
     void removeVar(const size_t ID) {
-        // for(auto& curr_env : std::views::reverse(env)) {
-        //     if (curr_env.first.contains(ID)) {
-        //         curr_env.first.erase(ID);
-        //         return;
-        //     }
-        // }
+        for(auto& curr_env : std::views::reverse(env)) {
+            if (curr_env.first.contains(ID)) {
+                curr_env.first.erase(ID);
+                return;
+            }
+        }
 
-        env.erase(ID);
+        // env.erase(ID);
     }
 
 
-    // Environment envStackToEnvMap() const {
-    //     Environment e;
-    //     for(const auto& curr_env : env)
-    //         for(const auto& [key, value] : curr_env.first)
-    //             e[key] = value; // I want the recent values (higher in the stack) to be the ones captured
-    //     return e;
-    // }
+    static Environment envStackToEnvMap(const std::vector<std::pair<Environment, EnvTag>>& env) {
+        Environment e;
+        for(const auto& curr_env : env)
+            for(const auto& [key, value] : curr_env.first)
+                e[key] = value; // I want the recent values (higher in the stack) to be the ones captured
+        return e;
+    }
 
 
     static void printEnv(const Environment& e) noexcept {
         // const auto& e = envStackToEnvMap();
+
+        for (const auto& [ID, v] : e) {
+            const auto& [name, value, type] = v;
+
+            std::println("[{}] {}: {} = {}", ID, name, type->text(), stringify(*value));
+        }
+    }
+
+
+    static void printEnv(const std::vector<std::pair<Environment, EnvTag>>& env) noexcept {
+        const auto& e = envStackToEnvMap(env);
 
         for (const auto& [ID, v] : e) {
             const auto& [name, value, type] = v;

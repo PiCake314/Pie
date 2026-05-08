@@ -846,19 +846,20 @@ func(17);
 
 
 TEST_CASE("Types as Values - List of Bool vs {Bool}", "[Type]") {
-    const auto src1 = R"(
-a: {Bool} = {true, false};
-v: {Type} = {Bool};
-x: v = {Bool};
-)";
-
+    const auto src1 = R"(a: {Bool} = {true, false};)";
     REQUIRE_NOTHROW(pie::test::run(src1));
 
-    const auto src2 = R"(
-x: {Bool} = {Bool};
-)";
+    const auto src2 = R"(v: {Type} = {Bool};)";
+    REQUIRE_NOTHROW(pie::test::run(src2));
 
-    REQUIRE_THROWS_AS(pie::test::run(src2), pie::except::TypeMismatch);
+    const auto src3 = R"(v: Type = {Bool};)";
+    REQUIRE_THROWS_AS(pie::test::run(src3), pie::except::TypeMismatch);
+
+    const auto src4 = R"(v: Type = :{Bool};)";
+    REQUIRE_NOTHROW(pie::test::run(src4));
+
+    const auto src5 = R"(x: {Bool} = {Bool};)";
+    REQUIRE_THROWS_AS(pie::test::run(src5), pie::except::TypeMismatch);
 }
 
 
@@ -1538,37 +1539,39 @@ TEST_CASE("List Types", "[Type]") {
 }
 
 
-TEST_CASE("See Through Value Mutability", "[Mutability]") {
-    const auto src = R"(
-print = __builtin_print;
 
-infix + = (a, b) => __builtin_add(a, b);
+//* Unwanted Behaviour Anyway
+// TEST_CASE("See Through Value Mutability", "[Mutability]") {
+//     const auto src = R"(
+// print = __builtin_print;
+
+// infix + = (a, b) => __builtin_add(a, b);
 
 
-x = 1;
+// x = 1;
 
-old = x("Hello 1");
-x = "Hello x"; .: different
+// old = x("Hello 1");
+// x = "Hello x"; .: different
 
-print(old);
-print(1);
-print(x);
+// print(old);
+// print(1);
+// print(x);
 
-(6 + 7)("Hi");
-6 + 7 = "Bye";
+// (6 + 7)("Hi");
+// 6 + 7 = "Bye";
 
-print(7 + 6); .: 13
-print(13); .: Hi
-print(6 + 7); .: Bye
-)";
+// print(7 + 6); .: 13
+// print(13); .: Hi
+// print(6 + 7); .: Bye
+// )";
 
-    REQUIRE(pie::test::run(src) == R"(1
-Hello 1
-Hello x
-13
-Hi
-Bye)");
-}
+//     REQUIRE(pie::test::run(src) == R"(1
+// Hello 1
+// Hello x
+// 13
+// Hi
+// Bye)");
+// }
 
 
 

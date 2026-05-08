@@ -2,25 +2,18 @@
 
 #include <print>
 #include <filesystem>
-#include <variant>
-#include <optional>
 #include <memory>
 #include <utility>
-#include <span>
 #include <vector>
-#include <queue>
 #include <tuple>
 #include <unordered_map>
 #include <deque>
 #include <algorithm>
-#include <functional>
-#include <numeric>
 #include <iterator>
 #include <ranges>
 #include <cassert>
 
 
-#include "../Lex/Lexer.hxx"
 #include "../Lex/Token.hxx"
 #include "../Expr/Expr.hxx"
 #include "../Parser/Precedence.hxx"
@@ -569,7 +562,7 @@ public:
 
             return std::make_unique<Pattern>(
                 Single {
-                    std::move(name),
+                    {std::move(name)},
                     std::move(type),
                     std::move(value)
                 }
@@ -821,18 +814,19 @@ public:
         auto var_or_body = parseExpr();
 
         if (match(FAT_ARROW))
-            return std::make_shared<expr::Loop>(std::move(var_or_body), nullptr, std::move(kind), parseExpr());
+            return std::make_shared<expr::Loop>(std::move(var_or_body), "", std::move(kind), parseExpr());
 
         if (check(SEMI))
-            return std::make_shared<expr::Loop>(std::move(var_or_body), nullptr, std::move(kind));
+            return std::make_shared<expr::Loop>(std::move(var_or_body), "", std::move(kind));
 
 
+        auto& var = var_or_body;
         auto body = parseExpr();
 
         if (match(FAT_ARROW))
-            return std::make_shared<expr::Loop>(std::move(body), std::move(var_or_body), std::move(kind), parseExpr());
+            return std::make_shared<expr::Loop>(std::move(body), std::move(var)->stringify(), std::move(kind), parseExpr());
 
-        return std::make_shared<expr::Loop>(std::move(body), std::move(var_or_body), std::move(kind));
+        return std::make_shared<expr::Loop>(std::move(body), std::move(var)->stringify(), std::move(kind));
     }
 
 

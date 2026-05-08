@@ -312,7 +312,6 @@ struct BinaryFold : Expr {
 
 
 struct Assignment : Expr {
-    // std::string name;
     ExprPtr lhs;
     type::TypePtr type;
     ExprPtr rhs;
@@ -383,8 +382,7 @@ struct Class : Expr {
 struct Union : Expr {
     std::vector<type::TypePtr> types;
 
-    Union(std::vector<type::TypePtr> ts) noexcept
-    : types{std::move(ts)} { }
+    Union(std::vector<type::TypePtr> ts) noexcept : types{std::move(ts)} {}
 
     std::string stringify(const size_t indent = 0) const override {
         std::string s = "union {\n";
@@ -416,13 +414,13 @@ struct Match : Expr {
     struct Case {
         struct Pattern {
             struct Single {
-                std::string name;
+                StringID name;
                 type::TypePtr type;
                 ExprPtr value;
             };
 
             using Patterns = std::vector<std::unique_ptr<Pattern>>;
-            struct Structure { std::string type_name; Patterns patterns; };
+            struct Structure { StringID type_name; Patterns patterns; };
 
 
             std::variant<
@@ -433,7 +431,7 @@ struct Match : Expr {
             explicit Pattern(Single single) : pattern{std::move(single)} {}
 
             Pattern(std::string name, Patterns structure)
-            : pattern{Structure{std::move(name), std::move(structure)}}
+            : pattern{Structure{{std::move(name)}, std::move(structure)}}
             {}
         };
 
@@ -488,12 +486,12 @@ private:
             if (pat.value) def = " = " + pat.value->stringify(indent);
 
 
-            return pat.name + type + def;
+            return pat.name.name + type + def;
         }
 
         const auto& [name, patterns] = get<Case::Pattern::Structure>(pattern.pattern);
 
-        std::string s = name + '(';
+        std::string s = name.name + '(';
 
         for (std::string comma = ""; const auto& pat : patterns) {
             s += comma + stringifyPattern(*pat, indent);
@@ -526,11 +524,12 @@ struct Type : Expr {
 
 struct Loop : Expr {
     ExprPtr kind;
-    ExprPtr var;
+    // ExprPtr var;
+    StringID var;
     ExprPtr body;
     ExprPtr els;
 
-    Loop(ExprPtr b, ExprPtr v = nullptr, ExprPtr k = nullptr, ExprPtr e = nullptr) noexcept
+    Loop(ExprPtr b, std::string v = "", ExprPtr k = nullptr, ExprPtr e = nullptr) noexcept
     : kind{std::move(k)}, var{std::move(v)}, body{std::move(b)}, els{std::move(e)}
     {}
 
@@ -539,7 +538,7 @@ struct Loop : Expr {
         std::string s = "loop ";
 
         if (kind) s += kind->stringify(indent + 4) + " => ";
-        if (var ) s += var ->stringify(indent + 4) + " ";
+        if (not var.name.empty()) s += var.name + " ";
 
         s += body->stringify(indent + 4);
 
@@ -551,7 +550,7 @@ struct Loop : Expr {
     bool involvesName(const std::string_view sv) const override {
         return sv == stringify()
             or kind->involvesName(sv)
-            or var ->involvesName(sv)
+            or sv == var.name
             or body->involvesName(sv)
             or els ->involvesName(sv);
     }
