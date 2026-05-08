@@ -13,9 +13,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Install GCC 15
-      run: sudo apt update && sudo apt install -y g++-15
+    - name: Install GCC 14
+      run: sudo apt update && sudo apt install -y g++-14
 
     - name: Testing
-      run: make CC=g++-15 gh-actions
+      run: make CC=g++-14 gh-actions
 
