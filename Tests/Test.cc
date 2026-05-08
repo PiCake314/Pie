@@ -2457,7 +2457,7 @@ add(z = 1);
 
 TEST_CASE("Named Arguments", "[Params]") {
 
-    const auto src =
+    const auto src1 =
 R"(
 print = __builtin_print;
 add = (x: Int, y, a: Int, b, c, d: Int, e: String, f, g, z: Double): Int => 0;
@@ -2466,6 +2466,6 @@ print(add(g = 7, 1, c = 3, 2, 4, 5, f = 6, 1, "", 1.0));
 )";
 
 
-    REQUIRE(pie::test::run(src) == "0");
+    REQUIRE(pie::test::run(src1) == "0");
 }
 

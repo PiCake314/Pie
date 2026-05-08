@@ -324,7 +324,7 @@ public:
 
 
             default:
-                log(true);
+                // log(true);
                 util::error("Couldn't parse \"" + token.text + "\"!");
         }
     }
