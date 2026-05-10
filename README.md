@@ -786,11 +786,12 @@ make
 #### in order of priority
 
 
+- [ ] Add `Syntax` literals instead of relying on receiver's type
+- [ ] Fix variadic expansion
 - [ ] Lexically Scoped Operators
 - [ ] Remove preprocessor
 - [ ] File IO
 - [ ] Use Big Int instead of `int64_t`
-- [ ] Allow variadics of Syntax type
 - [ ] Add default values to function parameters
 - [ ] Make `=` and `=>` overloadable
 - [ ] Fix builtin reset (value-reset, reset/name-reset) 
@@ -805,6 +806,7 @@ make
 ---
 
 ### Done
+- [x] Capture variables by reference in lambdas
 - [x] Using delcarations introduce "references"
 - [x] fix `use x` and `use space ns`;
 - [x] Pie's internal environment system now uses unique IDs per unique variable, which helps wit shadowing
@@ -853,6 +855,7 @@ make
 
 ### Discarded
 
+- ~~Allow variadics of Syntax type~~
 - ~~Add collections~~
 - ~~Add iterators~~
 - ~~Add looping~~

@@ -183,13 +183,13 @@ struct Visitor {
         if (isBuiltin(n->name)) return n->name;
 
 
-        if (n->name == "Any"    ) return type::builtins::Any   ();
-        if (n->name == "Int"    ) return type::builtins::Int   ();
-        if (n->name == "Double" ) return type::builtins::Double();
-        if (n->name == "String" ) return type::builtins::String();
-        if (n->name == "Bool"   ) return type::builtins::Bool  ();
-        if (n->name == "Type"   ) return type::builtins::Type  ();
-        if (n->name == "Syntax" ) return type::builtins::Syntax();
+        if (n->name == "Any"   ) return type::builtins::Any   ();
+        if (n->name == "Int"   ) return type::builtins::Int   ();
+        if (n->name == "Double") return type::builtins::Double();
+        if (n->name == "String") return type::builtins::String();
+        if (n->name == "Bool"  ) return type::builtins::Bool  ();
+        if (n->name == "Type"  ) return type::builtins::Type  ();
+        if (n->name == "Syntax") return type::builtins::Syntax();
 
 
         // printEnv(env);
