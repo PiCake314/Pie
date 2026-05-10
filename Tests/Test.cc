@@ -18,6 +18,111 @@
 
 
 
+TEST_CASE("Shaw's Test", "[Var]") {
+    const auto src1 = R"(
+print = __builtin_print;
+
+infix + = (a, b) => __builtin_add(a, b);
+infix - = (a, b) => __builtin_sub(a, b);
+
+mixfix(LOW +) if : then : else : = (cond, thn: Syntax, els: Syntax) =>
+    __builtin_eval(__builtin_conditional(cond, thn, els));
+
+infix > = (a, b) => __builtin_gt(a, b);
+infix < = (a, b) => __builtin_lt(a, b);
+
+
+xact = (f, g, r) => {
+    if g.k then {
+        g.k = f();
+        if (r > 0) then { xact(f, g, r - 1); } else {};
+    } else {};
+};
+
+act = (f) => {
+  xact(f, class{ k = true; }(), 5);
+};
+
+while = (c, f) => {
+    act(() => {
+        if c() then { f(); true; } else false;
+    });
+};
+
+
+main = () => {
+    x = "meow";
+    x = 0;
+    while(() => x < 10, () => {
+        x = x + 1;
+        print(x);
+    });
+};
+
+main();
+)";
+
+    REQUIRE(pie::test::run(src1) == R"(1
+2
+3
+4
+5
+6)");
+
+
+
+    const auto src2 = R"(
+
+print = __builtin_print;
+
+infix + = (a, b) => __builtin_add(a, b);
+infix - = (a, b) => __builtin_sub(a, b);
+
+mixfix(LOW +) if : then : else : = (cond, thn: Syntax, els: Syntax) =>
+    __builtin_eval(__builtin_conditional(cond, thn, els));
+
+infix > = (a, b) => __builtin_gt(a, b);
+infix < = (a, b) => __builtin_lt(a, b);
+
+
+xact = (f, g, r) => {
+    if g.k then {
+        g.k = f();
+        if (r > 0) then { xact(f, g, r - 1); } else {};
+    } else {};
+};
+
+act = (f2) => {
+  xact(f2, class{ k = true; }(), 5);
+};
+
+while = (c, f3) => {
+    act(() => {
+        if c() then { f3(); true; } else false;
+    });
+};
+
+
+
+x = 0;
+while(() => x < 10, () => {
+    x = x + 1;
+    print(x);
+});
+)";
+
+    REQUIRE(pie::test::run(src2) == R"(1
+2
+3
+4
+5
+6)");
+}
+
+
+
+
+
 TEST_CASE("Shadowing Loop Variables", "[Loop][Var]") {
     const auto src1 = R"(
 loop 5 => i {

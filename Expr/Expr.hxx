@@ -28,7 +28,7 @@ inline namespace value {
     struct Members;
     using Object      = std::pair<type::TypePtr, std::shared_ptr<Members>>;
 
-    struct PotentialRef {
+    struct SpaceRef {
         std::string name;
         std::string space = "";
 
@@ -38,7 +38,7 @@ inline namespace value {
     using Environment = std::unordered_map<
         size_t,
         std::tuple<
-            PotentialRef,
+            SpaceRef,
             value::ValuePtr,
             type::TypePtr
         >

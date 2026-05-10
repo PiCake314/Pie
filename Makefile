@@ -8,7 +8,7 @@ OPT = -O2
 ARGS = -Wall -Wextra -Wpedantic -Wno-missing-braces #-Wnrvo
 WEB_ARGS = -sWASM=1 -sFORCE_FILESYSTEM -sEXPORTED_RUNTIME_METHODS='["callMain"]' -sASSERTIONS -sENVIRONMENT=web
 CPP = Type/*.cxx Interp/*.cxx
-SAN = -fsanitize=address -fsanitize=undefined # -g3
+SAN = -fsanitize=address -fsanitize=undefined -g3
 
 OUTPUT_NAME = Pie
 WEB_OUTPUT_NAME = Pie.js

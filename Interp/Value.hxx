@@ -92,7 +92,7 @@ template <typename ...Ts>
 using Environment = std::unordered_map<
     size_t,
     std::tuple<
-        PotentialRef,
+        SpaceRef,
         value::ValuePtr,
         type::TypePtr
     >

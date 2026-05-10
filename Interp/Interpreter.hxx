@@ -53,7 +53,7 @@ struct Visitor {
         std::unordered_map<
             size_t,
             std::tuple<
-                value::PotentialRef,
+                value::SpaceRef,
                 value::ValuePtr,
                 type::TypePtr
             >
@@ -752,7 +752,7 @@ struct Visitor {
 
 
         if (type->text() == "Syntax")
-            return addVar(name->stringify(), name->ID, ass->rhs->variant(), type);
+            return addVar(name->stringify(), name->ID, std::make_shared<value::Value>(ass->rhs->variant()), type);
 
 
         auto value = std::visit(*this, ass->rhs->variant());
@@ -779,7 +779,7 @@ struct Visitor {
         if (change) {
             if (not changeVar(name->ID, value)) util::error();
         }
-        else addVar(name->stringify(), name->ID, value, type);
+        else addVar(name->stringify(), name->ID, std::make_shared<value::Value>(value), type);
 
         return value;
     }
@@ -803,7 +803,11 @@ struct Visitor {
             util::error("Cannot assign namespaces to non-names: " + ass->stringify());
 
         // assign to the serialization (stringification) of the AST node
-        return addVar(ass->lhs->stringify(), ass->lhs->ID, std::visit(*this, ass->rhs->variant()));
+        return addVar(
+            ass->lhs->stringify(),
+            ass->lhs->ID,
+            std::make_shared<value::Value>(std::visit(*this, ass->rhs->variant()))
+        );
     }
 
 
@@ -990,7 +994,7 @@ struct Visitor {
 
 
         // then add the variables that resulted from that execution
-        std::unordered_map<size_t, std::tuple<value::PotentialRef, value::ValuePtr, type::TypePtr>> members;
+        std::unordered_map<size_t, std::tuple<value::SpaceRef, value::ValuePtr, type::TypePtr>> members;
         for (auto& [id, val] : env.back().first) {
             auto& [name, value, type] = val;
 
@@ -1020,7 +1024,7 @@ struct Visitor {
 
         if (not namespaces[space].contains(use->name.ID)) util::error("Name '" + use->name.name + "' not found in space " + space);
 
-        const auto value = *get<value::ValuePtr>(namespaces.at(space).at(use->name.ID));
+        const auto& value = get<value::ValuePtr>(namespaces.at(space).at(use->name.ID));
 
         return addVar(use->name.name, use->name.ID, value, type::builtins::Any(), space);
 
@@ -1040,7 +1044,7 @@ struct Visitor {
 
             v = *value;
             // util::error();
-            addVar(name.name, ID, *value, type::builtins::Any(), space); // todo will figure something out for mutability, FUCK
+            addVar(name.name, ID, value, type::builtins::Any(), space); // todo will figure something out for mutability, FUCK
         }
 
 
@@ -1098,7 +1102,7 @@ struct Visitor {
             }
 
             if (name.name.length() != 0) {
-                addVar(name.name, name.ID, value, type);
+                addVar(name.name, name.ID, std::make_shared<value::Value>(value), type);
             }
 
             return true;
@@ -1216,7 +1220,7 @@ struct Visitor {
                         for (loop_counter = 0; loop_counter < limit; ++loop_counter) {
                             continued = false;
 
-                            addVar(var_name, id, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+                            addVar(var_name, id, std::make_shared<value::Value>(loop_counter)); // will change to "proper type" soon. for now, `Any` will do
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1247,7 +1251,7 @@ struct Visitor {
                         for (loop_counter = 0; get<bool>(cond); ++loop_counter) {
                             continued = false;
 
-                            addVar(var_name, id, loop_counter);
+                            addVar(var_name, id, std::make_shared<value::Value>(loop_counter));
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1283,7 +1287,7 @@ struct Visitor {
                         for (const auto& elt : list.elts->values) {
                             continued = false;
 
-                            addVar(var_name, id, elt);
+                            addVar(var_name, id, std::make_shared<value::Value>(elt));
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1314,7 +1318,7 @@ struct Visitor {
                         for (const auto& elt : pack->values) {
                             continued = false;
 
-                            addVar(var_name, id, elt);
+                            addVar(var_name, id, std::make_shared<value::Value>(elt));
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1367,7 +1371,11 @@ struct Visitor {
                         while(get<bool>(std::visit(*this, hasNext_call.variant()))) {
                             continued = false;
 
-                            addVar(var_name, id, std::visit(*this, next_call.variant()));
+                            addVar(
+                                var_name,
+                                id,
+                                std::make_shared<value::Value>(std::visit(*this, next_call.variant()))
+                            );
 
                             ret = std::visit(*this, loop->body->variant());
 
@@ -1397,7 +1405,7 @@ struct Visitor {
             const auto& [var_name, id] = loop->var;
 
             for (loop_counter = 0; ; ++loop_counter) {
-                addVar(var_name, id, loop_counter); // will change to "proper type" soon. for now, `Any` will do
+                addVar(var_name, id, std::make_shared<value::Value>(loop_counter)); // will change to "proper type" soon. for now, `Any` will do
 
                 ret = std::visit(*this, loop->body->variant());
 
@@ -2410,10 +2418,13 @@ struct Visitor {
 
 
     void captureEnvForPassedClosure(const expr::Closure& c) {
-        size_t found1{};
-        size_t found2{};
+        // starting at one so we don't capture globals
+        // of course, this is just a hack and not a fix
+        // the proper fix would capture a reference to the variable instead...
+        size_t found1 = 1;
+        size_t found2 = 1;
 
-        for (size_t i{}; i < env.size(); ++i)
+        for (size_t i = 1; i < env.size(); ++i)
             if (env[i].second == EnvTag::FUNC) {
                 found1 = found2;
                 found2 = i;
@@ -2705,7 +2716,7 @@ struct Visitor {
         for (; index < starting_index; ++index) {
             const auto& [name, type, value] = obj.second->members[index];
 
-            addVar(name.name, name.ID, *value, type);
+            addVar(name.name, name.ID, value, type);
         }
 
         for (; index < fields.size(); ++index) {
@@ -2733,8 +2744,9 @@ struct Visitor {
 
 
             // maybe not allowing the usage of previous members in the initializers of other members is the way? not sure
-            addVar(name.name, name.ID, v, type);
-            obj.second->members.push_back({name, type, std::make_shared<Value>(v)});
+            const auto value = std::make_shared<Value>(v);
+            addVar(name.name, name.ID, value, type);
+            obj.second->members.push_back({name, type, value});
         }
 
         // return members;
@@ -3774,7 +3786,7 @@ struct Visitor {
         void addEnv(const Environment& e) {
             for (const auto& [ID, var] : e) {
                 const auto& [name, value, type] = var;
-                v->addVar(name.name, ID, *value, type);
+                v->addVar(name.name, ID, value, type);
             }
         }
 
@@ -3804,7 +3816,7 @@ struct Visitor {
     Value addVar(
         const std::string& name,
         const size_t ID,
-        const Value& v,
+        const ValuePtr& v,
         const type::TypePtr& t = type::builtins::Any(),
         const std::string& space = ""
     ) {
@@ -3830,10 +3842,10 @@ struct Visitor {
         // }
         // env.back().first[name] = {std::make_shared<Value>(v), t};
 
-        env.back().first[ID] = {{name, space}, std::make_shared<Value>(v), t};
+        env.back().first[ID] = {{name, space}, v, t};
         // env[ID] = {name, std::make_shared<Value>(v), t};
 
-        return v;
+        return *v;
     }
 
     // void addEnv(const Environment& e) {
@@ -3878,7 +3890,9 @@ struct Visitor {
             if (rev_it->first.contains(ID)) {
                 // const auto& t = rev_it->first.at(ID);
                 // (*rev_it).first[name] = {std::make_shared<value::Value>(v), t};
-                get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
+                // get<1>(rev_it->first.at(ID)) = std::make_shared<value::Value>(v);
+                *get<1>(rev_it->first.at(ID)) = v;
+
                 return true;
             }
 

@@ -150,8 +150,10 @@ struct LexicalAnalysis {
 
 
     void accessAssign(expr::Access *acc, expr::Assignment *ass) {
-        if (const auto id = findVar(acc->var->stringify()); id)
+        if (const auto id = findVar(acc->var->stringify()); id) {
             acc->var->ID = *id;
+            std::visit(*this, ass->rhs->variant());
+        }
         else util::error<except::NameLookup>("Name `" + acc->var->stringify() + "` not found in assignment: " + ass->stringify());
     }
 
@@ -167,6 +169,8 @@ struct LexicalAnalysis {
                 return;
             }
         }
+
+        std::visit(*this, ass->rhs->variant());
     }
 
 
